@@ -30,7 +30,7 @@ ep_table = FrameKeyToTable(
     frame_key="EventProperties",
 )
 df_ep = ep_table.to_dataframe(max_events=300)
-print(df_ep.head())
+df_ep
 
 # Example 2: I3EventHeader → DataFrame
 i3eh_table = FrameKeyToTable(
@@ -38,7 +38,7 @@ i3eh_table = FrameKeyToTable(
     frame_key="I3EventHeader",
 )
 df_i3eh = i3eh_table.to_dataframe(max_events=50)
-print(df_i3eh.head())
+df_i3eh
 ```
 
 
