@@ -12,3 +12,36 @@ compressor.compress("/project/def-nahee/kbas/POM_Response")
 # Or: compress a single file and delete the original
 compressor = I3Compressor(delete_original=True)
 compressor.compress("/project/def-nahee/kbas/POM_Response/pom_response_batch_4911.i3")
+
+
+### FrameKeyToTable
+
+Utility for turning frame objects (e.g. `EventProperties`, `I3EventHeader`) from
+Physics frames into a pandas `DataFrame`.
+
+```python
+from Helpers.tabulators import I3FrameToTable
+
+DATA_PATH = "/project/def-nahee/kbas/POM_Response/pom_response_batch_4911.i3.gz"
+
+# Example 1: EventProperties → DataFrame
+ep_table = I3FrameToTable(
+    data_path=DATA_PATH,
+    frame_key="EventProperties",
+)
+df_eventprops = ep_table.to_dataframe(max_events=300)
+print(df_eventprops.head())
+
+# Example 2: I3EventHeader → DataFrame
+header_table = I3FrameToTable(
+    data_path=DATA_PATH,
+    frame_key="I3EventHeader",
+)
+df_headers = header_table.to_dataframe(max_events=50)
+print(df_headers.head())
+
+
+
+
+
+
