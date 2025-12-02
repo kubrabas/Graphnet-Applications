@@ -20,12 +20,12 @@ Utility for turning frame objects (e.g. `EventProperties`, `I3EventHeader`) from
 Physics frames into a pandas `DataFrame`.
 
 ```python
-from Helpers.tabulators import I3FrameToTable
+from Helpers.tabulators import FrameKeyToTable
 
 DATA_PATH = "/project/def-nahee/kbas/POM_Response/pom_response_batch_000.i3.gz"
 
 # Example 1: EventProperties → DataFrame
-ep_table = I3FrameToTable(
+ep_table = FrameKeyToTable(
     data_path=DATA_PATH,
     frame_key="EventProperties",
 )
@@ -33,7 +33,7 @@ df_ep = ep_table.to_dataframe(max_events=300)
 print(df_ep.head())
 
 # Example 2: I3EventHeader → DataFrame
-i3eh_table = I3FrameToTable(
+i3eh_table = FrameKeyToTable(
     data_path=DATA_PATH,
     frame_key="I3EventHeader",
 )
