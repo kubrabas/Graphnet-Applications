@@ -1,3 +1,5 @@
+not up-to-date
+
 ### I3Compressor
 
 Utility for compressing IceCube `.i3` files to `.i3.gz`.
