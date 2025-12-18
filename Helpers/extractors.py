@@ -1,3 +1,9 @@
+### THESE ARE OLD VERSIONS
+
+
+
+
+
 # check these from scratch
 # orijinal graphnet mantigina uyuyor mu bunlar
 
