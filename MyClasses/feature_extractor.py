@@ -183,3 +183,10 @@ class I3FeatureExtractorPONE(I3FeatureExtractorIceCube86):
                     output["awtd"].append(self._parse_awtd_flag(pulse))
 
         return output
+    
+
+
+
+ # icecube86'den editlemem gereken method var mi bak. buradaki yaptiklarim duzenli mi ona da bak. temizle bi her seyi. 
+ # time seylerini anla
+  
