@@ -54,6 +54,10 @@ class PONE_Reader(I3Reader):
 
 
         super().__init__(gcd_rescue=gcd_rescue, i3_filters=i3_filters)
+
+    @property
+    def extractor_names(self) -> list[str]:
+        return self.extracor_names
         
     def __call__(
         self, file_path: I3FileSet
