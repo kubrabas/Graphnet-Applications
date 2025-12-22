@@ -97,3 +97,5 @@ class PONE_Reader(I3Reader):
 
             data.append(data_dict)
         return data
+    
+## Rasmus has a line "if "frame" in locals():" in his convert_data file, but I deleted that line. was it necessary?
