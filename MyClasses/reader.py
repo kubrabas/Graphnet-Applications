@@ -35,6 +35,8 @@ class PONE_Reader(I3Reader):
         self,
         gcd_rescue: str,
         i3_filters: Optional[Union[I3Filter, List[I3Filter]]] = None,
+        pulsemap: str = "EventPulseSeries",
+        skip_empty_pulses: bool = True,
 ):
         """Initialize `PONE_Reader`.
 
@@ -54,6 +56,8 @@ class PONE_Reader(I3Reader):
 
 
         super().__init__(gcd_rescue=gcd_rescue, i3_filters=i3_filters)
+        self._pulsemap = pulsemap
+        self._skip_empty_pulses = skip_empty_pulses
 
     @property
     def extractor_names(self) -> list[str]:
@@ -97,5 +101,33 @@ class PONE_Reader(I3Reader):
 
             data.append(data_dict)
         return data
+    
+    def _skip_frame(self, frame: "icetray.I3Frame") -> bool:
+        """Skip frame if base filters fail OR if pulsemap missing/empty."""
+        # 1) base class filters (NullSplitI3Filter etc.)
+        if super()._skip_frame(frame):
+            return True
+
+        # 2) pulsemap must exist
+        if self._pulsemap not in frame:
+            return True
+
+        # 3) optionally skip empty pulse maps
+        if self._skip_empty_pulses:
+            pmap = frame[self._pulsemap]
+            # For I3RecoPulseSeriesMap etc., len(pmap) usually gives number of OMKeys
+            try:
+                if len(pmap) == 0:
+                    return True
+            except TypeError:
+                # fallback if len() not supported
+                try:
+                    if len(list(pmap.keys())) == 0:
+                        return True
+                except Exception:
+                    # If we can't determine emptiness reliably, do not skip
+                    pass
+
+        return False
     
 ## Rasmus has a line "if "frame" in locals():" in his convert_data file, but I deleted that line. was it necessary?
