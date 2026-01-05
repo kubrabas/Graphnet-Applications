@@ -19,10 +19,10 @@ from graphnet.models import StandardModel
 
 
 def section_banner(name: str) -> None:
-    print(
-        f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] ==> Starting section: {name}",
-        flush=True,
-    )
+    line = "=" * 90
+    print("\n" + line, flush=True)
+    print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] ==> {name}", flush=True)
+    print(line + "\n", flush=True)
 
 
 section_banner("0) Imports and Helper")
@@ -147,7 +147,7 @@ print("Dataset created.")
 section_banner("3) DataLoader")
 
 BATCH_SIZE = 4
-NUM_WORKERS = 2 #4
+NUM_WORKERS = 0 #2 #4
 
 print(f"DataLoader config: batch_size={BATCH_SIZE}, num_workers={NUM_WORKERS}, shuffle=True")
 
