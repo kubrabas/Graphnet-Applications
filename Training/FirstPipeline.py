@@ -17,7 +17,6 @@ from graphnet.models.gnn.dynedge import DynEdge
 from graphnet.data.dataset.parquet.parquet_dataset import ParquetDataset
 from graphnet.data.dataloader import DataLoader
 from graphnet.models.task.reconstruction import EnergyReconstruction
-from graphnet.training.loss_functions import LogCoshLoss
 from graphnet.models import StandardModel
 
 
