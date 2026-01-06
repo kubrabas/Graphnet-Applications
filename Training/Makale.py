@@ -198,6 +198,34 @@ def _event_ids_to_sequential_indices(
 
 
 # =====================================================
+# EPOCH-END PRINTER (only epoch-end prints)
+# =====================================================
+
+class EpochEndPrinter(pl.Callback):
+    """Prints a single line at the end of each epoch (no per-batch spam)."""
+    def on_train_epoch_end(self, trainer: pl.Trainer, pl_module: pl.LightningModule) -> None:
+        m = trainer.callback_metrics
+        ep = trainer.current_epoch
+
+        def _fmt(key: str) -> str:
+            v = m.get(key, None)
+            if v is None:
+                return "NA"
+            try:
+                return f"{float(v):.4f}"
+            except Exception:
+                return str(v)
+
+        # These keys match self.log() names below.
+        line = (
+            f"[epoch {ep:03d}] "
+            f"train_loss={_fmt('train_loss')} train_mae_log10={_fmt('train_mae_log10')} "
+            f"val_loss={_fmt('val_loss')} val_mae_log10={_fmt('val_mae_log10')}"
+        )
+        print(line, flush=True)
+
+
+# =====================================================
 # LABEL: log10(energy/GeV)
 # =====================================================
 
@@ -372,7 +400,9 @@ class DynEdgeEnergyLightningModule(pl.LightningModule):
 
     def save_config(self, path: str) -> None:
         # GraphnetEarlyStopping expects this method
-        os.makedirs(os.path.dirname(path), exist_ok=True)
+        d = os.path.dirname(path)
+        if d:
+            os.makedirs(d, exist_ok=True)
         with open(path, "w") as f:
             f.write("model:\n")
             f.write(f"  class: {self.__class__.__name__}\n")
@@ -393,19 +423,20 @@ class DynEdgeEnergyLightningModule(pl.LightningModule):
         y = batch["energy_log10"].reshape(-1, 1).to(pred.dtype)
         mae_log10 = torch.mean(torch.abs(pred - y))
 
+        # ---- CHANGED: no on_step logging + no prog_bar updates (prevents per-batch spam) ----
         self.log(
             f"{stage}_loss",
             loss,
-            prog_bar=True,
-            on_step=(stage == "train"),
+            prog_bar=False,
+            on_step=False,
             on_epoch=True,
             batch_size=BATCH_SIZE,
         )
         self.log(
             f"{stage}_mae_log10",
             mae_log10,
-            prog_bar=True,
-            on_step=(stage == "train"),
+            prog_bar=False,
+            on_step=False,
             on_epoch=True,
             batch_size=BATCH_SIZE,
         )
@@ -413,11 +444,12 @@ class DynEdgeEnergyLightningModule(pl.LightningModule):
 
     def training_step(self, batch, batch_idx: int) -> Tensor:
         return self._shared_step(batch, "train")
-    
-    def save_state_dict(self, path: str) -> None:
-        os.makedirs(os.path.dirname(path), exist_ok=True)
-        torch.save(self.state_dict(), path)
 
+    def save_state_dict(self, path: str) -> None:
+        d = os.path.dirname(path)
+        if d:
+            os.makedirs(d, exist_ok=True)
+        torch.save(self.state_dict(), path)
 
     def validation_step(self, batch, batch_idx: int) -> None:
         _ = self._shared_step(batch, "val")
@@ -640,7 +672,8 @@ def main() -> None:
     print("============================================================")
     print("[trainer] Configuring callbacks...")
     callbacks = [
-        ProgressBar(refresh_rate=1),
+        # ---- CHANGED: removed per-batch ProgressBar, added epoch-end single-line printer ----
+        EpochEndPrinter(),
         GraphnetEarlyStopping(
             save_dir=OUTPUT_DIR,
             monitor="val_loss",
@@ -667,7 +700,10 @@ def main() -> None:
         devices=1,
         max_epochs=MAX_EPOCHS,
         callbacks=callbacks,
-        log_every_n_steps=50,
+        # ---- CHANGED: kill Lightning progress output & per-step logging prints ----
+        enable_progress_bar=False,
+        enable_model_summary=False,
+        log_every_n_steps=10**9,
         enable_checkpointing=False,
         deterministic=True,
         benchmark=False,
