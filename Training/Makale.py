@@ -413,6 +413,11 @@ class DynEdgeEnergyLightningModule(pl.LightningModule):
 
     def training_step(self, batch, batch_idx: int) -> Tensor:
         return self._shared_step(batch, "train")
+    
+    def save_state_dict(self, path: str) -> None:
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        torch.save(self.state_dict(), path)
+
 
     def validation_step(self, batch, batch_idx: int) -> None:
         _ = self._shared_step(batch, "val")
