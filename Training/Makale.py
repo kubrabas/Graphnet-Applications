@@ -2,18 +2,14 @@
 """
 DynEdge energy reconstruction (GraphNeT) on P-ONE parquet data.
 
-- Parquet layout expected:
-  PARQUET_ROOT/
-    truth/truth_<chunk_id>.parquet
-    features/features_<chunk_id>.parquet
+Target:
+  y = log10(E_true/GeV)  (energy already in GeV -> y = log10(energy))
 
-- Splitting is done by unique event_no across ALL truth parquet files.
-- Energy target follows DynEdge paper:
-    y = log10(E_true/GeV)
-  (your energy is already in GeV, so y = log10(energy))
+Loss:
+  LogCosh in log10 space (via GraphNeT IdentityTask + LogCoshLoss)
 
-- Loss: LogCosh on residual in log10 space (paper).
-- LR schedule: piecewise linear one-cycle style (paper).
+LR schedule:
+  PiecewiseLinearLR warmup then decay (paper-like)
 """
 
 from __future__ import annotations
@@ -24,7 +20,7 @@ import json
 import math
 from glob import glob
 from dataclasses import dataclass
-from typing import Dict, List, Tuple, Optional, Any
+from typing import Dict, List, Tuple, Optional
 
 import numpy as np
 import polars as pol
@@ -38,23 +34,17 @@ from pytorch_lightning import Trainer
 # GraphNeT imports
 # -----------------------------
 from graphnet.data.dataset import ParquetDataset
-from graphnet.data.dataloader import DataLoader as GraphNeTDataLoader
-
 from graphnet.models.data_representation import GraphDefinition
 from graphnet.models.data_representation.graphs.edges.edges import KNNEdges
 from graphnet.models.data_representation.graphs.nodes.nodes import NodesAsPulses
-
 from graphnet.models.gnn.dynedge import DynEdge
 from graphnet.models.task import IdentityTask
-
 from graphnet.training.loss_functions import LogCoshLoss
 from graphnet.training.labels import Label
+from graphnet.training.callbacks import ProgressBar, GraphnetEarlyStopping, PiecewiseLinearLR
 
-from graphnet.training.callbacks import (
-    ProgressBar,
-    GraphnetEarlyStopping,
-    PiecewiseLinearLR,
-)
+# IMPORTANT: PyG DataLoader collates torch_geometric.data.Data correctly
+from torch_geometric.loader import DataLoader as PyGDataLoader
 
 # =====================================================
 # USER CONFIG
@@ -64,11 +54,9 @@ PARQUET_ROOT: str = "/project/def-nahee/kbas/POM_Response_Parquet/merged"
 
 PULSEMAP_TABLE: str = "features"
 TRUTH_TABLE: str = "truth"
-
 INDEX_COLUMN: str = "event_no"
 
 FEATURES: List[str] = ["dom_x", "dom_y", "dom_z", "dom_time", "charge"]
-
 TRUTH_COLUMNS: List[str] = ["energy"]
 
 SEED: int = 42
@@ -84,11 +72,13 @@ BATCH_SIZE: int = 1024
 SHUFFLE_TRAIN: bool = True
 SHUFFLE_VAL: bool = False
 SHUFFLE_TEST: bool = False
-NUM_WORKERS: int = 8
+
+# This node suggests 4; 8 can work but gives warning
+NUM_WORKERS: int = 4
+
 PERSISTENT_WORKERS: bool = True
 PREFETCH_FACTOR: int = 2
 PIN_MEMORY: bool = True
-MULTIPROCESSING_CONTEXT: str = "spawn"
 
 MAX_EPOCHS: int = 30
 EARLY_STOPPING_PATIENCE: int = 5
@@ -124,16 +114,13 @@ def _discover_chunk_files(root: str, table: str) -> Dict[int, str]:
         out[int(m.group(1))] = fp
 
     if len(out) == 0:
-        raise FileNotFoundError(
-            f"Found parquet files but none match naming {table}_<id>.parquet in: {os.path.join(root, table)}"
-        )
+        raise FileNotFoundError(f"Found parquet files but none match {table}_<id>.parquet in: {os.path.join(root, table)}")
 
     return dict(sorted(out.items(), key=lambda kv: kv[0]))
 
 
 def _collect_event_ids_in_file(truth_fp: str, index_column: str) -> np.ndarray:
-    df = pol.read_parquet(truth_fp).select([index_column])
-    df = df.sort(index_column)
+    df = pol.read_parquet(truth_fp).select([index_column]).sort(index_column)
     return df[index_column].to_numpy()
 
 
@@ -153,14 +140,10 @@ def _split_event_ids(
     n = len(ids)
     n_train = int(math.floor(train_fraction * n))
     n_val = int(math.floor(val_fraction * n))
-    n_test = n - n_train - n_val
 
     train_ids = ids[:n_train]
     val_ids = ids[n_train:n_train + n_val]
     test_ids = ids[n_train + n_val:]
-
-    assert len(train_ids) + len(val_ids) + len(test_ids) == n
-    assert len(test_ids) == n_test
 
     return train_ids, val_ids, test_ids
 
@@ -208,8 +191,7 @@ class Log10Energy(Label):
         self._energy_key = energy_key
 
     def __call__(self, graph) -> Tensor:
-        e = graph[self._energy_key]
-        e = e.reshape(-1).to(torch.float32)
+        e = graph[self._energy_key].reshape(-1).to(torch.float32)
         return torch.log10(e + 1e-24).reshape(1)
 
 
@@ -250,7 +232,7 @@ def _fit_robust_scaler_from_dataset(
         samples.append(x)
 
     X = np.concatenate(samples, axis=0)
-    print(f"[robust-scaler] total_pulses_used={X.shape[0]}  features={X.shape[1]}")
+    print(f"[robust-scaler] total_pulses_used={X.shape[0]} features={X.shape[1]}")
 
     med = np.median(X, axis=0)
     q25 = np.quantile(X, 0.25, axis=0)
@@ -270,11 +252,7 @@ def _save_scaler(params: RobustScalerParams, path: str) -> None:
 def _load_scaler(path: str) -> RobustScalerParams:
     with open(path, "r") as f:
         payload = json.load(f)
-    return RobustScalerParams(
-        feature_names=payload["feature_names"],
-        median=payload["median"],
-        iqr=payload["iqr"],
-    )
+    return RobustScalerParams(feature_names=payload["feature_names"], median=payload["median"], iqr=payload["iqr"])
 
 
 # =====================================================
@@ -288,16 +266,16 @@ class PONE:
         feature_names: List[str],
         scaler: Optional[RobustScalerParams] = None,
         scaler_path: Optional[str] = None,
-        scaler_params: Optional[RobustScalerParams] = None,  # backward compat
+        scaler_params: Optional[RobustScalerParams] = None,
         string_index_name: str = "__unused__",
         eps: float = 1e-12,
         dtype: torch.dtype = torch.float32,
         **kwargs,
     ) -> None:
-        self.feature_names: List[str] = list(feature_names)
-        self.eps: float = float(eps)
-        self.dtype: torch.dtype = dtype
-        self.string_index_name: str = string_index_name
+        self.feature_names = list(feature_names)
+        self.eps = float(eps)
+        self.dtype = dtype
+        self.string_index_name = string_index_name
 
         if scaler is None and scaler_params is not None:
             scaler = scaler_params
@@ -311,8 +289,7 @@ class PONE:
         else:
             assert scaler.feature_names == self.feature_names
             self._median_np = np.asarray(scaler.median, dtype=np.float32)
-            self._iqr_np = np.asarray(scaler.iqr, dtype=np.float32)
-            self._iqr_np = np.maximum(self._iqr_np, self.eps).astype(np.float32)
+            self._iqr_np = np.maximum(np.asarray(scaler.iqr, dtype=np.float32), self.eps)
             self._has_scaler = True
 
         self._median_torch: dict[torch.device, Tensor] = {}
@@ -324,8 +301,7 @@ class PONE:
     def set_scaler(self, scaler: RobustScalerParams) -> None:
         assert scaler.feature_names == self.feature_names
         self._median_np = np.asarray(scaler.median, dtype=np.float32)
-        self._iqr_np = np.asarray(scaler.iqr, dtype=np.float32)
-        self._iqr_np = np.maximum(self._iqr_np, self.eps).astype(np.float32)
+        self._iqr_np = np.maximum(np.asarray(scaler.iqr, dtype=np.float32), self.eps)
         self._has_scaler = True
         self._median_torch.clear()
         self._iqr_torch.clear()
@@ -336,26 +312,22 @@ class PONE:
             self._iqr_torch[device] = torch.tensor(self._iqr_np, device=device, dtype=dtype)
         return self._median_torch[device], self._iqr_torch[device]
 
-    # GraphNeT calls detector(x, input_feature_names)
     def __call__(self, x: Tensor, input_feature_names: Optional[List[str]] = None) -> Tensor:
-        return self.transform_tensor(x)
-
-    def transform(self, x: Tensor, input_feature_names: Optional[List[str]] = None) -> Tensor:
         return self.transform_tensor(x)
 
     def transform_tensor(self, x: Tensor) -> Tensor:
         if x.numel() == 0:
             return x
         if x.dim() != 2:
-            raise ValueError(f"Expected x to have shape [N, F], got {tuple(x.shape)}")
+            raise ValueError(f"Expected x [N,F], got {tuple(x.shape)}")
         if x.size(1) != len(self.feature_names):
-            raise ValueError(f"Feature dim mismatch: x has {x.size(1)} features, expected {len(self.feature_names)}")
+            raise ValueError(f"Feature dim mismatch: x has {x.size(1)}, expected {len(self.feature_names)}")
         med, iqr = self._get_torch_params(device=x.device, dtype=x.dtype)
         return (x - med) / iqr
 
 
 # =====================================================
-# LIGHTNING MODULE + SANITY PRINTS + save_config()
+# LIGHTNING MODULE + save_config()
 # =====================================================
 
 class DynEdgeEnergyLightningModule(pl.LightningModule):
@@ -369,112 +341,33 @@ class DynEdgeEnergyLightningModule(pl.LightningModule):
         base_lr: float,
         min_lr: float,
         warmup_fraction_first_epoch: float,
-        adam_beta1: float = 0.9,
-        adam_beta2: float = 0.999,
-        adam_eps: float = 1e-8,
-        weight_decay: float = 0.0,
     ):
         super().__init__()
         self.save_hyperparameters(ignore=["backbone", "task"])
-
         self.backbone = backbone
         self.task = task
 
         self._steps_per_epoch = int(steps_per_epoch)
         self._max_epochs = int(max_epochs)
-
         self._base_lr = float(base_lr)
         self._min_lr = float(min_lr)
         self._warmup_fraction_first_epoch = float(warmup_fraction_first_epoch)
 
-        self._adam_beta1 = float(adam_beta1)
-        self._adam_beta2 = float(adam_beta2)
-        self._adam_eps = float(adam_eps)
-        self._weight_decay = float(weight_decay)
-
-        self._printed_train_first_batch = False
-        self._printed_val_first_batch = False
-
     def save_config(self, path: str) -> None:
+        # GraphnetEarlyStopping expects this method
         os.makedirs(os.path.dirname(path), exist_ok=True)
-        try:
-            hparams = dict(self.hparams)
-        except Exception:
-            hparams = {}
-
-        lines = []
-        lines.append("model:\n")
-        lines.append(f"  class: {self.__class__.__name__}\n")
-        lines.append(f"  backbone: {self.backbone.__class__.__name__}\n")
-        lines.append(f"  task: {self.task.__class__.__name__}\n")
-        lines.append("hparams:\n")
-        for k, v in hparams.items():
-            vv = str(v).replace("\n", " ")
-            lines.append(f"  {k}: {vv}\n")
-
         with open(path, "w") as f:
-            f.writelines(lines)
+            f.write("model:\n")
+            f.write(f"  class: {self.__class__.__name__}\n")
+            f.write(f"  backbone: {self.backbone.__class__.__name__}\n")
+            f.write(f"  task: {self.task.__class__.__name__}\n")
+            f.write("hparams:\n")
+            for k, v in dict(self.hparams).items():
+                f.write(f"  {k}: {str(v).replace(chr(10), ' ')}\n")
 
     def forward(self, batch):
         z = self.backbone(batch)
-        pred = self.task(z)
-        return pred
-
-    def _get_current_lr(self) -> Optional[float]:
-        try:
-            if self.trainer is not None and self.trainer.optimizers:
-                return float(self.trainer.optimizers[0].param_groups[0]["lr"])
-        except Exception:
-            return None
-        return None
-
-    def _extract_first_event_no(self, batch) -> Optional[int]:
-        candidates = ["event_no", "event_id", "event", "evt_id"]
-        for k in candidates:
-            if isinstance(batch, dict) and k in batch:
-                v = batch[k]
-            elif hasattr(batch, k):
-                v = getattr(batch, k)
-            else:
-                continue
-            try:
-                if torch.is_tensor(v):
-                    return int(v.reshape(-1)[0].item())
-                return int(np.asarray(v).reshape(-1)[0])
-            except Exception:
-                return None
-        return None
-
-    def _debug_print_first_event(self, batch, stage: str, pred: Tensor, loss: Tensor, mae_log10: Tensor) -> None:
-        ev = self._extract_first_event_no(batch)
-        lr = self._get_current_lr()
-
-        y = batch["energy_log10"].reshape(-1, 1).to(pred.dtype)
-        y0 = float(y[0].item())
-        p0 = float(pred.reshape(-1)[0].item())
-
-        self.print("============================================================")
-        self.print(f"[sanity:{stage}] first-batch dump")
-        self.print(f"  event_no={ev}" if ev is not None else "  event_no=(not found in batch)")
-        self.print(f"  y_log10(E)={y0:.6g}   pred={p0:.6g}")
-        self.print(
-            f"  {stage}_loss={float(loss.item()):.6g}   {stage}_mae_log10={float(mae_log10.item()):.6g}"
-            + (f"   lr={lr:.6g}" if lr is not None else "")
-        )
-
-        x = getattr(batch, "x", None)
-        bvec = getattr(batch, "batch", None)
-        if x is not None and torch.is_tensor(x):
-            if bvec is not None and torch.is_tensor(bvec):
-                x0 = x[bvec == 0]
-            else:
-                x0 = x
-            self.print(f"  x_scaled first-event: shape={tuple(x0.shape)}")
-            self.print("  x_scaled first 5 pulses:")
-            self.print(x0[:5].detach().cpu())
-        else:
-            self.print("  (batch.x not found; cannot print scaled features)")
-        self.print("============================================================")
+        return self.task(z)
 
     def _shared_step(self, batch, stage: str) -> Tensor:
         pred = self.forward(batch)
@@ -485,40 +378,19 @@ class DynEdgeEnergyLightningModule(pl.LightningModule):
 
         self.log(f"{stage}_loss", loss, prog_bar=True, on_step=(stage == "train"), on_epoch=True, batch_size=BATCH_SIZE)
         self.log(f"{stage}_mae_log10", mae_log10, prog_bar=True, on_step=(stage == "train"), on_epoch=True, batch_size=BATCH_SIZE)
-
-        if stage == "train":
-            lr = self._get_current_lr()
-            if lr is not None:
-                self.log("lr", lr, prog_bar=True, on_step=True, on_epoch=False)
-
-        if stage == "train" and (not self._printed_train_first_batch):
-            self._printed_train_first_batch = True
-            self._debug_print_first_event(batch, stage="train", pred=pred, loss=loss, mae_log10=mae_log10)
-
-        if stage == "val" and (not self._printed_val_first_batch):
-            self._printed_val_first_batch = True
-            self._debug_print_first_event(batch, stage="val", pred=pred, loss=loss, mae_log10=mae_log10)
-
         return loss
 
     def training_step(self, batch, batch_idx: int) -> Tensor:
-        return self._shared_step(batch, stage="train")
+        return self._shared_step(batch, "train")
 
     def validation_step(self, batch, batch_idx: int) -> None:
-        _ = self._shared_step(batch, stage="val")
+        _ = self._shared_step(batch, "val")
 
     def test_step(self, batch, batch_idx: int) -> None:
-        _ = self._shared_step(batch, stage="test")
+        _ = self._shared_step(batch, "test")
 
     def configure_optimizers(self):
-        opt = torch.optim.Adam(
-            params=self.parameters(),
-            lr=self._base_lr,
-            betas=(self._adam_beta1, self._adam_beta2),
-            eps=self._adam_eps,
-            weight_decay=self._weight_decay,
-            amsgrad=False,
-        )
+        opt = torch.optim.Adam(self.parameters(), lr=self._base_lr)
 
         warmup_steps = int(self._steps_per_epoch * self._warmup_fraction_first_epoch)
         total_steps = int(self._steps_per_epoch * self._max_epochs)
@@ -534,14 +406,7 @@ class DynEdgeEnergyLightningModule(pl.LightningModule):
             last_epoch=-1,
         )
 
-        return {
-            "optimizer": opt,
-            "lr_scheduler": {
-                "scheduler": sched,
-                "interval": "step",
-                "frequency": 1,
-            },
-        }
+        return {"optimizer": opt, "lr_scheduler": {"scheduler": sched, "interval": "step", "frequency": 1}}
 
 
 # =====================================================
@@ -552,18 +417,17 @@ def _build_graph_definition(detector: PONE) -> GraphDefinition:
     node_def = NodesAsPulses(input_feature_names=FEATURES)
     edge_def = KNNEdges(nb_nearest_neighbours=8, columns=[0, 1, 2])
 
-    graph_def = GraphDefinition(
+    return GraphDefinition(
         detector=detector,
         node_definition=node_def,
         edge_definition=edge_def,
         input_feature_names=FEATURES,
         dtype=torch.float32,
     )
-    return graph_def
 
 
 def _build_base_dataset(detector: PONE) -> ParquetDataset:
-    graph_def = _build_graph_definition(detector=detector)
+    graph_def = _build_graph_definition(detector)
 
     ds = ParquetDataset(
         path=PARQUET_ROOT,
@@ -579,10 +443,6 @@ def _build_base_dataset(detector: PONE) -> ParquetDataset:
         string_selection=None,
         selection=None,
         dtype=torch.float32,
-        loss_weight_table=None,
-        loss_weight_column=None,
-        loss_weight_default_value=None,
-        seed=None,
         cache_size=1,
         labels=None,
     )
@@ -603,10 +463,6 @@ def main() -> None:
     truth_files = _discover_chunk_files(PARQUET_ROOT, TRUTH_TABLE)
     feat_files = _discover_chunk_files(PARQUET_ROOT, PULSEMAP_TABLE)
     print(f"[setup] truth_chunks={len(truth_files)} features_chunks={len(feat_files)}")
-
-    missing = set(truth_files.keys()) ^ set(feat_files.keys())
-    if len(missing) > 0:
-        print(f"[warning] truth/features chunk_id mismatch. symmetric_diff={sorted(list(missing))}")
 
     print("============================================================")
     print("[setup] Collecting unique event_no across ALL truth files...")
@@ -641,9 +497,9 @@ def main() -> None:
     )
 
     print("============================================================")
-    print("[dataset] Building dataset (identity scaler first, to fit robust scaler on TRAIN)...")
+    print("[dataset] Build dataset (identity scaler first) to fit robust scaler on TRAIN...")
     detector = PONE(feature_names=FEATURES, scaler_params=None, string_index_name="string")
-    dataset = _build_base_dataset(detector=detector)
+    dataset = _build_base_dataset(detector)
 
     if os.path.exists(SCALER_PATH):
         print(f"[robust-scaler] Found existing scaler at {SCALER_PATH} -> loading")
@@ -664,55 +520,45 @@ def main() -> None:
     print(f"[robust-scaler] detector.has_scaler={detector.has_scaler()}")
 
     print("============================================================")
-    print("[dataset] Re-building dataset WITH robust scaler active...")
-    dataset = _build_base_dataset(detector=detector)
+    print("[dataset] Re-build dataset WITH robust scaler active...")
+    dataset = _build_base_dataset(detector)
 
     train_ds = Subset(dataset, train_seq)
     val_ds = Subset(dataset, val_seq)
     test_ds = Subset(dataset, test_seq)
-
     print(f"[dataset] train_len={len(train_ds)} val_len={len(val_ds)} test_len={len(test_ds)}")
 
     print("============================================================")
-    print("[dataloader] Creating dataloaders...")
-    train_loader = GraphNeTDataLoader(
-        dataset=train_ds,
+    print("[dataloader] Creating PyG dataloaders (fixes default_collate error)...")
+    train_loader = PyGDataLoader(
+        train_ds,
         batch_size=BATCH_SIZE,
         shuffle=SHUFFLE_TRAIN,
         num_workers=NUM_WORKERS,
-        persistent_workers=PERSISTENT_WORKERS,
-        collate_fn=None,
-        prefetch_factor=PREFETCH_FACTOR,
         pin_memory=PIN_MEMORY,
-        multiprocessing_context=MULTIPROCESSING_CONTEXT,
+        persistent_workers=PERSISTENT_WORKERS if NUM_WORKERS > 0 else False,
+        prefetch_factor=PREFETCH_FACTOR if NUM_WORKERS > 0 else None,
         drop_last=False,
-        timeout=0,
     )
-    val_loader = GraphNeTDataLoader(
-        dataset=val_ds,
+    val_loader = PyGDataLoader(
+        val_ds,
         batch_size=BATCH_SIZE,
         shuffle=SHUFFLE_VAL,
         num_workers=NUM_WORKERS,
-        persistent_workers=PERSISTENT_WORKERS,
-        collate_fn=None,
-        prefetch_factor=PREFETCH_FACTOR,
         pin_memory=PIN_MEMORY,
-        multiprocessing_context=MULTIPROCESSING_CONTEXT,
+        persistent_workers=PERSISTENT_WORKERS if NUM_WORKERS > 0 else False,
+        prefetch_factor=PREFETCH_FACTOR if NUM_WORKERS > 0 else None,
         drop_last=False,
-        timeout=0,
     )
-    test_loader = GraphNeTDataLoader(
-        dataset=test_ds,
+    test_loader = PyGDataLoader(
+        test_ds,
         batch_size=BATCH_SIZE,
         shuffle=SHUFFLE_TEST,
         num_workers=NUM_WORKERS,
-        persistent_workers=PERSISTENT_WORKERS,
-        collate_fn=None,
-        prefetch_factor=PREFETCH_FACTOR,
         pin_memory=PIN_MEMORY,
-        multiprocessing_context=MULTIPROCESSING_CONTEXT,
+        persistent_workers=PERSISTENT_WORKERS if NUM_WORKERS > 0 else False,
+        prefetch_factor=PREFETCH_FACTOR if NUM_WORKERS > 0 else None,
         drop_last=False,
-        timeout=0,
     )
 
     steps_per_epoch = len(train_loader)
@@ -743,11 +589,6 @@ def main() -> None:
         hidden_size=backbone.nb_outputs,
         loss_function=loss_fn,
         prediction_labels=["energy_log10_pred"],
-        transform_prediction_and_target=None,
-        transform_target=None,
-        transform_inference=None,
-        transform_support=None,
-        loss_weight=None,
     )
 
     lit_model = DynEdgeEnergyLightningModule(
@@ -778,6 +619,12 @@ def main() -> None:
 
     accelerator = "gpu" if torch.cuda.is_available() else "cpu"
 
+    # optional perf hint for tensor cores
+    try:
+        torch.set_float32_matmul_precision("medium")
+    except Exception:
+        pass
+
     trainer = Trainer(
         default_root_dir=OUTPUT_DIR,
         accelerator=accelerator,
@@ -786,23 +633,22 @@ def main() -> None:
         callbacks=callbacks,
         log_every_n_steps=50,
         enable_checkpointing=False,
-        enable_model_summary=True,
         deterministic=True,
         benchmark=False,
     )
 
     print("============================================================")
     print("[train] Starting training...")
-    trainer.fit(model=lit_model, train_dataloaders=train_loader, val_dataloaders=val_loader)
+    trainer.fit(lit_model, train_dataloaders=train_loader, val_dataloaders=val_loader)
 
     print("============================================================")
     print("[validate] Running validation...")
-    val_metrics = trainer.validate(model=lit_model, dataloaders=val_loader, verbose=True)
+    val_metrics = trainer.validate(lit_model, dataloaders=val_loader, verbose=True)
     print(f"[validate] metrics={val_metrics}")
 
     print("============================================================")
     print("[test] Running test...")
-    test_metrics = trainer.test(model=lit_model, dataloaders=test_loader, verbose=True)
+    test_metrics = trainer.test(lit_model, dataloaders=test_loader, verbose=True)
     print(f"[test] metrics={test_metrics}")
 
     print("============================================================")
