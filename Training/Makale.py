@@ -24,7 +24,7 @@ import json
 import math
 from glob import glob
 from dataclasses import dataclass
-from typing import Dict, List, Tuple, Optional
+from typing import Dict, List, Tuple, Optional, Any
 
 import numpy as np
 import polars as pol
@@ -229,7 +229,7 @@ class Log10Energy(Label):
         super().__init__(key=key)
         self._energy_key = energy_key
 
-    def __call__(self, graph) -> torch.tensor:
+    def __call__(self, graph) -> Tensor:
         e = graph[self._energy_key]
         # handle shapes [1] or [1,1]
         e = e.reshape(-1).to(torch.float32)
@@ -313,29 +313,24 @@ def _load_scaler(path: str) -> RobustScalerParams:
     )
 
 
-# IMPORTANT:
-# GraphNeT’s Detector base class differs across versions.
-# You asked “Detector’u sen yaz” — so here is a minimal, explicit one.
-#
-# If your local GraphNeT already has an abstract Detector interface,
-# update the inheritance/import accordingly (but keep the methods).
-
-
-
 class PONE:
+    """
+    Minimal detector-like object that only does robust scaling.
+    """
+
     def __init__(
         self,
         *,
         feature_names: List[str],
         scaler: Optional[RobustScalerParams] = None,
         scaler_path: Optional[str] = None,
-        # --- geriye uyum: senin main() böyle çağırıyor ---
+        # --- backward compat: your main() calls these ---
         scaler_params: Optional[RobustScalerParams] = None,
         string_index_name: str = "__unused__",
-        # ------------------------------------------------
+        # ----------------------------------------------
         eps: float = 1e-12,
         dtype: torch.dtype = torch.float32,
-        **kwargs,  # başka sürüm/çağrı farkları için sessiz yut
+        **kwargs,
     ) -> None:
         self.feature_names: List[str] = list(feature_names)
         self.eps: float = float(eps)
@@ -344,19 +339,100 @@ class PONE:
         # Dataset compatibility
         self.string_index_name: str = string_index_name
 
-        # scaler_params alias
+        # alias
         if scaler is None and scaler_params is not None:
             scaler = scaler_params
 
         if scaler is None and scaler_path is not None:
             scaler = _load_scaler(scaler_path)
 
-        ...
+        if scaler is None:
+            self._median_np = np.zeros((len(self.feature_names),), dtype=np.float32)
+            self._iqr_np = np.ones((len(self.feature_names),), dtype=np.float32)
+            self._has_scaler = False
+        else:
+            assert scaler.feature_names == self.feature_names, (
+                "Scaler feature_names do not match feature_names passed to PONE.\n"
+                f"scaler.feature_names={scaler.feature_names}\n"
+                f"feature_names={self.feature_names}"
+            )
+            self._median_np = np.asarray(scaler.median, dtype=np.float32)
+            self._iqr_np = np.asarray(scaler.iqr, dtype=np.float32)
+            self._iqr_np = np.maximum(self._iqr_np, self.eps).astype(np.float32)
+            self._has_scaler = True
 
+        # Torch cache (per device)
+        self._median_torch: dict[torch.device, Tensor] = {}
+        self._iqr_torch: dict[torch.device, Tensor] = {}
+
+    def has_scaler(self) -> bool:
+        return bool(self._has_scaler)
+
+    def set_scaler(self, scaler: RobustScalerParams) -> None:
+        assert scaler.feature_names == self.feature_names
+        self._median_np = np.asarray(scaler.median, dtype=np.float32)
+        self._iqr_np = np.asarray(scaler.iqr, dtype=np.float32)
+        self._iqr_np = np.maximum(self._iqr_np, self.eps).astype(np.float32)
+        self._has_scaler = True
+        self._median_torch.clear()
+        self._iqr_torch.clear()
+
+    def _get_torch_params(self, device: torch.device, dtype: torch.dtype) -> tuple[Tensor, Tensor]:
+        if device not in self._median_torch:
+            self._median_torch[device] = torch.tensor(self._median_np, device=device, dtype=dtype)
+            self._iqr_torch[device] = torch.tensor(self._iqr_np, device=device, dtype=dtype)
+        return self._median_torch[device], self._iqr_torch[device]
+
+    # A few aliases in case GraphNeT expects a different method name in your version
+    def __call__(self, x: Tensor) -> Tensor:
+        return self.transform_tensor(x)
+
+    def transform(self, x: Tensor) -> Tensor:
+        return self.transform_tensor(x)
+
+    def transform_tensor(self, x: Tensor) -> Tensor:
+        """
+        Robust scale tensor:
+          x' = (x - median) / IQR
+
+        Expected x shape: [n_pulses, n_features]
+        """
+        if x.numel() == 0:
+            return x
+
+        if x.dim() != 2:
+            raise ValueError(f"Expected x to have shape [N, F], got {tuple(x.shape)}")
+
+        if x.size(1) != len(self.feature_names):
+            raise ValueError(
+                f"Feature dimension mismatch: x has {x.size(1)} features but "
+                f"PONE expects {len(self.feature_names)}"
+            )
+
+        med, iqr = self._get_torch_params(device=x.device, dtype=x.dtype)
+        return (x - med) / iqr
+
+    def transform_numpy(self, x: np.ndarray) -> np.ndarray:
+        if x.size == 0:
+            return x
+        if x.ndim != 2:
+            raise ValueError(f"Expected x.ndim==2, got shape {x.shape}")
+        if x.shape[1] != len(self.feature_names):
+            raise ValueError(
+                f"Feature dimension mismatch: x has {x.shape[1]} features but "
+                f"PONE expects {len(self.feature_names)}"
+            )
+        return (x - self._median_np) / self._iqr_np
+
+    def transform_graph(self, g: Any) -> Any:
+        # convenience: in-place scale g.x if present
+        if hasattr(g, "x") and torch.is_tensor(g.x):
+            g.x = self.transform_tensor(g.x)
+        return g
 
 
 # =====================================================
-# LIGHTNING MODULE (minimal, explicit)
+# LIGHTNING MODULE (minimal, explicit) + SANITY PRINTS
 # =====================================================
 
 class DynEdgeEnergyLightningModule(pl.LightningModule):
@@ -393,10 +469,84 @@ class DynEdgeEnergyLightningModule(pl.LightningModule):
         self._adam_eps = float(adam_eps)
         self._weight_decay = float(weight_decay)
 
+        # sanity-print flags
+        self._printed_train_first_batch = False
+        self._printed_val_first_batch = False
+
     def forward(self, batch):
         z = self.backbone(batch)  # [batch_size, hidden]
         pred = self.task(z)       # [batch_size, 1]
         return pred
+
+    def _get_current_lr(self) -> Optional[float]:
+        try:
+            if self.trainer is not None and self.trainer.optimizers:
+                return float(self.trainer.optimizers[0].param_groups[0]["lr"])
+        except Exception:
+            return None
+        return None
+
+    def _extract_first_event_no(self, batch) -> Optional[int]:
+        # Try common keys/attrs
+        candidates = ["event_no", "event_id", "event", "evt_id"]
+        for k in candidates:
+            if isinstance(batch, dict) and k in batch:
+                v = batch[k]
+            elif hasattr(batch, k):
+                v = getattr(batch, k)
+            else:
+                continue
+
+            try:
+                if torch.is_tensor(v):
+                    return int(v.reshape(-1)[0].item())
+                arr = np.asarray(v).reshape(-1)
+                return int(arr[0])
+            except Exception:
+                return None
+        return None
+
+    def _debug_print_first_event(self, batch, stage: str, pred: Tensor, loss: Tensor, mae_log10: Tensor) -> None:
+        ev = self._extract_first_event_no(batch)
+        lr = self._get_current_lr()
+
+        # target/pred for first graph in the batch (graph index 0)
+        y = batch["energy_log10"].reshape(-1, 1).to(pred.dtype)
+        y0 = float(y[0].item())
+        p0 = float(pred.reshape(-1)[0].item())
+
+        self.print("============================================================")
+        self.print(f"[sanity:{stage}] first-batch dump")
+        self.print(f"  event_no={ev}" if ev is not None else "  event_no=(not found in batch)")
+        self.print(f"  y_log10(E)={y0:.6g}   pred={p0:.6g}")
+        self.print(
+            f"  {stage}_loss={float(loss.item()):.6g}   {stage}_mae_log10={float(mae_log10.item()):.6g}"
+            + (f"   lr={lr:.6g}" if lr is not None else "")
+        )
+
+        # print scaled features for first event in batch
+        x = getattr(batch, "x", None)
+        bvec = getattr(batch, "batch", None)
+
+        if x is not None and torch.is_tensor(x):
+            if bvec is not None and torch.is_tensor(bvec):
+                mask0 = (bvec == 0)
+                x0 = x[mask0]
+            else:
+                x0 = x
+
+            self.print(f"  x_scaled first-event: shape={tuple(x0.shape)}")
+            self.print("  x_scaled first 5 pulses:")
+            self.print(x0[:5].detach().cpu())
+
+            mu = x0.mean(dim=0).detach().cpu()
+            sd = x0.std(dim=0, unbiased=False).detach().cpu()
+            self.print("  x_scaled mean(first-event) =", mu)
+            self.print("  x_scaled std (first-event)  =", sd)
+        else:
+            self.print("  (batch.x not found; cannot print scaled features)")
+
+        self.print("============================================================")
 
     def _shared_step(self, batch, stage: str) -> Tensor:
         pred = self.forward(batch)
@@ -406,8 +556,38 @@ class DynEdgeEnergyLightningModule(pl.LightningModule):
         y = batch["energy_log10"].reshape(-1, 1).to(pred.dtype)
         mae_log10 = torch.mean(torch.abs(pred - y))
 
-        self.log(f"{stage}_loss", loss, prog_bar=True, on_step=False, on_epoch=True, batch_size=BATCH_SIZE)
-        self.log(f"{stage}_mae_log10", mae_log10, prog_bar=True, on_step=False, on_epoch=True, batch_size=BATCH_SIZE)
+        # keep epoch logs; add train step logs (sanity)
+        self.log(
+            f"{stage}_loss",
+            loss,
+            prog_bar=True,
+            on_step=(stage == "train"),
+            on_epoch=True,
+            batch_size=BATCH_SIZE,
+        )
+        self.log(
+            f"{stage}_mae_log10",
+            mae_log10,
+            prog_bar=True,
+            on_step=(stage == "train"),
+            on_epoch=True,
+            batch_size=BATCH_SIZE,
+        )
+
+        # optional: log lr (train only)
+        if stage == "train":
+            lr = self._get_current_lr()
+            if lr is not None:
+                self.log("lr", lr, prog_bar=True, on_step=True, on_epoch=False)
+
+        # one-time prints: first train batch + first val batch
+        if stage == "train" and (not self._printed_train_first_batch):
+            self._printed_train_first_batch = True
+            self._debug_print_first_event(batch, stage="train", pred=pred, loss=loss, mae_log10=mae_log10)
+
+        if stage == "val" and (not self._printed_val_first_batch):
+            self._printed_val_first_batch = True
+            self._debug_print_first_event(batch, stage="val", pred=pred, loss=loss, mae_log10=mae_log10)
 
         return loss
 
@@ -437,10 +617,6 @@ class DynEdgeEnergyLightningModule(pl.LightningModule):
         total_steps = int(self._steps_per_epoch * self._max_epochs)
 
         # PiecewiseLinearLR multiplies base_lr by factors.
-        # We want:
-        #   base_lr * f0 = min_lr  => f0 = min_lr/base_lr
-        #   base_lr * f1 = base_lr => f1 = 1
-        #   base_lr * f2 = min_lr  => f2 = min_lr/base_lr
         f0 = self._min_lr / self._base_lr
         f1 = 1.0
         f2 = self._min_lr / self._base_lr
@@ -683,9 +859,7 @@ def main() -> None:
 
     print("============================================================")
     print("[task] Building energy task in log10 space + LogCoshLoss (paper)...")
-    loss_fn = LogCoshLoss(
-        # explicit defaults: LossFunction(Model) takes **kwargs, keep empty
-    )
+    loss_fn = LogCoshLoss()
 
     task = IdentityTask(
         nb_outputs=1,
