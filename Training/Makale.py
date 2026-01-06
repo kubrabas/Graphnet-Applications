@@ -10,6 +10,11 @@ Loss:
 
 LR schedule:
   PiecewiseLinearLR warmup then decay (paper-like)
+
+Notes (fixes your hang):
+- Default NUM_WORKERS=0 (most common cause of “Sanity Checking” hang on clusters is dataloader workers).
+- Disable Lightning sanity check by default (num_sanity_val_steps=0).
+- Guard warmup_steps so milestones are strictly increasing (steps_per_epoch can be 1 in your setup).
 """
 
 from __future__ import annotations
@@ -73,12 +78,13 @@ SHUFFLE_TRAIN: bool = True
 SHUFFLE_VAL: bool = False
 SHUFFLE_TEST: bool = False
 
-# This node suggests 4; 8 can work but gives warning
-NUM_WORKERS: int = 4
-
-PERSISTENT_WORKERS: bool = True
-PREFETCH_FACTOR: int = 2
-PIN_MEMORY: bool = True
+# ---- Critical stability defaults ----
+# If you want workers later: export NUM_WORKERS=2 (or 4) and re-run.
+NUM_WORKERS: int = int(os.environ.get("NUM_WORKERS", "0"))
+PERSISTENT_WORKERS: bool = bool(int(os.environ.get("PERSISTENT_WORKERS", "0")))  # default False
+PREFETCH_FACTOR: int = int(os.environ.get("PREFETCH_FACTOR", "2"))
+PIN_MEMORY: bool = bool(int(os.environ.get("PIN_MEMORY", "0")))  # default False
+# -------------------------------------
 
 MAX_EPOCHS: int = 30
 EARLY_STOPPING_PATIENCE: int = 5
@@ -89,6 +95,12 @@ WARMUP_FRACTION_OF_FIRST_EPOCH: float = 0.50
 
 OUTPUT_DIR: str = "./dynedge_energy_pone_run"
 SCALER_PATH: str = os.path.join(OUTPUT_DIR, "robust_scaler.json")
+
+# Lightning sanity check can hang if val loader hangs; default OFF.
+NUM_SANITY_VAL_STEPS: int = int(os.environ.get("NUM_SANITY_VAL_STEPS", "0"))
+
+# Optional: quick debug to force-fetch one batch before Trainer starts.
+DEBUG_FETCH_ONE_BATCH: bool = bool(int(os.environ.get("DEBUG_FETCH_ONE_BATCH", "1")))
 
 
 # =====================================================
@@ -114,7 +126,9 @@ def _discover_chunk_files(root: str, table: str) -> Dict[int, str]:
         out[int(m.group(1))] = fp
 
     if len(out) == 0:
-        raise FileNotFoundError(f"Found parquet files but none match {table}_<id>.parquet in: {os.path.join(root, table)}")
+        raise FileNotFoundError(
+            f"Found parquet files but none match {table}_<id>.parquet in: {os.path.join(root, table)}"
+        )
 
     return dict(sorted(out.items(), key=lambda kv: kv[0]))
 
@@ -144,7 +158,6 @@ def _split_event_ids(
     train_ids = ids[:n_train]
     val_ids = ids[n_train:n_train + n_val]
     test_ids = ids[n_train + n_val:]
-
     return train_ids, val_ids, test_ids
 
 
@@ -177,7 +190,10 @@ def _event_ids_to_sequential_indices(
                 test_seq.append(seq)
         offset += len(event_ids)
 
-    print(f"[split->sequential] train_seq={len(train_seq)} val_seq={len(val_seq)} test_seq={len(test_seq)} total={offset}")
+    print(
+        f"[split->sequential] train_seq={len(train_seq)} val_seq={len(val_seq)} "
+        f"test_seq={len(test_seq)} total={offset}"
+    )
     return train_seq, val_seq, test_seq
 
 
@@ -312,6 +328,7 @@ class PONE:
             self._iqr_torch[device] = torch.tensor(self._iqr_np, device=device, dtype=dtype)
         return self._median_torch[device], self._iqr_torch[device]
 
+    # GraphNeT calls detector(x, input_feature_names)
     def __call__(self, x: Tensor, input_feature_names: Optional[List[str]] = None) -> Tensor:
         return self.transform_tensor(x)
 
@@ -376,8 +393,22 @@ class DynEdgeEnergyLightningModule(pl.LightningModule):
         y = batch["energy_log10"].reshape(-1, 1).to(pred.dtype)
         mae_log10 = torch.mean(torch.abs(pred - y))
 
-        self.log(f"{stage}_loss", loss, prog_bar=True, on_step=(stage == "train"), on_epoch=True, batch_size=BATCH_SIZE)
-        self.log(f"{stage}_mae_log10", mae_log10, prog_bar=True, on_step=(stage == "train"), on_epoch=True, batch_size=BATCH_SIZE)
+        self.log(
+            f"{stage}_loss",
+            loss,
+            prog_bar=True,
+            on_step=(stage == "train"),
+            on_epoch=True,
+            batch_size=BATCH_SIZE,
+        )
+        self.log(
+            f"{stage}_mae_log10",
+            mae_log10,
+            prog_bar=True,
+            on_step=(stage == "train"),
+            on_epoch=True,
+            batch_size=BATCH_SIZE,
+        )
         return loss
 
     def training_step(self, batch, batch_idx: int) -> Tensor:
@@ -392,8 +423,12 @@ class DynEdgeEnergyLightningModule(pl.LightningModule):
     def configure_optimizers(self):
         opt = torch.optim.Adam(self.parameters(), lr=self._base_lr)
 
+        # ---- IMPORTANT: guard milestones ----
+        # steps_per_epoch can be 1 in your current run (596 events, batch_size=1024).
+        total_steps = max(1, int(self._steps_per_epoch * self._max_epochs))
         warmup_steps = int(self._steps_per_epoch * self._warmup_fraction_first_epoch)
-        total_steps = int(self._steps_per_epoch * self._max_epochs)
+        warmup_steps = max(1, warmup_steps)
+        warmup_steps = min(warmup_steps, total_steps - 1) if total_steps > 1 else 1
 
         f0 = self._min_lr / self._base_lr
         f1 = 1.0
@@ -457,6 +492,13 @@ def _build_base_dataset(detector: PONE) -> ParquetDataset:
 
 def main() -> None:
     _ensure_dir(OUTPUT_DIR)
+
+    # If you later enable workers, set spawn explicitly (safer on clusters).
+    if NUM_WORKERS > 0:
+        try:
+            torch.multiprocessing.set_start_method("spawn", force=True)
+        except Exception:
+            pass
 
     print("============================================================")
     print("[setup] Discovering parquet chunks...")
@@ -529,40 +571,29 @@ def main() -> None:
     print(f"[dataset] train_len={len(train_ds)} val_len={len(val_ds)} test_len={len(test_ds)}")
 
     print("============================================================")
-    print("[dataloader] Creating PyG dataloaders (fixes default_collate error)...")
-    train_loader = PyGDataLoader(
-        train_ds,
+    print("[dataloader] Creating PyG dataloaders...")
+    dl_kwargs = dict(
         batch_size=BATCH_SIZE,
-        shuffle=SHUFFLE_TRAIN,
-        num_workers=NUM_WORKERS,
         pin_memory=PIN_MEMORY,
-        persistent_workers=PERSISTENT_WORKERS if NUM_WORKERS > 0 else False,
-        prefetch_factor=PREFETCH_FACTOR if NUM_WORKERS > 0 else None,
         drop_last=False,
-    )
-    val_loader = PyGDataLoader(
-        val_ds,
-        batch_size=BATCH_SIZE,
-        shuffle=SHUFFLE_VAL,
         num_workers=NUM_WORKERS,
-        pin_memory=PIN_MEMORY,
-        persistent_workers=PERSISTENT_WORKERS if NUM_WORKERS > 0 else False,
-        prefetch_factor=PREFETCH_FACTOR if NUM_WORKERS > 0 else None,
-        drop_last=False,
     )
-    test_loader = PyGDataLoader(
-        test_ds,
-        batch_size=BATCH_SIZE,
-        shuffle=SHUFFLE_TEST,
-        num_workers=NUM_WORKERS,
-        pin_memory=PIN_MEMORY,
-        persistent_workers=PERSISTENT_WORKERS if NUM_WORKERS > 0 else False,
-        prefetch_factor=PREFETCH_FACTOR if NUM_WORKERS > 0 else None,
-        drop_last=False,
-    )
+    if NUM_WORKERS > 0:
+        dl_kwargs["persistent_workers"] = PERSISTENT_WORKERS
+        dl_kwargs["prefetch_factor"] = PREFETCH_FACTOR
+
+    train_loader = PyGDataLoader(train_ds, shuffle=SHUFFLE_TRAIN, **dl_kwargs)
+    val_loader = PyGDataLoader(val_ds, shuffle=SHUFFLE_VAL, **dl_kwargs)
+    test_loader = PyGDataLoader(test_ds, shuffle=SHUFFLE_TEST, **dl_kwargs)
 
     steps_per_epoch = len(train_loader)
     print(f"[dataloader] steps_per_epoch={steps_per_epoch}")
+    print(f"[dataloader] NUM_WORKERS={NUM_WORKERS} PIN_MEMORY={PIN_MEMORY} PERSISTENT_WORKERS={dl_kwargs.get('persistent_workers', False)}")
+
+    if DEBUG_FETCH_ONE_BATCH:
+        print("[debug] fetching 1 val batch to confirm dataloader works...")
+        b = next(iter(val_loader))
+        print("[debug] ok, got batch type=", type(b), "num_graphs=", getattr(b, "num_graphs", None))
 
     print("============================================================")
     print("[model] Building DynEdge backbone...")
@@ -635,6 +666,7 @@ def main() -> None:
         enable_checkpointing=False,
         deterministic=True,
         benchmark=False,
+        num_sanity_val_steps=NUM_SANITY_VAL_STEPS,  # default 0 (prevents hang in sanity check)
     )
 
     print("============================================================")
@@ -660,3 +692,12 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+
+# Run:
+#   python -u Makale.py 2>&1 | tee run.log
+#
+# If you want workers later (after it runs stable with 0):
+#   export NUM_WORKERS=2
+#   export PERSISTENT_WORKERS=1
+#   export PIN_MEMORY=1
+#   python -u Makale.py 2>&1 | tee run.log
