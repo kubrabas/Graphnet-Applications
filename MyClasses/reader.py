@@ -86,7 +86,7 @@ class PONE_Reader(I3Reader):
         data = list()
         while i3_file_io.more():
             try:
-                frame = i3_file_io.pop_physics()
+                frame = i3_file_io.pop_daq()
             except Exception as e:
                 if "I3" in str(e):
                     continue
