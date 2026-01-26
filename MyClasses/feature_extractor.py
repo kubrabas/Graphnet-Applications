@@ -6,10 +6,10 @@ if has_icecube_package() or TYPE_CHECKING:
     from icecube import icetray, dataclasses, dataio  # pyright: reportMissingImports=false
 
 from graphnet.data.extractors.icecube import (
-    I3FeatureExtractorIceCube86,
-    I3FeatureExtractor,
-    I3Extractor
+    I3FeatureExtractorIceCube86
 )
+import numpy as np
+
 
 
 class I3FeatureExtractorPONE(I3FeatureExtractorIceCube86):
@@ -27,8 +27,48 @@ class I3FeatureExtractorPONE(I3FeatureExtractorIceCube86):
         self._extractor_name = name
 
         self._detector_status: Optional["icetray.I3Frame.DetectorStatus"] = None 
+        self._PMT_ANGLES = np.array( [[57.5, 270.],  # PMT 1
+                        [57.5, 0.],    # PMT 2
+                        [57.5, 90.],   # PMT 3
+                        [57.5, 180.],  # PMT 4
+                        [25., 225.],   # PMT 5
+                        [25., 315.],   # PMT 6
+                        [25., 45.],    # PMT 7
+                        [25., 135.],   # PMT 8
+                        [-57.5, 270.], # PMT 9
+                        [-57.5, 180.], # PMT 10
+                        [-57.5, 90.],  # PMT 11
+                        [-57.5, 0.],   # PMT 12
+                        [-25., 315.],  # PMT 13
+                        [-25., 225.],  # PMT 14
+                        [-25., 135.],  # PMT 15
+                        [-25., 45.]    # PMT 16
+                        ])
+        self.MODULE_RADIUS_M = 0.2159
         
+        self._pmt_x_coordinates_wrt_om_rotated = np.multiply(np.sin(np.deg2rad(90. - self._PMT_ANGLES[:, 0])), np.cos(np.deg2rad(self._PMT_ANGLES[:, 1])))
+        self._pmt_y_coordinates_wrt_om_rotated = np.multiply(np.sin(np.deg2rad(90. - self._PMT_ANGLES[:, 0])), np.sin(np.deg2rad(self._PMT_ANGLES[:, 1])))
+        self._pmt_z_coordinates_wrt_om_rotated = np.cos(np.deg2rad(90. - self._PMT_ANGLES[:, 0]))
         
+        self._PMT_MATRIX_rotated = np.array([self._pmt_x_coordinates_wrt_om_rotated,  self._pmt_y_coordinates_wrt_om_rotated, self._pmt_z_coordinates_wrt_om_rotated]).T
+  
+        self._PMT_COORDINATES_rotated = self._PMT_MATRIX_rotated * self.MODULE_RADIUS_M
+
+
+        self._minus_90_degree_rotation_around_x_axis =  np.array([
+            [1.000000e+00, 0.000000e+00, 0.000000e+00],
+            [0.000000e+00, 0.000000e+00, 1.000000e+00],
+            [0.000000e+00, -1.000000e+00, 0.000000e+00]], dtype=float)
+    
+    
+        self._PMT_COORDINATES_ORIGINAL = self._PMT_COORDINATES_rotated @ self._minus_90_degree_rotation_around_x_axis.T
+        
+        ### kontrol et kankiiiii dogru mu burdaki islemler. görsel ile tekrar incele. 
+        ### he bi de su silindiri rotate etme mevzusunu da bi incele
+        ### pmt numaralari da karisiyor muuu ona da bak kankitom
+        ### bi de init et ve kontrol et pmt konumlari dogru update edilmis mi OM'den
+        
+
         
     def set_gcd(self, i3_file: str, gcd_file: Optional[str] = None) -> None:
         """Extract GFrame, CFrame and DFrame from i3/gcd-file pair.
@@ -98,6 +138,9 @@ class I3FeatureExtractorPONE(I3FeatureExtractorIceCube86):
             "pmt_number": [],
             "dom_number": [],
             "dom_type": [],
+            "pmt_x": [],
+            "pmt_y": [],
+            "pmt_z": []
         }
         # Get OM data
         if self._pulsemap in frame:
@@ -137,6 +180,17 @@ class I3FeatureExtractorPONE(I3FeatureExtractorIceCube86):
             dom_number = om_key[1]
             pmt_number = om_key[2]
             dom_type = self._gcd_dict[om_key].omtype
+            
+            pmt_x = pmt_y = pmt_z = padding_value
+            
+            if pmt_number is not None:
+                idx = int(pmt_number) - 1
+                if 0 <= idx < len(self._PMT_COORDINATES_ORIGINAL):
+                    rel = self._PMT_COORDINATES_ORIGINAL[idx]  # rel = [dx, dy, dz]
+                    pmt_x = x + float(rel[0])
+                    pmt_y = y + float(rel[1])
+                    pmt_z = z + float(rel[2])
+
 
             # DOM flags
 
@@ -161,6 +215,9 @@ class I3FeatureExtractorPONE(I3FeatureExtractorIceCube86):
                 output["dom_x"].append(x)
                 output["dom_y"].append(y)
                 output["dom_z"].append(z)
+                output["pmt_x"].append(pmt_x)
+                output["pmt_y"].append(pmt_y)
+                output["pmt_z"].append(pmt_z)
                 # ID's
                 output["string"].append(string)
                 output["pmt_number"].append(pmt_number)
