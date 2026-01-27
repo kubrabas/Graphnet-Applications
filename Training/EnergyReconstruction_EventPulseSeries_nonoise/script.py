@@ -197,7 +197,13 @@ class Cfg:
 # 3) log10 <-> energy transforms
 # -----------------------
 
+def logarithm(E: torch.Tensor) -> torch.Tensor:
+    E_safe = torch.clamp(E, min=eps_like(E))
+    return torch.log10(E_safe)
 
+
+def exponential(t: torch.Tensor) -> torch.Tensor:
+    return torch.pow(10.0, t)
 
 # -----------------------
 # 4) Task head
