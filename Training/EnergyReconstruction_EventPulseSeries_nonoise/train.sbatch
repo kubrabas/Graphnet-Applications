@@ -1,7 +1,7 @@
 #!/bin/bash
 #SBATCH --job-name=DynEdge_Energy
 #SBATCH --account=def-nahee
-#SBATCH --time=08:00:00
+#SBATCH --time=12:00:00
 #SBATCH --mem=64G
 #SBATCH --cpus-per-task=12
 #SBATCH --gpus-per-node=nvidia_h100_80gb_hbm3_3g.40gb:1
