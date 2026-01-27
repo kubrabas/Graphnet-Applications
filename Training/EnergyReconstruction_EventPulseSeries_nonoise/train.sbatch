@@ -26,7 +26,7 @@ module load StdEnv/2023 gcc/12.3 scipy-stack/2023b
 # ---- Env ----
 PONE_ENV_DIR="/project/def-nahee/kbas/pone_offline"
 VENV="${PONE_ENV_DIR}/graphnet_env/bin/activate"
-SCRIPT="/project/def-nahee/kbas/GraphnetApplications/Training/EnergyReconstruction_EventPulseSeries_nonoise/script.py"
+SCRIPT="/project/def-nahee/kbas/Graphnet-Applications/Training/EnergyReconstruction_EventPulseSeries_nonoise/script.py"
 
 cd "${PONE_ENV_DIR}"
 
