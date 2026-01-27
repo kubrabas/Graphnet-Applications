@@ -17,6 +17,7 @@ class PONE(Detector):
         replace_with_identity: Optional[List[str]] = None,
         percentiles_csv: str = "/project/def-nahee/kbas/Graphnet-Applications/MyClasses/train_feature_percentiles_p25_p50_p75.csv",
         eps: float = 1e-12,
+        selected_features: Optional[List[str]] = None,   # <-- eklendi
     ) -> None:
         super().__init__(replace_with_identity=replace_with_identity)
 
@@ -26,6 +27,8 @@ class PONE(Detector):
         self._p50 = p["p50"].to_dict()
         self._p75 = p["p75"].to_dict()
         self._eps = eps
+
+        self._selected_features = selected_features       # <-- eklendi
 
     def _robust_scale(self, x: torch.Tensor, feature: str) -> torch.Tensor:
         if feature not in self._p50:
@@ -43,7 +46,7 @@ class PONE(Detector):
         return (x - p50) / denom
 
     def feature_map(self) -> Dict[str, Callable]:
-        return {
+        full = {
             "charge": self._charge,
             "dom_time": self._dom_time,
             "dom_x": self._dom_x,
@@ -56,6 +59,12 @@ class PONE(Detector):
             "pmt_y": self._pmt_y,
             "pmt_z": self._pmt_z,
         }
+
+        if self._selected_features is None:
+            return full
+
+        # sadece seçilenleri, verilen sırayla döndür
+        return {k: full[k] for k in self._selected_features}
 
     def _charge(self, x: torch.Tensor) -> torch.Tensor:
         return self._robust_scale(x, "charge")
