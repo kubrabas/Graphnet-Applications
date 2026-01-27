@@ -68,7 +68,7 @@ class Cfg:
     truth: Tuple[str, ...] = ("energy",)
 
     # Loader
-    batch_size: int = 1024
+    batch_size: int = 128
     num_workers: int = 8
     multiprocessing_context: str = "spawn"
     persistent_workers: bool = True
@@ -81,7 +81,7 @@ class Cfg:
     early_stopping_patience: int = 5
 
     # If 1024 doesn't fit: micro-batch + grad accumulation => effective batch ~1024
-    accumulate_grad_batches: int = 1
+    accumulate_grad_batches: int = 8
 
     # Model
     nb_neighbours: int = 8
