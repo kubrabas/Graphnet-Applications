@@ -196,13 +196,7 @@ class Cfg:
 # -----------------------
 # 3) log10 <-> energy transforms
 # -----------------------
-def logarithm(E: torch.Tensor) -> torch.Tensor:
-    E_safe = torch.clamp(E, min=eps_like(E))
-    return torch.log10(E_safe)
 
-
-def exponential(t: torch.Tensor) -> torch.Tensor:
-    return torch.pow(10.0, t)
 
 
 # -----------------------
@@ -352,8 +346,8 @@ def build_model(cfg: Cfg, data_representation, steps_per_epoch_optimizer: int):
         loss_function=LogCoshLoss(),
         target_labels=["energy"],
         prediction_labels=["log10_energy_pred"],
-        transform_target=logarithm,
-        transform_inference=exponential,
+        transform_target=lambda E: torch.log10(torch.clamp(E, min=eps_like(E))),
+        transform_inference=lambda t: torch.pow(10.0, t),
         transform_support=cfg.transform_support,
         loss_weight=None,
     )
