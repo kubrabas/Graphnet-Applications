@@ -5,8 +5,8 @@
 #SBATCH --mem=48G
 #SBATCH --cpus-per-task=12
 #SBATCH --gpus-per-node=nvidia_h100_80gb_hbm3_3g.40gb:1
-#SBATCH --output=/project/6061446/kbas/Graphnet-Applications/Training/AngleReconstruction_EventPulseSeries_nonoise/initiative2/dynedge_energy_%j.out
-#SBATCH --error=/project/6061446/kbas/Graphnet-Applications/Training/AngleReconstruction_EventPulseSeries_nonoise/initiative2/dynedge_energy_%j.out
+#SBATCH --output=/project/6061446/kbas/Graphnet-Applications/Training/EnergyReconstruction_EventPulseSeries_nonoise/initiative2/dynedge_energy_%j.out
+#SBATCH --error=/project/6061446/kbas/Graphnet-Applications/Training/EnergyReconstruction_EventPulseSeries_nonoise/initiative2/dynedge_energy_%j.out
 #SBATCH --open-mode=append
 
 
