@@ -1,3 +1,30 @@
+import logging
+
+class _SuppressGraphnetOptionalDeps(logging.Filter):
+    def filter(self, record: logging.LogRecord) -> bool:
+        if not record.name.startswith("graphnet"):
+            return True
+
+        msg = record.getMessage()
+
+        if (
+            "has_jammy_flows_package" in msg
+            or "jammy_flows" in msg
+            or "has_icecube_package" in msg
+            or "`icecube` not available" in msg
+            or "has_km3net_package" in msg
+            or "`km3net` not available" in msg
+        ):
+            return False
+
+        return True
+
+_f = _SuppressGraphnetOptionalDeps()
+
+logging.getLogger("graphnet").addFilter(_f)
+logging.getLogger("graphnet.utilities.imports").addFilter(_f)
+
+
 
 
 import os
@@ -124,8 +151,11 @@ class PONE(Detector):
 from graphnet.data.dataset.parquet.parquet_dataset import ParquetDataset  # noqa: E402
 from graphnet.data.dataloader import DataLoader  # noqa: E402
 
-from graphnet.models.graphs import KNNGraph  # noqa: E402
-from graphnet.models.graphs.nodes import NodesAsPulses  # noqa: E402
+# from graphnet.models.graphs import KNNGraph  # noqa: E402
+# from graphnet.models.graphs.nodes import NodesAsPulses  # noqa: E402
+from graphnet.models.data_representation import KNNGraph
+from graphnet.models.data_representation import NodesAsPulses
+
 
 from graphnet.models.gnn import DynEdge  # noqa: E402
 from graphnet.models.standard_model import StandardModel  # noqa: E402
@@ -154,6 +184,8 @@ class EpochCSVLogger(Callback):
         self.file = self.out_dir / "metrics.csv"
 
     def on_validation_epoch_end(self, trainer, pl_module):
+        if trainer.sanity_checking:
+            return
         metrics = trainer.callback_metrics
 
         row = {
