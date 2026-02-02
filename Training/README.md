@@ -1,0 +1,1 @@
+## buraya eksikleri gelisimleri vs not al
