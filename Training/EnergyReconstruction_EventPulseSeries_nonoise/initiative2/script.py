@@ -1,18 +1,6 @@
-## This script is the second version of Graphnet-Applications/Training/EnergyReconstruction_EventPulseSeries_nonoise/script.py
 
 
-## yapmak istedigim eklemeler. tobias'in bahsettigi plot
-### ya ayrı bir metrics.txt / metrics.json dosyasına yazdır ve icine W koy mesela.
-## micro-batch + gradient accumulation yontemi yapmisim ben. bu yontem ile effective olarak 128*8 = 1024 batch size condition elde ediyor muyum?
-### bunu belirleyen seylerden biri, layer normalization yapip yapmamam, dropout vs yapmamam sanirim. baska seyler de var. bunlari check et source koddan ve bendeki effective batch size ne tespit et
-### graphnet icin git pull yap. warningler vardi ya bir seyler yakinda bir yerde kullanilmicak diye. onlari coz cnmmmmm.
-### tobias dedi ki 30 epoch cok degil daha da arttir.
-
-
-
-### Kesin GPU kullanmak istiyorsan (cluster GPU node’unda olduğundan eminsen): trainer = pl.Trainer(accelerator="gpu", devices=1, ...)
-
-mport os
+import os
 import sys
 import math
 from dataclasses import dataclass
@@ -31,6 +19,7 @@ from torch_geometric.data import Data
 from typing import Dict, Callable, Optional, List
 import pandas as pd
 import torch
+
 
 from graphnet.models.detector.detector import Detector
 
@@ -153,6 +142,39 @@ from graphnet.training.callbacks import (  # noqa: E402
 from graphnet.utilities.maths import eps_like  # noqa: E402
 from torch import Tensor  # noqa: E402
 
+from pytorch_lightning.callbacks import Callback
+import csv
+from pathlib import Path
+
+
+class EpochCSVLogger(Callback):
+    def __init__(self, out_dir):
+        self.out_dir = Path(out_dir)
+        self.out_dir.mkdir(parents=True, exist_ok=True)
+        self.file = self.out_dir / "metrics.csv"
+
+    def on_validation_epoch_end(self, trainer, pl_module):
+        metrics = trainer.callback_metrics
+
+        row = {
+            "epoch": trainer.current_epoch,
+            "train_loss": metrics.get("train_loss_epoch", metrics.get("train_loss")),
+            "val_loss": metrics.get("val_loss"),
+        }
+
+        # tensor -> float
+        for k, v in row.items():
+            if torch.is_tensor(v):
+                row[k] = v.item()
+
+        write_header = not self.file.exists()
+
+        with self.file.open("a", newline="") as f:
+            writer = csv.DictWriter(f, fieldnames=row.keys())
+            if write_header:
+                writer.writeheader()
+            writer.writerow(row)
+
 
 # -----------------------
 # 2) Config
@@ -180,10 +202,10 @@ class Cfg:
     pin_memory: bool = True
 
     # Training (paper)
-    max_epochs: int = 30
+    max_epochs: int = 75
     base_lr: float = 1e-5
     peak_lr: float = 1e-3
-    early_stopping_patience: int = 5
+    early_stopping_patience: int = 15
 
     # If 1024 doesn't fit: micro-batch + grad accumulation => effective batch ~1024
     accumulate_grad_batches: int = 8
@@ -199,8 +221,13 @@ class Cfg:
     transform_support: Tuple[float, float] = (1e1, 1e8)
 
     # Outputs
-    save_dir: str = "./runs/dynedge_energy"
-    test_csv_name: str = "test_predictions.csv"
+    save_dir: str = "/project/6061446/kbas/Graphnet-Applications/Training/EnergyReconstruction_EventPulseSeries_nonoise/initiative2"
+    test_csv_name: str = "test_predictions.csv"  
+
+
+    # Metrics (epoch-level)
+    metrics_dir: str = "/project/6061446/kbas/Graphnet-Applications/Training/EnergyReconstruction_EventPulseSeries_nonoise/initiative2"
+    metrics_name: str = "metrics.csv"
 
 
 # -----------------------
@@ -434,14 +461,22 @@ def run(cfg: Cfg):
         verbose=True,
     )
 
+
+
+    metrics_cb = EpochCSVLogger(cfg.metrics_dir)
+
+
+
+
     print("\n[Train] Starting Trainer.fit()")
     trainer = pl.Trainer(
         max_epochs=cfg.max_epochs,
-        accelerator="auto",
-        devices="auto",
-        callbacks=[ProgressBar(), early_stop],
+        accelerator="gpu",
+        devices=1,
+        # callbacks=[ProgressBar(), early_stop],
+        callbacks=[early_stop, metrics_cb],
         enable_checkpointing=False,
-        log_every_n_steps=50,
+        enable_progress_bar=False, 
         accumulate_grad_batches=cfg.accumulate_grad_batches,
     )
 
@@ -530,4 +565,3 @@ if __name__ == "__main__":
 
     
     
-## read this script from scratch and check if everything is correct
