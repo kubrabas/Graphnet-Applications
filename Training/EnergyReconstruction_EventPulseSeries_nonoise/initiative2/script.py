@@ -213,6 +213,10 @@ class EpochCSVLogger(Callback):
 # -----------------------
 @dataclass
 class Cfg:
+
+    # seed
+    seed: int = 20260202
+
     # Data paths
     train_path: str = "/project/def-nahee/kbas/POM_Response_Parquet/merged/train_reindexed"
     val_path: str = "/project/def-nahee/kbas/POM_Response_Parquet/merged/val_reindexed"
@@ -458,7 +462,7 @@ def build_model(cfg: Cfg, data_representation, steps_per_epoch_optimizer: int):
 # 8) Train + test
 # -----------------------
 def run(cfg: Cfg):
-    pl.seed_everything(123, workers=True)
+    pl.seed_everything(cfg.seed, workers=True)
     os.makedirs(cfg.save_dir, exist_ok=True)
 
     print("\n========== CONFIG ==========")

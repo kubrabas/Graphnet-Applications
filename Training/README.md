@@ -20,6 +20,7 @@
 12. ben sunu gordummmm out dosyasinda:
 add_norm_layer: False
 skip_readout: False
+13. pone response scriptini de al Graphnet_applications icine
 
 
 ## Training Initiative 1
