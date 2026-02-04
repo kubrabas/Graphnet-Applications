@@ -21,6 +21,9 @@
 add_norm_layer: False
 skip_readout: False
 13. pone response scriptini de al Graphnet_applications icine
+14. train sbatch icine sey yaz, png olusturan bir script calissin. hatta mumkunse ipynb seklinde olabilir.
+15. ValOpeningAngleLogger.on_validation_batch_end içinde pl_module(batch) ile tekrar inference yapıyorsun
+16. inference kisminda bir yerde cpu yaziodu neden
 
 
 ## Training Initiative 1
