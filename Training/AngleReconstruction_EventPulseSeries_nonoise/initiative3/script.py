@@ -3,8 +3,50 @@
 #### silmen gereken import varsa sil
 #### task head'i var ya, onu anla. degistirmen gereken bir sey varsa degistir. task makale ile de ayni mi ogren.
 #### callbackler genel olarak ne? ogren.
+#### bu scripti genel olarak anlamaya calis
+## su ok mu: burdaki epoch sayisi ile metrics.csv icindeki tutarli mi? 
+# global epoch context 
+# _EPOCH_CTX = {"epoch": None}
+## genel olarak scriptte her sey ok mu? source code'lari okuyarak karar ver.
+
+
 
 import logging
+from pytorch_lightning.callbacks import Callback
+
+# global epoch context 
+_EPOCH_CTX = {"epoch": None}
+
+
+class _EpochContextCallback(Callback):
+    def on_validation_epoch_start(self, trainer, pl_module):
+        if trainer.sanity_checking:
+            return
+        _EPOCH_CTX["epoch"] = trainer.current_epoch
+
+
+
+class _InjectEpochIntoEarlyStoppingLog(logging.Filter):
+    def filter(self, record: logging.LogRecord) -> bool:
+        # EarlyStopping'in klasik mesajı:
+        # "Metric val_loss improved by ... New best score: ..."
+        msg = record.getMessage()
+        ep = _EPOCH_CTX.get("epoch", None)
+        if ep is not None and msg.startswith("Metric ") and "New best score" in msg:
+            # msg zaten formatlanmış string -> record.msg'yi güncelle, args boşalt
+            record.msg = msg + f" | epoch: {ep}"
+            record.args = ()
+        return True
+
+
+# Filtreyi EarlyStopping logger'larına tak (PL sürümüne göre isim değişebiliyor)
+_es_filter = _InjectEpochIntoEarlyStoppingLog()
+logging.getLogger("pytorch_lightning.callbacks.early_stopping").addFilter(_es_filter)
+logging.getLogger("lightning.pytorch.callbacks.early_stopping").addFilter(_es_filter)
+# GraphnetEarlyStopping farklı logger kullanıyorsa diye bunu da ekleyebilirsin:
+logging.getLogger("graphnet.training.callbacks").addFilter(_es_filter)
+
+
 
 class _SuppressGraphnetOptionalDeps(logging.Filter):
     def filter(self, record: logging.LogRecord) -> bool:
@@ -179,7 +221,6 @@ from graphnet.training.callbacks import (  # noqa: E402
 )
 
 
-from pytorch_lightning.callbacks import Callback
 import csv
 from pathlib import Path
 
@@ -569,6 +610,7 @@ def run(cfg: Cfg):
     val_angle_cb = ValOpeningAngleLogger()
 
 
+    epoch_ctx_cb = _EpochContextCallback()
 
 
 
@@ -578,7 +620,8 @@ def run(cfg: Cfg):
         accelerator="gpu",
         devices=1,
         # callbacks=[ProgressBar(), early_stop],
-        callbacks=[early_stop, val_angle_cb, metrics_cb],
+        # callbacks=[early_stop, val_angle_cb, metrics_cb],
+        callbacks=[epoch_ctx_cb, early_stop, val_angle_cb, metrics_cb],
         enable_checkpointing=False,
         enable_progress_bar=False, 
         accumulate_grad_batches=cfg.accumulate_grad_batches,
