@@ -1,30 +1,56 @@
-### bunlar script 3ten kalan hatalar:
-#### source code'lari ver gpt'ye. sonra bu scripti ver. sonra sor. neleri degistirmeliyim de.
-#### section isimleri var ya, onu duzenle
-#### silmen gereken import varsa sil
-#### task head'i var ya, onu anla. degistirmen gereken bir sey varsa degistir. task makale ile de ayni mi ogren.
-#### callbackler genel olarak ne? ogren.
-#### bu scripti genel olarak anlamaya calis
-## su ok mu: burdaki epoch sayisi ile metrics.csv icindeki tutarli mi? 
-# global epoch context 
-# _EPOCH_CTX = {"epoch": None}
-## genel olarak scriptte her sey ok mu? source code'lari okuyarak karar ver.
+
+# =======================
+# 0) Imports
+# =======================
 
 
 
+import csv
 import logging
+import math
+import os
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Callable, Dict, List, Optional, Tuple
+
+import pandas as pd
+import pytorch_lightning as pl
+import torch
 from pytorch_lightning.callbacks import Callback
+from torch_geometric.data import Data
+
+from graphnet.data.dataset.parquet.parquet_dataset import ParquetDataset
+from graphnet.data.dataloader import DataLoader
+from graphnet.models.data_representation import KNNGraph, NodesAsPulses
+from graphnet.models.detector.detector import Detector
+from graphnet.models.gnn import DynEdge
+from graphnet.models.standard_model import StandardModel
+from graphnet.models.task.reconstruction import DirectionReconstructionWithKappa
+from graphnet.training.loss_functions import VonMisesFisher3DLoss
+from graphnet.training.labels import Direction
+from graphnet.training.callbacks import PiecewiseLinearLR, GraphnetEarlyStopping
+
+
+# =======================
+# 1) Logging helpers (epoch-in-logs + suppress spam)
+# =======================
+
 
 # global epoch context 
 _EPOCH_CTX = {"epoch": None}
 
 
 class _EpochContextCallback(Callback):
-    def on_validation_epoch_start(self, trainer, pl_module):
+    def _set_epoch(self, trainer):
         if trainer.sanity_checking:
             return
         _EPOCH_CTX["epoch"] = trainer.current_epoch
 
+    def on_train_epoch_start(self, trainer, pl_module):
+        self._set_epoch(trainer)
+
+    def on_validation_epoch_start(self, trainer, pl_module):
+        self._set_epoch(trainer)
 
 
 class _InjectEpochIntoEarlyStoppingLog(logging.Filter):
@@ -38,15 +64,6 @@ class _InjectEpochIntoEarlyStoppingLog(logging.Filter):
             record.msg = msg + f" | epoch: {ep}"
             record.args = ()
         return True
-
-
-# Filtreyi EarlyStopping logger'larına tak (PL sürümüne göre isim değişebiliyor)
-_es_filter = _InjectEpochIntoEarlyStoppingLog()
-logging.getLogger("pytorch_lightning.callbacks.early_stopping").addFilter(_es_filter)
-logging.getLogger("lightning.pytorch.callbacks.early_stopping").addFilter(_es_filter)
-# GraphnetEarlyStopping farklı logger kullanıyorsa diye bunu da ekleyebilirsin:
-logging.getLogger("graphnet.training.callbacks").addFilter(_es_filter)
-
 
 
 class _SuppressGraphnetOptionalDeps(logging.Filter):
@@ -68,35 +85,32 @@ class _SuppressGraphnetOptionalDeps(logging.Filter):
 
         return True
 
-_f = _SuppressGraphnetOptionalDeps()
-
-logging.getLogger("graphnet").addFilter(_f)
-logging.getLogger("graphnet.utilities.imports").addFilter(_f)
 
 
+_LOG_FILTERS_INSTALLED = False
+
+# Install log filters once (avoid duplicate filters in notebook/re-runs)
+def install_logging_filters() -> None:
+    global _LOG_FILTERS_INSTALLED
+    if _LOG_FILTERS_INSTALLED:
+        return
+    _LOG_FILTERS_INSTALLED = True
+
+    # EarlyStopping log'una epoch ekle
+    es_filter = _InjectEpochIntoEarlyStoppingLog()
+    logging.getLogger("pytorch_lightning.callbacks.early_stopping").addFilter(es_filter)
+    logging.getLogger("lightning.pytorch.callbacks.early_stopping").addFilter(es_filter)
+    logging.getLogger("graphnet.training.callbacks").addFilter(es_filter)
+
+    # GraphNeT optional deps spam'ini sustur
+    f = _SuppressGraphnetOptionalDeps()
+    logging.getLogger("graphnet").addFilter(f)
+    logging.getLogger("graphnet.utilities.imports").addFilter(f)
 
 
-import os
-import math
-from dataclasses import dataclass
-from typing import Optional, Tuple
-
-import torch
-import pandas as pd
-import pytorch_lightning as pl
-from torch_geometric.data import Data
-
-# -----------------------
-# 0) Repo import
-# -----------------------
-
-
-from typing import Dict, Callable, Optional, List
-import pandas as pd
-import torch
-
-
-from graphnet.models.detector.detector import Detector
+# =======================
+# 2) Detector: PONE (robust scaling)
+# =======================
 
 
 class PONE(Detector):
@@ -192,45 +206,16 @@ class PONE(Detector):
     def _pmt_z(self, x: torch.Tensor) -> torch.Tensor:
         return self._robust_scale(x, "pmt_z")
 
-
-# -----------------------
-# 1) GraphNeT imports
-# -----------------------
-from graphnet.data.dataset.parquet.parquet_dataset import ParquetDataset  # noqa: E402
-from graphnet.data.dataloader import DataLoader  # noqa: E402
-
-# from graphnet.models.graphs import KNNGraph  # noqa: E402
-# from graphnet.models.graphs.nodes import NodesAsPulses  # noqa: E402
-from graphnet.models.data_representation import KNNGraph
-from graphnet.models.data_representation import NodesAsPulses
-
-
-from graphnet.models.gnn import DynEdge  # noqa: E402
-from graphnet.models.standard_model import StandardModel  # noqa: E402
-
-from graphnet.models.task.reconstruction import DirectionReconstructionWithKappa
-
-from graphnet.training.loss_functions import VonMisesFisher3DLoss
-
-
-from graphnet.training.labels import Direction
-
-
-from graphnet.training.callbacks import (  # noqa: E402
-    PiecewiseLinearLR,
-    GraphnetEarlyStopping,
-)
-
-
-import csv
-from pathlib import Path
+# =======================
+# 3) Lightning callbacks (metrics CSV + opening angle)
+# =======================
 
 
 class EpochCSVLogger(Callback):
-    def __init__(self, out_dir):
+    def __init__(self, out_dir, filename: str = "metrics.csv"):
         self.out_dir = Path(out_dir)
         self.out_dir.mkdir(parents=True, exist_ok=True)
-        self.file = self.out_dir / "metrics.csv"
+        self.file = self.out_dir / filename
 
     def on_validation_epoch_end(self, trainer, pl_module):
         if trainer.sanity_checking:
@@ -316,10 +301,12 @@ class ValOpeningAngleLogger(Callback):
         pl_module.log("val_kappa_mean", kappa_mean, prog_bar=False, on_epoch=True, sync_dist=True)
 
 
+# =======================
+# 4) Config
+# =======================
 
-# -----------------------
-# 2) Config
-# -----------------------
+
+
 @dataclass
 class Cfg:
 
@@ -373,13 +360,10 @@ class Cfg:
     metrics_name: str = "metrics.csv"
 
 
-# -----------------------
-# 3) Direction/Angle helpers
-# -----------------------
+# =======================
+# 5) Batch / tensor helpers
+# =======================
 
-# -----------------------
-# 5) Helpers
-# -----------------------
 def num_graphs_in_batch(batch) -> int:
     if isinstance(batch, Data):
         return int(batch.num_graphs) if hasattr(batch, "num_graphs") else 1
@@ -408,9 +392,11 @@ def move_batch_to_device(batch, device):
     return [d.to(device) for d in batch]
 
 
-# -----------------------
-# 6) Build datasets & loaders
-# -----------------------
+# =======================
+# 6) Data (datasets + loaders)
+# =======================
+
+
 def build_data(cfg: Cfg):
     print("[Data] Building data_representation (KNNGraph + PONE robust scaling)")
     data_representation = KNNGraph(
@@ -503,9 +489,10 @@ def build_data(cfg: Cfg):
     return data_representation, train_loader, val_loader, test_loader
 
 
-# -----------------------
-# 7) Build model (DynEdge + DirectionReconstructionWithKappa)
-# -----------------------
+# =======================
+# 7) Model (DynEdge + DirectionRecoWithKappa)
+# =======================
+
 
 def build_model(cfg: Cfg, data_representation, steps_per_epoch_optimizer: int):
     print("[Model] Building DynEdge backbone")
@@ -555,11 +542,13 @@ def build_model(cfg: Cfg, data_representation, steps_per_epoch_optimizer: int):
     return model
 
 
-# -----------------------
-# 8) Train + test (opening angle evaluation)
-# -----------------------
+# =======================
+# 8) Train + Test (inference + CSV)
+# =======================
+
 
 def run(cfg: Cfg):
+    install_logging_filters()
     pl.seed_everything(cfg.seed, workers=True)
     os.makedirs(cfg.save_dir, exist_ok=True)
 
@@ -606,7 +595,8 @@ def run(cfg: Cfg):
 
 
 
-    metrics_cb = EpochCSVLogger(cfg.metrics_dir)
+    metrics_cb = EpochCSVLogger(cfg.metrics_dir, filename=cfg.metrics_name)
+
 
     val_angle_cb = ValOpeningAngleLogger()
 
