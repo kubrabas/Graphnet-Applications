@@ -38,3 +38,12 @@ skip_readout: False
 4. mem is decreased: "#SBATCH --mem=32G"
 5. this error is solved: `graphnet.models.graphs` will be depricated soon. All functionality has been moved to `graphnet.models.data_representation`
 6. metrics.csv is prepared to monitor/compare validation-training error curve
+    
+## Training Initiative 3
+##### Info: Angle Reco No Noise
+1.
+    
+## Training Initiative 4
+##### Info: Angle Reco No Noise
+1.    
+
