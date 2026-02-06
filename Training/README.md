@@ -24,6 +24,14 @@ skip_readout: False
 14. train sbatch icine sey yaz, png olusturan bir script calissin. hatta mumkunse ipynb seklinde olabilir.
 15. ValOpeningAngleLogger.on_validation_batch_end içinde pl_module(batch) ile tekrar inference yapıyorsun
 16. inference kisminda bir yerde cpu yaziodu neden
+17.
+#### source code'lari ver gpt'ye. sonra bu scripti ver. sonra sor. neleri degistirmeliyim de.
+#### task head'i var ya, onu anla. degistirmen gereken bir sey varsa degistir. task makale ile de ayni mi ogren.
+#### callbackler genel olarak ne? ogren.
+#### bu scripti genel olarak anlamaya calis
+# global epoch context 
+## genel olarak scriptte her sey ok mu? source code'lari okuyarak karar ver.
+
 
 
 ## Training Initiative 1
@@ -41,9 +49,16 @@ skip_readout: False
     
 ## Training Initiative 3
 ##### Info: Angle Reco No Noise
-1.
+1. objective changed: now we train 3D direction derived from (azimuth, zenith). We add Direction() label (az+ze → direction vector). Task: DirectionReconstructionWithKappa, Loss: VonMisesFisher3DLoss (predicts direction + kappa uncertainty/confidence). Test outputs: opening_angle_deg, kappa, true/pred azimuth-zenith.
+2. Improvement in Early Stopping logs: Epoch Number is included
+3. Validation metric upgrade: opening angle quantiles + kappa mean
+4. Sanity checks added (direction norm ≈ 1, az/ze range)
+5. I haven’t verified yet whether this matches the reference paper’s exact setup. I will do this in the initiative4
+
     
 ## Training Initiative 4
 ##### Info: Angle Reco No Noise
-1.    
 
+1. **Imports cleaned:** removed duplicate imports and consolidated everything into a single import block.
+2. **Removed redundant GraphNeT imports:** deleted the second GraphNeT import section (`E402/noqa` clutter removed).
+3. **Logging/epoch wiring cleaned up:** moved log-filter setup into a guarded `install_logging_filters()` and call it from `run()`; **epoch context hardened:** `_EpochContextCallback` now updates epoch on both train and validation epoch start (so the existing `epoch: X` injection stays consistent).
