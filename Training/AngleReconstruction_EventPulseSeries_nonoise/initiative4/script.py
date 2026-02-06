@@ -334,7 +334,7 @@ class Cfg:
     pin_memory: bool = True
 
     # Training (paper)
-    max_epochs: int = 75
+    max_epochs: int = 10
     base_lr: float = 1e-5
     peak_lr: float = 1e-3
     early_stopping_patience: int = 15

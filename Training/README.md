@@ -62,3 +62,4 @@ skip_readout: False
 1. **Imports cleaned:** removed duplicate imports and consolidated everything into a single import block.
 2. **Removed redundant GraphNeT imports:** deleted the second GraphNeT import section (`E402/noqa` clutter removed).
 3. **Logging/epoch wiring cleaned up:** moved log-filter setup into a guarded `install_logging_filters()` and call it from `run()`; **epoch context hardened:** `_EpochContextCallback` now updates epoch on both train and validation epoch start (so the existing `epoch: X` injection stays consistent).
+4. just a test run. 10 epoch only
