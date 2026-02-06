@@ -1,3 +1,17 @@
+### bunlar script 3ten kalan hatalar:
+#### source code'lari ver gpt'ye. sonra bu scripti ver. sonra sor. neleri degistirmeliyim de.
+#### section isimleri var ya, onu duzenle
+#### silmen gereken import varsa sil
+#### task head'i var ya, onu anla. degistirmen gereken bir sey varsa degistir. task makale ile de ayni mi ogren.
+#### callbackler genel olarak ne? ogren.
+#### bu scripti genel olarak anlamaya calis
+## su ok mu: burdaki epoch sayisi ile metrics.csv icindeki tutarli mi? 
+# global epoch context 
+# _EPOCH_CTX = {"epoch": None}
+## genel olarak scriptte her sey ok mu? source code'lari okuyarak karar ver.
+
+
+
 import logging
 from pytorch_lightning.callbacks import Callback
 
