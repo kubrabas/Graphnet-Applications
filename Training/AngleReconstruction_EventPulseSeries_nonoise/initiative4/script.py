@@ -351,12 +351,12 @@ class Cfg:
 
 
     # Outputs
-    save_dir: str = "/project/6061446/kbas/Graphnet-Applications/Training/AngleReconstruction_EventPulseSeries_nonoise/initiative3"
+    save_dir: str = "/project/6061446/kbas/Graphnet-Applications/Training/AngleReconstruction_EventPulseSeries_nonoise/initiative4"
     test_csv_name: str = "test_predictions.csv"  
 
 
     # Metrics (epoch-level)
-    metrics_dir: str = "/project/6061446/kbas/Graphnet-Applications/Training/AngleReconstruction_EventPulseSeries_nonoise/initiative3"
+    metrics_dir: str = "/project/6061446/kbas/Graphnet-Applications/Training/AngleReconstruction_EventPulseSeries_nonoise/initiative4"
     metrics_name: str = "metrics.csv"
 
 
