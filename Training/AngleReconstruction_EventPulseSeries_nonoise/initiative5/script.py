@@ -1,12 +1,41 @@
+## check after this script runs: is the files same as initiative3/4: config, best_model, metrics etc
+
 
 # =======================
 # 0) Imports
 # =======================
 
+import logging
+
+
+# ---- GraphNeT optional-deps warning suppress  ----
+class _SuppressGraphnetOptionalDepsAtImport(logging.Filter):
+    def filter(self, record: logging.LogRecord) -> bool:
+        if not record.name.startswith("graphnet"):
+            return True
+
+        msg = record.getMessage()
+        if (
+            "has_jammy_flows_package" in msg
+            or "jammy_flows" in msg
+            or "has_icecube_package" in msg
+            or "`icecube` not available" in msg
+            or "has_km3net_package" in msg
+            or "`km3net` not available" in msg
+        ):
+            return False
+
+        return True
+
+
+if not getattr(logging, "_GRAPHNET_OPTIONAL_DEPS_FILTER_INSTALLED", False):
+    _f_import = _SuppressGraphnetOptionalDepsAtImport()
+    logging.getLogger("graphnet").addFilter(_f_import)
+    logging.getLogger("graphnet.utilities.imports").addFilter(_f_import)
+    logging._GRAPHNET_OPTIONAL_DEPS_FILTER_INSTALLED = True
 
 
 import csv
-import logging
 import math
 import os
 from dataclasses import dataclass
@@ -66,26 +95,6 @@ class _InjectEpochIntoEarlyStoppingLog(logging.Filter):
         return True
 
 
-class _SuppressGraphnetOptionalDeps(logging.Filter):
-    def filter(self, record: logging.LogRecord) -> bool:
-        if not record.name.startswith("graphnet"):
-            return True
-
-        msg = record.getMessage()
-
-        if (
-            "has_jammy_flows_package" in msg
-            or "jammy_flows" in msg
-            or "has_icecube_package" in msg
-            or "`icecube` not available" in msg
-            or "has_km3net_package" in msg
-            or "`km3net` not available" in msg
-        ):
-            return False
-
-        return True
-
-
 
 _LOG_FILTERS_INSTALLED = False
 
@@ -102,10 +111,7 @@ def install_logging_filters() -> None:
     logging.getLogger("lightning.pytorch.callbacks.early_stopping").addFilter(es_filter)
     logging.getLogger("graphnet.training.callbacks").addFilter(es_filter)
 
-    # GraphNeT optional deps spam'ini sustur
-    f = _SuppressGraphnetOptionalDeps()
-    logging.getLogger("graphnet").addFilter(f)
-    logging.getLogger("graphnet.utilities.imports").addFilter(f)
+
 
 
 # =======================
@@ -334,7 +340,7 @@ class Cfg:
     pin_memory: bool = True
 
     # Training (paper)
-    max_epochs: int = 75
+    max_epochs: int = 10
     base_lr: float = 1e-5
     peak_lr: float = 1e-3
     early_stopping_patience: int = 15
@@ -356,6 +362,7 @@ class Cfg:
 
 
     # Metrics (epoch-level)
+    metrics_dir: str = "/project/6061446/kbas/Graphnet-Applications/Training/AngleReconstruction_EventPulseSeries_nonoise/initiative4"
     metrics_name: str = "metrics.csv"
 
 
@@ -546,12 +553,10 @@ def build_model(cfg: Cfg, data_representation, steps_per_epoch_optimizer: int):
 # =======================
 
 
-def run(cfg: Cfg, target: str = "direction"):
+def run(cfg: Cfg):
     install_logging_filters()
     pl.seed_everything(cfg.seed, workers=True)
-    run_dir = os.path.join(cfg.save_dir, target)
-    os.makedirs(run_dir, exist_ok=True)
-    print(f"[Run] target={target} | run_dir={run_dir}")
+    os.makedirs(cfg.save_dir, exist_ok=True)
 
     print("\n========== CONFIG ==========")
     for k, v in cfg.__dict__.items():
@@ -586,7 +591,7 @@ def run(cfg: Cfg, target: str = "direction"):
 
     # Early stopping
     early_stop = GraphnetEarlyStopping(
-        save_dir=run_dir,
+        save_dir=cfg.save_dir,
         monitor="val_loss",
         mode="min",
         patience=cfg.early_stopping_patience,
@@ -596,8 +601,7 @@ def run(cfg: Cfg, target: str = "direction"):
 
 
 
-    metrics_cb = EpochCSVLogger(run_dir, filename=cfg.metrics_name)
-
+    metrics_cb = EpochCSVLogger(cfg.metrics_dir, filename=cfg.metrics_name)
 
 
     val_angle_cb = ValOpeningAngleLogger()
@@ -622,10 +626,8 @@ def run(cfg: Cfg, target: str = "direction"):
 
     trainer.fit(model, train_dataloaders=train_loader, val_dataloaders=val_loader)
 
-
-    best_path = os.path.join(run_dir, "best_model.pth")
-    cfg_path = os.path.join(run_dir, "config.yml")
-
+    best_path = os.path.join(cfg.save_dir, "best_model.pth")
+    cfg_path = os.path.join(cfg.save_dir, "config.yml")
     print("\n[Train] Finished.")
     print(f"[Train] Best model path: {best_path}")
     print(f"[Train] Config path:     {cfg_path}")
@@ -708,8 +710,7 @@ def run(cfg: Cfg, target: str = "direction"):
 
 
         df = pd.DataFrame(rows)
-        out_csv = os.path.join(run_dir, cfg.test_csv_name)
-
+        out_csv = os.path.join(cfg.save_dir, cfg.test_csv_name)
         df.to_csv(out_csv, index=False)
         print(f"\n[Test] Wrote CSV: {out_csv}")
         print(f"[Test] Rows: {len(df)}")
@@ -732,14 +733,11 @@ def run(cfg: Cfg, target: str = "direction"):
 if __name__ == "__main__":
     cfg = Cfg()
 
-    for target in ("zenith", "azimuth"):
-        run(cfg, target=target)
-
-
     # If VRAM is not enough:
     # cfg.batch_size = 128
     # cfg.accumulate_grad_batches = 8  # effective batch ~1024
 
+    run(cfg)
 
     
     
