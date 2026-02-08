@@ -305,7 +305,7 @@ class Cfg:
 
 
     # Outputs
-    save_dir: str = "/project/6061446/kbas/Graphnet-Applications/Training/AngleReconstruction_EventPulseSeries_nonoise/initiative4"
+    save_dir: str = "/project/6061446/kbas/Graphnet-Applications/Training/AngleReconstruction_EventPulseSeries_nonoise/initiative5"
 
 
     # Metrics (epoch-level)
