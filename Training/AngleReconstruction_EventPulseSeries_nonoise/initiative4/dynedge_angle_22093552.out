@@ -1,0 +1,191 @@
+===== SLURM INFO =====
+JOBID: 22093552
+NODELIST: fc10716
+CPUS_PER_TASK: 12
+GPUS_ON_NODE: 1
+SUBMIT_DIR: /project/6061446/kbas/Graphnet-Applications/Training/AngleReconstruction_EventPulseSeries_nonoise/initiative4
+======================
+The following modules were not unloaded:
+  (Use "module --force purge" to unload all):
+
+  1) CCconfig        6)  ucx/1.14.1         11) flexiblas/3.3.1
+  2) gentoo/2023     7)  libfabric/1.18.0   12) aocl-blas/5.1
+  3) gcccore/.12.3   8)  pmix/4.2.4         13) aocl-lapack/5.1
+  4) gcc/12.3        9)  ucc/1.2.0          14) StdEnv/2023
+  5) hwloc/2.9.1     10) openmpi/4.1.5
+===== ENV SETUP =====
+PWD: /project/def-nahee/kbas/pone_offline
+Activating venv: /project/def-nahee/kbas/pone_offline/graphnet_env/bin/activate
+Python: /project/6061446/kbas/pone_offline/graphnet_env/bin/python3
+sys.executable = /project/6061446/kbas/pone_offline/graphnet_env/bin/python3
+torch: 2.6.0
+cuda available: True
+cuda device: NVIDIA H100 80GB HBM3 MIG 3g.40gb
+===== GPU INFO =====
+Sat Feb  7 04:31:35 2026       
++-----------------------------------------------------------------------------------------+
+| NVIDIA-SMI 580.65.06              Driver Version: 580.65.06      CUDA Version: 13.0     |
++-----------------------------------------+------------------------+----------------------+
+| GPU  Name                 Persistence-M | Bus-Id          Disp.A | Volatile Uncorr. ECC |
+| Fan  Temp   Perf          Pwr:Usage/Cap |           Memory-Usage | GPU-Util  Compute M. |
+|                                         |                        |               MIG M. |
+|=========================================+========================+======================|
+|   0  NVIDIA H100 80GB HBM3          On  |   00000000:4C:00.0 Off |                   On |
+| N/A   26C    P0            127W /  700W |    2905MiB /  81559MiB |     N/A      Default |
+|                                         |                        |              Enabled |
++-----------------------------------------+------------------------+----------------------+
+
++-----------------------------------------------------------------------------------------+
+| MIG devices:                                                                            |
++------------------+----------------------------------+-----------+-----------------------+
+| GPU  GI  CI  MIG |              Shared Memory-Usage |        Vol|        Shared         |
+|      ID  ID  Dev |                Shared BAR1-Usage | SM     Unc| CE ENC  DEC  OFA  JPG |
+|                  |                                  |        ECC|                       |
+|==================+==================================+===========+=======================|
+|  0    2   0   0  |              44MiB / 40448MiB    | 60      0 |  3   0    3    0    3 |
+|                  |               0MiB / 24740MiB    |           |                       |
++------------------+----------------------------------+-----------+-----------------------+
+
++-----------------------------------------------------------------------------------------+
+| Processes:                                                                              |
+|  GPU   GI   CI              PID   Type   Process name                        GPU Memory |
+|        ID   ID                                                               Usage      |
+|=========================================================================================|
+|  No running processes found                                                             |
++-----------------------------------------------------------------------------------------+
+====================
+===== RUN =====
+[rank: 0] Seed set to 20260202
+
+========== CONFIG ==========
+seed: 20260202
+train_path: /project/def-nahee/kbas/POM_Response_Parquet/merged/train_reindexed
+val_path: /project/def-nahee/kbas/POM_Response_Parquet/merged/val_reindexed
+test_path: /project/def-nahee/kbas/POM_Response_Parquet/merged/test_reindexed
+pulsemaps: features
+truth_table: truth
+features: ('pmt_x', 'pmt_y', 'pmt_z', 'dom_time', 'charge')
+truth: ('azimuth', 'zenith')
+batch_size: 128
+num_workers: 8
+multiprocessing_context: spawn
+persistent_workers: True
+pin_memory: True
+max_epochs: 10
+base_lr: 1e-05
+peak_lr: 0.001
+early_stopping_patience: 15
+accumulate_grad_batches: 8
+nb_neighbours: 8
+global_pooling_schemes: ('min', 'max', 'mean', 'sum')
+add_global_variables_after_pooling: True
+add_norm_layer: False
+skip_readout: False
+save_dir: /project/6061446/kbas/Graphnet-Applications/Training/AngleReconstruction_EventPulseSeries_nonoise/initiative4
+test_csv_name: test_predictions.csv
+metrics_dir: /project/6061446/kbas/Graphnet-Applications/Training/AngleReconstruction_EventPulseSeries_nonoise/initiative4
+metrics_name: metrics.csv
+============================
+
+[Data] Building data_representation (KNNGraph + PONE robust scaling)
+[1;34mgraphnet[0m [MainProcess] [32mINFO    [0m 2026-02-07 04:34:04 - PONE.__init__ - Writing log to [1mlogs/graphnet_20260207-043404.log[0m
+[Data] Creating ParquetDataset(s)
+[Data] Adding derived label: direction (from azimuth, zenith)
+[Data] Creating DataLoader(s)
+[Data] len(train_loader) = 2512 batches/epoch (drop_last=True)
+[Data] len(val_loader)   = 312 batches/epoch
+[Data] len(test_loader)  = 324 batches
+[Sanity] direction norm mean=1.000000
+[Sanity] azimuth range in batch: 0.160 .. 6.167 | zenith: 0.127 .. 3.018
+[Sanity] batch type: <class 'abc.DataBatch'>
+[Sanity] graphs in one train batch: 127 (expected 128)
+[Sanity][WARN] graphs != batch_size. Might be OK, but verify dataset returns single-event graphs.
+[Train] steps/epoch (batches)   = 2512
+[Train] accumulate_grad_batches = 8
+[Train] steps/epoch (optimizer) = 314
+[Model] Building DynEdge backbone
+[Model] Building direction task (vMF3D + kappa)
+[LR] Schedule setup:
+     base_lr=1e-05, peak_lr=0.001 (factor=100)
+     steps/epoch (optimizer) = 314
+     warmup_steps            = 157 (first 50% of epoch 0)
+     total_steps             = 3140 (for 10 epochs)
+
+[Train] Starting Trainer.fit()
+GPU available: True (cuda), used: True
+TPU available: False, using: 0 TPU cores
+/project/6061446/kbas/pone_offline/graphnet_env/lib/python3.10/site-packages/pytorch_lightning/trainer/connectors/logger_connector/logger_connector.py:76: Starting from v1.9.0, `tensorboardX` has been removed as a dependency of the `pytorch_lightning` package, due to potential conflicts with other packages in the ML ecosystem. For this reason, `logger=True` will use `CSVLogger` as the default logger, unless the `tensorboard` or `tensorboardX` packages are found. Please `pip install lightning[extra]` or one of them to enable TensorBoard support by default
+You are using a CUDA device ('NVIDIA H100 80GB HBM3 MIG 3g.40gb') that has Tensor Cores. To properly utilize them, you should set `torch.set_float32_matmul_precision('medium' | 'high')` which will trade-off precision for performance. For more details, read https://pytorch.org/docs/stable/generated/torch.set_float32_matmul_precision.html#torch.set_float32_matmul_precision
+LOCAL_RANK: 0 - CUDA_VISIBLE_DEVICES: [MIG-c38e0e23-f964-5d8b-965b-fbc617e59870]
+
+  | Name                 | Type       | Params | Mode 
+------------------------------------------------------------
+0 | _tasks               | ModuleList | 387    | train
+1 | _data_representation | KNNGraph   | 0      | train
+2 | backbone             | DynEdge    | 1.4 M  | train
+------------------------------------------------------------
+1.4 M     Trainable params
+0         Non-trainable params
+1.4 M     Total params
+5.502     Total estimated model params size (MB)
+36        Modules in train mode
+0         Modules in eval mode
+SLURM auto-requeueing enabled. Setting signal handlers.
+Metric val_loss improved. New best score: -0.826 | epoch: 0
+[1;34mgraphnet[0m [MainProcess] [32mINFO    [0m 2026-02-07 04:55:58 - StandardModel.save_state_dict - Model state_dict saved to /project/6061446/kbas/Graphnet-Applications/Training/AngleReconstruction_EventPulseSeries_nonoise/initiative4/best_model.pth[0m
+Metric val_loss improved by 0.505 >= min_delta = 0.0. New best score: -1.331 | epoch: 1
+[1;34mgraphnet[0m [MainProcess] [32mINFO    [0m 2026-02-07 05:15:03 - StandardModel.save_state_dict - Model state_dict saved to /project/6061446/kbas/Graphnet-Applications/Training/AngleReconstruction_EventPulseSeries_nonoise/initiative4/best_model.pth[0m
+Metric val_loss improved by 0.084 >= min_delta = 0.0. New best score: -1.415 | epoch: 2
+[1;34mgraphnet[0m [MainProcess] [32mINFO    [0m 2026-02-07 05:34:07 - StandardModel.save_state_dict - Model state_dict saved to /project/6061446/kbas/Graphnet-Applications/Training/AngleReconstruction_EventPulseSeries_nonoise/initiative4/best_model.pth[0m
+Metric val_loss improved by 0.055 >= min_delta = 0.0. New best score: -1.470 | epoch: 3
+[1;34mgraphnet[0m [MainProcess] [32mINFO    [0m 2026-02-07 05:53:19 - StandardModel.save_state_dict - Model state_dict saved to /project/6061446/kbas/Graphnet-Applications/Training/AngleReconstruction_EventPulseSeries_nonoise/initiative4/best_model.pth[0m
+Metric val_loss improved by 0.047 >= min_delta = 0.0. New best score: -1.517 | epoch: 4
+[1;34mgraphnet[0m [MainProcess] [32mINFO    [0m 2026-02-07 06:12:20 - StandardModel.save_state_dict - Model state_dict saved to /project/6061446/kbas/Graphnet-Applications/Training/AngleReconstruction_EventPulseSeries_nonoise/initiative4/best_model.pth[0m
+Metric val_loss improved by 0.046 >= min_delta = 0.0. New best score: -1.563 | epoch: 5
+[1;34mgraphnet[0m [MainProcess] [32mINFO    [0m 2026-02-07 06:31:10 - StandardModel.save_state_dict - Model state_dict saved to /project/6061446/kbas/Graphnet-Applications/Training/AngleReconstruction_EventPulseSeries_nonoise/initiative4/best_model.pth[0m
+Metric val_loss improved by 0.027 >= min_delta = 0.0. New best score: -1.590 | epoch: 6
+[1;34mgraphnet[0m [MainProcess] [32mINFO    [0m 2026-02-07 06:50:23 - StandardModel.save_state_dict - Model state_dict saved to /project/6061446/kbas/Graphnet-Applications/Training/AngleReconstruction_EventPulseSeries_nonoise/initiative4/best_model.pth[0m
+Metric val_loss improved by 0.018 >= min_delta = 0.0. New best score: -1.608 | epoch: 7
+[1;34mgraphnet[0m [MainProcess] [32mINFO    [0m 2026-02-07 07:09:20 - StandardModel.save_state_dict - Model state_dict saved to /project/6061446/kbas/Graphnet-Applications/Training/AngleReconstruction_EventPulseSeries_nonoise/initiative4/best_model.pth[0m
+Metric val_loss improved by 0.031 >= min_delta = 0.0. New best score: -1.639 | epoch: 8
+[1;34mgraphnet[0m [MainProcess] [32mINFO    [0m 2026-02-07 07:28:11 - StandardModel.save_state_dict - Model state_dict saved to /project/6061446/kbas/Graphnet-Applications/Training/AngleReconstruction_EventPulseSeries_nonoise/initiative4/best_model.pth[0m
+Metric val_loss improved by 0.014 >= min_delta = 0.0. New best score: -1.654 | epoch: 9
+[1;34mgraphnet[0m [MainProcess] [32mINFO    [0m 2026-02-07 07:47:02 - StandardModel.save_state_dict - Model state_dict saved to /project/6061446/kbas/Graphnet-Applications/Training/AngleReconstruction_EventPulseSeries_nonoise/initiative4/best_model.pth[0m
+`Trainer.fit` stopped: `max_epochs=10` reached.
+
+[Train] Finished.
+[Train] Best model path: /project/6061446/kbas/Graphnet-Applications/Training/AngleReconstruction_EventPulseSeries_nonoise/initiative4/best_model.pth
+[Train] Config path:     /project/6061446/kbas/Graphnet-Applications/Training/AngleReconstruction_EventPulseSeries_nonoise/initiative4/config.yml
+
+[Test] Starting inference on test set
+[Test] model device = cpu
+[Test] batch 0/324: N=127 median_angle_deg=4.625 mean_kappa=85.305
+[Test] batch 20/324: N=128 median_angle_deg=4.355 mean_kappa=89.887
+[Test] batch 40/324: N=126 median_angle_deg=3.517 mean_kappa=94.883
+[Test] batch 60/324: N=128 median_angle_deg=4.121 mean_kappa=95.396
+[Test] batch 80/324: N=127 median_angle_deg=3.880 mean_kappa=85.702
+[Test] batch 100/324: N=128 median_angle_deg=4.033 mean_kappa=84.450
+[Test] batch 120/324: N=128 median_angle_deg=3.913 mean_kappa=98.256
+[Test] batch 140/324: N=128 median_angle_deg=3.558 mean_kappa=89.352
+[Test] batch 160/324: N=128 median_angle_deg=4.827 mean_kappa=87.048
+[Test] batch 180/324: N=128 median_angle_deg=3.730 mean_kappa=90.219
+[Test] batch 200/324: N=127 median_angle_deg=3.896 mean_kappa=89.744
+[Test] batch 220/324: N=128 median_angle_deg=3.837 mean_kappa=88.860
+[Test] batch 240/324: N=128 median_angle_deg=3.766 mean_kappa=88.084
+[Test] batch 260/324: N=127 median_angle_deg=5.051 mean_kappa=87.326
+[Test] batch 280/324: N=128 median_angle_deg=3.844 mean_kappa=86.001
+[Test] batch 300/324: N=128 median_angle_deg=4.092 mean_kappa=83.027
+[Test] batch 320/324: N=128 median_angle_deg=3.556 mean_kappa=86.449
+
+[Test] Wrote CSV: /project/6061446/kbas/Graphnet-Applications/Training/AngleReconstruction_EventPulseSeries_nonoise/initiative4/test_predictions.csv
+[Test] Rows: 41311
+[Test] opening_angle_deg quantiles: p16=1.441, p50=3.967, p84=15.152, W=6.856
+
+[Test] CSV head:
+ opening_angle_deg      kappa  true_azimuth  true_zenith  pred_azimuth  pred_zenith  event_id
+         18.552610   5.102437      4.139313     0.390769      3.467422     0.532074       242
+          0.485778 132.342224      5.674534     1.441897      5.674184     1.433434       778
+          7.279796  74.626686      1.370334     1.758793      1.489162     1.709795      1171
+         11.498500  50.837093      6.200981     2.018402      6.279632     2.207519      1634
+         12.356744  67.500397      4.743681     0.521355      4.308238     0.521795      3741
+===== DONE =====

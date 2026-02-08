@@ -3,10 +3,37 @@
 # 0) Imports
 # =======================
 
+import logging
+
+
+# ---- GraphNeT optional-deps warning suppress  ----
+class _SuppressGraphnetOptionalDepsAtImport(logging.Filter):
+    def filter(self, record: logging.LogRecord) -> bool:
+        if not record.name.startswith("graphnet"):
+            return True
+
+        msg = record.getMessage()
+        if (
+            "has_jammy_flows_package" in msg
+            or "jammy_flows" in msg
+            or "has_icecube_package" in msg
+            or "`icecube` not available" in msg
+            or "has_km3net_package" in msg
+            or "`km3net` not available" in msg
+        ):
+            return False
+
+        return True
+
+
+if not getattr(logging, "_GRAPHNET_OPTIONAL_DEPS_FILTER_INSTALLED", False):
+    _f_import = _SuppressGraphnetOptionalDepsAtImport()
+    logging.getLogger("graphnet").addFilter(_f_import)
+    logging.getLogger("graphnet.utilities.imports").addFilter(_f_import)
+    logging._GRAPHNET_OPTIONAL_DEPS_FILTER_INSTALLED = True
 
 
 import csv
-import logging
 import math
 import os
 from dataclasses import dataclass
@@ -66,26 +93,6 @@ class _InjectEpochIntoEarlyStoppingLog(logging.Filter):
         return True
 
 
-class _SuppressGraphnetOptionalDeps(logging.Filter):
-    def filter(self, record: logging.LogRecord) -> bool:
-        if not record.name.startswith("graphnet"):
-            return True
-
-        msg = record.getMessage()
-
-        if (
-            "has_jammy_flows_package" in msg
-            or "jammy_flows" in msg
-            or "has_icecube_package" in msg
-            or "`icecube` not available" in msg
-            or "has_km3net_package" in msg
-            or "`km3net` not available" in msg
-        ):
-            return False
-
-        return True
-
-
 
 _LOG_FILTERS_INSTALLED = False
 
@@ -102,10 +109,7 @@ def install_logging_filters() -> None:
     logging.getLogger("lightning.pytorch.callbacks.early_stopping").addFilter(es_filter)
     logging.getLogger("graphnet.training.callbacks").addFilter(es_filter)
 
-    # GraphNeT optional deps spam'ini sustur
-    f = _SuppressGraphnetOptionalDeps()
-    logging.getLogger("graphnet").addFilter(f)
-    logging.getLogger("graphnet.utilities.imports").addFilter(f)
+
 
 
 # =======================
