@@ -311,6 +311,10 @@ class Cfg:
     # Metrics (epoch-level)
     metrics_name: str = "metrics.csv"
 
+    # Test
+    test_csv_name: str = "test_predictions.csv"
+
+
 
 # =======================
 # 5) Batch / tensor helpers
@@ -325,10 +329,61 @@ def num_graphs_in_batch(batch) -> int:
 def extract_field(batch, field: str) -> torch.Tensor:
     if isinstance(batch, Data):
         return batch[field]
-    return torch.cat([d[field] for d in batch], dim=0)
+    if isinstance(batch, (list, tuple)):
+        return torch.cat([b[field] for b in batch], dim=0)
+    raise TypeError(f"Unsupported batch type: {type(batch)}")
 
 
+def _wrap_2pi(x: torch.Tensor) -> torch.Tensor:
+    return torch.remainder(x, 2 * math.pi)
 
+
+def _fold_0_pi(x: torch.Tensor) -> torch.Tensor:
+    # map angle to [0, 2pi) then fold to [0, pi]
+    x = _wrap_2pi(x)
+    return torch.where(x > math.pi, 2 * math.pi - x, x)
+
+
+def _circular_abs_diff(a: torch.Tensor, b: torch.Tensor, period: float = 2 * math.pi) -> torch.Tensor:
+    # minimal absolute difference on a circle
+    d = torch.remainder(a - b + period / 2, period) - period / 2
+    return d.abs()
+
+
+def _decode_angle_from_pred2d(mu2: torch.Tensor, target: str, swap_xy: bool) -> torch.Tensor:
+    # mu2 shape [N,2] representing (cos,sin) OR (sin,cos) -> we will auto-pick by swap_xy
+    x = mu2[:, 0]
+    y = mu2[:, 1]
+    if swap_xy:
+        x, y = y, x
+
+    ang = torch.atan2(y, x)
+    ang = _wrap_2pi(ang)
+
+    if target == "zenith":
+        ang = _fold_0_pi(ang)
+
+    return ang
+
+
+def _choose_swap_xy(mu2: torch.Tensor, truth_angle: torch.Tensor, target: str) -> bool:
+    # decide whether pred[:,0/1] is (cos,sin) or swapped, by picking smaller mean error
+    ang0 = _decode_angle_from_pred2d(mu2, target=target, swap_xy=False)
+    ang1 = _decode_angle_from_pred2d(mu2, target=target, swap_xy=True)
+
+    if target == "azimuth":
+        e0 = _circular_abs_diff(ang0, truth_angle).mean()
+        e1 = _circular_abs_diff(ang1, truth_angle).mean()
+    else:
+        e0 = (ang0 - truth_angle).abs().mean()
+        e1 = (ang1 - truth_angle).abs().mean()
+
+    return bool((e1 < e0).item())
+
+def move_batch_to_device(batch, device):
+    if isinstance(batch, Data):
+        return batch.to(device)
+    return [b.to(device) for b in batch]
 
 
 # =======================
@@ -489,13 +544,127 @@ def build_model(cfg: Cfg, data_representation, steps_per_epoch_optimizer: int, t
 # 8) Train 
 # =======================
 
+def run_test(cfg: Cfg, target: str, model: pl.LightningModule, test_loader) -> None:
+    if test_loader is None:
+        print(f"[Test={target}] No test_loader. Skipping.")
+        return
+
+    best_path = os.path.join(cfg.save_dir, "best_model.pth")
+    if os.path.exists(best_path):
+        state = torch.load(best_path, map_location="cpu")
+        # bazen {"state_dict": ...} gelebiliyor; ikisini de kaldır
+        if isinstance(state, dict) and "state_dict" in state:
+            state = state["state_dict"]
+        model.load_state_dict(state, strict=True)
+        print(f"[Test={target}] Loaded best weights: {best_path}")
+    else:
+        print(f"[Test={target}][WARN] best_model.pth not found, using last weights.")
+
+    model.eval()
+    if hasattr(model, "freeze"):
+        model.freeze()
+    else:
+        for p in model.parameters():
+            p.requires_grad = False
+
+    device = next(model.parameters()).device
+
+    out_csv = os.path.join(cfg.save_dir, cfg.test_csv_name)
+
+    if os.path.exists(out_csv):
+        os.remove(out_csv)
+    write_header = True
+    n_rows = 0
+
+
+    swap_xy = None
+
+    with torch.no_grad():
+        for ib, batch in enumerate(test_loader):
+            batch = move_batch_to_device(batch, device)
+
+          
+
+            preds = model(batch)
+            pred = preds[0] if isinstance(preds, (list, tuple)) else preds
+            pred = pred.detach()
+
+
+
+           
+            if pred.shape[1] < 3:
+                raise RuntimeError(f"Expected pred shape [N,>=3], got {tuple(pred.shape)}")
+
+            mu2 = pred[:, :2].float().cpu()
+            kappa = pred[:, 2].float().cpu()
+
+            truth = extract_field(batch, target).detach().float().cpu().view(-1)
+
+            # pick swap once using first batch
+            if swap_xy is None:
+                swap_xy = _choose_swap_xy(mu2, truth, target=target)
+                print(f"[Test={target}] decode: swap_xy={swap_xy}")
+
+            pred_angle = _decode_angle_from_pred2d(mu2, target=target, swap_xy=swap_xy)
+
+            if target == "azimuth":
+                err = _circular_abs_diff(pred_angle, truth)  # radians
+            else:
+                err = (pred_angle - truth).abs()            # radians
+
+            # write rows
+            err_deg = err * (180.0 / math.pi)
+            n_rows += len(err_deg)
+
+            
+
+            batch_rows = []
+            for i in range(len(err_deg)):
+                batch_rows.append(
+                            {
+                                f"true_{target}": float(truth[i].item()),
+                                f"pred_{target}": float(pred_angle[i].item()),
+                                "abs_error_deg": float(err_deg[i].item()),
+                                "kappa": float(kappa[i].item()), }  )
+
+            pd.DataFrame(batch_rows).to_csv(
+                out_csv,
+                mode="a",
+                header=write_header,
+                index=False,
+            )
+            write_header = False
+
+
+
+
+
+
+
+
+            if ib % 50 == 0:
+                print(f"[Test={target}] batch {ib}/{len(test_loader)} | median_abs_error_deg={err_deg.median().item():.3f}")
+
+    
+    print(f"[Test={target}] Wrote: {out_csv} | rows={n_rows}")
+    df = pd.read_csv(out_csv, usecols=["abs_error_deg", "kappa"])
+
+
+
+    a = torch.tensor(df["abs_error_deg"].to_numpy(), dtype=torch.float32)
+    p16 = torch.quantile(a, 0.16).item()
+    p50 = torch.quantile(a, 0.50).item()
+    p84 = torch.quantile(a, 0.84).item()
+    kmean = float(df["kappa"].mean())
+
+    print(f"[Test={target}] abs_error_deg: p16={p16:.3f}, p50={p50:.3f}, p84={p84:.3f} | kappa_mean={kmean:.3f}")
+
 
 def run_one(cfg: Cfg, target: str):
     install_logging_filters()
     cfg = copy.deepcopy(cfg)
 
     cfg.save_dir = os.path.join(cfg.save_dir, target)
-    cfg.metrics_dir = cfg.save_dir
     os.makedirs(cfg.save_dir, exist_ok=True)
 
     pl.seed_everything(cfg.seed, workers=True)
@@ -522,7 +691,8 @@ def run_one(cfg: Cfg, target: str):
         verbose=True,
     )
 
-    metrics_cb = EpochCSVLogger(cfg.metrics_dir, filename=cfg.metrics_name)
+    metrics_cb = EpochCSVLogger(cfg.save_dir, filename=cfg.metrics_name)
+
     epoch_ctx_cb = _EpochContextCallback()
 
     trainer = pl.Trainer(
@@ -539,12 +709,17 @@ def run_one(cfg: Cfg, target: str):
     print(f"[Run={target}] best_model: {os.path.join(cfg.save_dir, 'best_model.pth')}")
     print(f"[Run={target}] config:     {os.path.join(cfg.save_dir, 'config.yml')}")
     print(f"[Run={target}] metrics:    {os.path.join(cfg.save_dir, cfg.metrics_name)}")
+    run_test(cfg, target=target, model=model, test_loader=test_loader)
 
 
     return
+
 
 
 if __name__ == "__main__":
     cfg = Cfg()
     for target in ["zenith", "azimuth"]:
         run_one(cfg, target)
+
+
+
