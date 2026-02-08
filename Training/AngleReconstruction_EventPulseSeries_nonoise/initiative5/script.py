@@ -215,7 +215,7 @@ class PONE(Detector):
         return self._robust_scale(x, "pmt_z")
 
 # =======================
-# 3) Lightning callbacks (metrics CSV + opening angle)
+# 3) Lightning callbacks (metrics CSV)
 # =======================
 
 
@@ -306,11 +306,9 @@ class Cfg:
 
     # Outputs
     save_dir: str = "/project/6061446/kbas/Graphnet-Applications/Training/AngleReconstruction_EventPulseSeries_nonoise/initiative4"
-    test_csv_name: str = "test_predictions.csv"  
 
 
     # Metrics (epoch-level)
-    metrics_dir: str = "/project/6061446/kbas/Graphnet-Applications/Training/AngleReconstruction_EventPulseSeries_nonoise/initiative4"
     metrics_name: str = "metrics.csv"
 
 
@@ -330,20 +328,7 @@ def extract_field(batch, field: str) -> torch.Tensor:
     return torch.cat([d[field] for d in batch], dim=0)
 
 
-def maybe_extract_event_id(batch) -> Optional[torch.Tensor]:
-    for key in ["event_id", "event_no", "event", "idx"]:
-        try:
-            v = extract_field(batch, key)
-            return v
-        except Exception:
-            pass
-    return None
 
-
-def move_batch_to_device(batch, device):
-    if isinstance(batch, Data):
-        return batch.to(device)
-    return [d.to(device) for d in batch]
 
 
 # =======================
@@ -438,7 +423,7 @@ def build_data(cfg: Cfg):
 
 
 # =======================
-# 7) Model (DynEdge + DirectionRecoWithKappa)
+# 7) Model (DynEdge + {target} vMF2D + kappa)
 # =======================
 
 
@@ -501,7 +486,7 @@ def build_model(cfg: Cfg, data_representation, steps_per_epoch_optimizer: int, t
 
 
 # =======================
-# 8) Train + Test (inference + CSV)
+# 8) Train 
 # =======================
 
 
