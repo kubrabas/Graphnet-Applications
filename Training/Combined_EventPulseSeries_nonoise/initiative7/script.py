@@ -12,6 +12,8 @@ from pathlib import Path
 from typing import Callable, Dict, List, Optional, Tuple
 import time
 from datetime import datetime
+import subprocess
+
 
 import pandas as pd
 import pytorch_lightning as pl
@@ -210,31 +212,170 @@ class PONE(Detector):
 # 5) Callbacks: metrics.csv, epoch_time.csv
 # =======================
 
+def _read_rss_gb() -> float:
+    """Return current process RSS memory in GB."""
+    # Prefer /proc (Linux). Fallback to resource if needed.
+    try:
+        with open("/proc/self/status", "r") as f:
+            for line in f:
+                if line.startswith("VmRSS:"):
+                    kb = float(line.split()[1])  # kB
+                    return kb / 1024.0 / 1024.0
+    except Exception:
+        pass
+
+    try:
+        import resource
+        kb = float(resource.getrusage(resource.RUSAGE_SELF).ru_maxrss)
+        # On Linux, ru_maxrss is in KB
+        return kb / 1024.0 / 1024.0
+    except Exception:
+        return float("nan")
+
+
+def _read_system_mem_used_gb() -> float:
+    """Return system-wide used memory (MemTotal - MemAvailable) in GB."""
+    try:
+        mem = {}
+        with open("/proc/meminfo", "r") as f:
+            for line in f:
+                key = line.split(":")[0]
+                val = float(line.split(":")[1].strip().split()[0])  # kB
+                mem[key] = val
+        total = mem.get("MemTotal", float("nan"))
+        avail = mem.get("MemAvailable", float("nan"))
+        used = total - avail
+        return used / 1024.0 / 1024.0
+    except Exception:
+        return float("nan")
+
+
+def _cpu_load_pct() -> float:
+    """
+    Return an approximate CPU load percentage using loadavg(1min)/num_cpus.
+    This is a rough proxy (not per-process CPU usage).
+    """
+    try:
+        load1 = os.getloadavg()[0]
+        ncpu = os.cpu_count() or 1
+        return 100.0 * load1 / ncpu
+    except Exception:
+        return float("nan")
+
+
+def _gpu_snapshot() -> Dict[str, float]:
+    """
+    Query GPU utilization and memory usage via nvidia-smi.
+
+    Returns:
+        dict with:
+          - gpu_util_pct
+          - gpu_mem_used_gb
+          - gpu_mem_total_gb
+          - gpu_mem_util_pct
+
+    Notes:
+      - If CUDA_VISIBLE_DEVICES is set, we target the first listed entry.
+      - If nvidia-smi is unavailable, returns NaNs.
+    """
+    out = {
+        "gpu_util_pct": float("nan"),
+        "gpu_mem_used_gb": float("nan"),
+        "gpu_mem_total_gb": float("nan"),
+        "gpu_mem_util_pct": float("nan"),
+    }
+
+    try:
+        dev = os.environ.get("CUDA_VISIBLE_DEVICES", "")
+        gpu_id = dev.split(",")[0].strip() if dev else None
+
+        cmd = [
+            "nvidia-smi",
+            "--query-gpu=utilization.gpu,memory.used,memory.total",
+            "--format=csv,noheader,nounits",
+        ]
+        if gpu_id:
+            cmd = ["nvidia-smi", "-i", gpu_id] + cmd[1:]
+
+        res = subprocess.run(cmd, capture_output=True, text=True, check=False)
+        if res.returncode != 0 or not res.stdout.strip():
+            return out
+
+        line = res.stdout.strip().splitlines()[0]
+        util_s, used_s, total_s = [x.strip() for x in line.split(",")]
+
+        util = float(util_s)
+        used_mb = float(used_s)
+        total_mb = float(total_s)
+
+        out["gpu_util_pct"] = util
+        out["gpu_mem_used_gb"] = used_mb / 1024.0
+        out["gpu_mem_total_gb"] = total_mb / 1024.0
+        out["gpu_mem_util_pct"] = 100.0 * used_mb / max(total_mb, 1.0)
+        return out
+    except Exception:
+        return out
+
 
 class EpochTimeLogger(Callback):
     """
-    Writes epoch start timestamps (minutes since fit start) to CSV.
-    Also prints per-epoch duration to stdout (.out) using deltas between starts.
+    Logs per-epoch timing + resource snapshots to a single CSV.
+
+    Output CSV columns:
+      epoch, time_min, rss_gb, sys_mem_used_gb, cpu_load_pct,
+      gpu_util_pct, gpu_mem_used_gb, gpu_mem_total_gb, gpu_mem_util_pct
+
+    Behavior:
+      - At fit start, writes header + epoch=0 row with time_min=0.000
+      - At each train epoch start, appends one row for the current epoch
+      - Prints previous epoch duration to stdout (.out) based on time deltas
     """
+
     def __init__(self, out_dir, filename: str = "epoch_time.csv"):
         self.out_dir = Path(out_dir)
         self.file = self.out_dir / filename
         self.t0 = None
         self.prev_elapsed_min = 0.0
+        self.fieldnames = [
+            "epoch",
+            "time_min",
+            "rss_gb",
+            "sys_mem_used_gb",
+            "cpu_load_pct",
+            "gpu_util_pct",
+            "gpu_mem_used_gb",
+            "gpu_mem_total_gb",
+            "gpu_mem_util_pct",
+        ]
+
+    def _snapshot_row(self, epoch: int, elapsed_min: float) -> Dict[str, object]:
+        gpu = _gpu_snapshot()
+        return {
+            "epoch": epoch,
+            "time_min": f"{elapsed_min:.3f}",
+            "rss_gb": f"{_read_rss_gb():.3f}",
+            "sys_mem_used_gb": f"{_read_system_mem_used_gb():.3f}",
+            "cpu_load_pct": f"{_cpu_load_pct():.2f}",
+            "gpu_util_pct": f"{gpu['gpu_util_pct']:.1f}",
+            "gpu_mem_used_gb": f"{gpu['gpu_mem_used_gb']:.3f}",
+            "gpu_mem_total_gb": f"{gpu['gpu_mem_total_gb']:.3f}",
+            "gpu_mem_util_pct": f"{gpu['gpu_mem_util_pct']:.1f}",
+        }
 
     def on_fit_start(self, trainer, pl_module):
         if trainer.sanity_checking:
             return
+
         self.t0 = time.time()
         self.prev_elapsed_min = 0.0
 
         self.out_dir.mkdir(parents=True, exist_ok=True)
         with self.file.open("w", newline="") as f:
-            writer = csv.DictWriter(f, fieldnames=["epoch", "time_min"])
+            writer = csv.DictWriter(f, fieldnames=self.fieldnames)
             writer.writeheader()
-            writer.writerow({"epoch": 0, "time_min": "0.000"})  # epoch 0 starts at t=0
+            writer.writerow(self._snapshot_row(epoch=0, elapsed_min=0.0))
 
-        print(f"[Time] fit start {datetime.now().isoformat(timespec='seconds')} | {self.file}")
+        print(f"[Time] Fit start: {datetime.now().isoformat(timespec='seconds')} | CSV: {self.file}")
 
     def on_train_epoch_start(self, trainer, pl_module):
         if trainer.sanity_checking or self.t0 is None:
@@ -243,18 +384,18 @@ class EpochTimeLogger(Callback):
         ep = trainer.current_epoch
         elapsed_min = (time.time() - self.t0) / 60.0
 
-        # For ep>0, we can report duration of previous epoch (train+val+overheads)
+        # Print duration of the previous epoch (train + val + overhead)
         if ep > 0:
             prev_dur = elapsed_min - self.prev_elapsed_min
             print(
-                f"[Time] epoch {ep-1} duration = {prev_dur:.2f} min | "
-                f"elapsed = {elapsed_min:.2f} min | {datetime.now().isoformat(timespec='seconds')}"
+                f"[Time] Epoch {ep-1} duration = {prev_dur:.2f} min | "
+                f"elapsed = {elapsed_min:.2f} min | now = {datetime.now().isoformat(timespec='seconds')}"
             )
 
-            # write this epoch's start time
-            with self.file.open("a", newline="") as f:
-                writer = csv.DictWriter(f, fieldnames=["epoch", "time_min"])
-                writer.writerow({"epoch": ep, "time_min": f"{elapsed_min:.3f}"})
+        # Append a snapshot row for the current epoch start
+        with self.file.open("a", newline="") as f:
+            writer = csv.DictWriter(f, fieldnames=self.fieldnames)
+            writer.writerow(self._snapshot_row(epoch=ep, elapsed_min=elapsed_min))
 
         self.prev_elapsed_min = elapsed_min
 
@@ -263,13 +404,12 @@ class EpochTimeLogger(Callback):
             return
 
         elapsed_min = (time.time() - self.t0) / 60.0
-        # last_ep = trainer.current_epoch  # last completed epoch index
-        last_ep = max(0, trainer.current_epoch - 1)
+        last_ep = max(0, trainer.current_epoch - 1)  # keep your logic
         last_dur = elapsed_min - self.prev_elapsed_min
 
         print(
-            f"[Time] epoch {last_ep} duration = {last_dur:.2f} min | "
-            f"total = {elapsed_min:.2f} min | {datetime.now().isoformat(timespec='seconds')}"
+            f"[Time] Epoch {last_ep} duration = {last_dur:.2f} min | "
+            f"total = {elapsed_min:.2f} min | end = {datetime.now().isoformat(timespec='seconds')}"
         )
 
 
