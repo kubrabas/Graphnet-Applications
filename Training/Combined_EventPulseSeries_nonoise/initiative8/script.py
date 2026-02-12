@@ -318,7 +318,7 @@ def _gpu_snapshot() -> Dict[str, float]:
 
 
 class EpochTimeLogger(Callback):
-     """
+    """
     Logs per-epoch timing + resource snapshots to a single CSV.
 
     Output CSV columns:
