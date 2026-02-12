@@ -45,4 +45,7 @@ bunlari belki farkli kullanmak istersin küb.
 39. [Test=zenith] batch 50/162 | median_abs_error_deg=4.462
 gordum loglarda. ama energy icin bu sayi 50 degil 20 idi. neden?
 40. zenith ve azimuth source kodlarini kiyasla.
+41. batch size'i daha da arttirmaya calis. mumkun mu bu acaba. birden fazla gpu bi anda kullanabilir misin?
+42. not: script 7 kendi rizamla durdurmusum. neden bilmiyom.
+43. cmt sabah ilk is eski initiative scriptlerini sil (loglari inceleyerek). sonra son dokunuslari yap. push et. pazar gunu ve pazartesi gunu de geo optimization bakarsin.
 
