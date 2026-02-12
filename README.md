@@ -34,4 +34,5 @@ bunlari belki farkli kullanmak istersin küb.
 28.  sorcagin sorulari biriktir
 29. geometry optimization calis.
 30. script basinda ve sonunda zamani print edelim. ya da direkt kalan zamani print edelim en son.
+31. sunumun icin slayt hazirla. datani anlat. pom_response nasil olusturdun onu anlat. sonuclari goster.
 
