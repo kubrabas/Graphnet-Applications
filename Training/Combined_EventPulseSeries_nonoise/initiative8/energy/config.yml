@@ -1,0 +1,65 @@
+arguments:
+  backbone:
+    ModelConfig:
+      arguments:
+        activation_layer: null
+        add_global_variables_after_pooling: true
+        add_norm_layer: false
+        dynedge_layer_sizes: null
+        features_subset: null
+        global_pooling_schemes: [min, max, mean, sum]
+        nb_inputs: 5
+        nb_neighbours: 8
+        post_processing_layer_sizes: null
+        readout_layer_sizes: null
+        skip_readout: false
+      class_name: DynEdge
+  data_representation:
+    ModelConfig:
+      arguments:
+        columns: [0, 1, 2]
+        detector:
+          ModelConfig:
+            arguments:
+              eps: 1e-12
+              percentiles_csv: 
+                /project/def-nahee/kbas/Graphnet-Applications/MyClasses/train_feature_percentiles_p25_p50_p75.csv
+              replace_with_identity: null
+              selected_features: [pmt_x, pmt_y, pmt_z, dom_time, charge]
+            class_name: PONE
+        distance_as_edge_feature: false
+        dtype: torch.float32
+        input_feature_names: null
+        nb_nearest_neighbours: 8
+        node_definition:
+          ModelConfig:
+            arguments: {input_feature_names: null}
+            class_name: NodesAsPulses
+        perturbation_dict: null
+        seed: null
+      class_name: KNNGraph
+  gnn: null
+  graph_definition: null
+  optimizer_class: '!class torch.optim.adam Adam'
+  optimizer_kwargs: {lr: 1e-05}
+  scheduler_class: '!class graphnet.training.callbacks PiecewiseLinearLR'
+  scheduler_config: {interval: step}
+  scheduler_kwargs:
+    factors: [1.0, 100.0, 1.0]
+    milestones: [0, 157, 942]
+  tasks:
+    ModelConfig:
+      arguments:
+        hidden_size: 128
+        loss_function:
+          ModelConfig:
+            arguments: {}
+            class_name: LogCoshLoss
+        loss_weight: null
+        prediction_labels: [log10_energy_pred]
+        target_labels: [energy]
+        transform_inference: '!lambda t: torch.pow(10.0, t)'
+        transform_support: [10.0, 100000000.0]
+        transform_target: '!lambda E: torch.log10(torch.clamp(E, min'
+      class_name: DepositedEnergyLog10Task
+class_name: StandardModel
