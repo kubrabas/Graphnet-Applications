@@ -288,7 +288,7 @@ class Cfg:
     pin_memory: bool = True
 
     # Training (paper)
-    max_epochs: int = 10
+    max_epochs: int = 3
     base_lr: float = 1e-5
     peak_lr: float = 1e-3
     early_stopping_patience: int = 15
@@ -350,35 +350,9 @@ def _circular_abs_diff(a: torch.Tensor, b: torch.Tensor, period: float = 2 * mat
     return d.abs()
 
 
-def _decode_angle_from_pred2d(mu2: torch.Tensor, target: str, swap_xy: bool) -> torch.Tensor:
-    # mu2 shape [N,2] representing (cos,sin) OR (sin,cos) -> we will auto-pick by swap_xy
-    x = mu2[:, 0]
-    y = mu2[:, 1]
-    if swap_xy:
-        x, y = y, x
-
-    ang = torch.atan2(y, x)
-    ang = _wrap_2pi(ang)
-
-    if target == "zenith":
-        ang = _fold_0_pi(ang)
-
-    return ang
 
 
-def _choose_swap_xy(mu2: torch.Tensor, truth_angle: torch.Tensor, target: str) -> bool:
-    # decide whether pred[:,0/1] is (cos,sin) or swapped, by picking smaller mean error
-    ang0 = _decode_angle_from_pred2d(mu2, target=target, swap_xy=False)
-    ang1 = _decode_angle_from_pred2d(mu2, target=target, swap_xy=True)
 
-    if target == "azimuth":
-        e0 = _circular_abs_diff(ang0, truth_angle).mean()
-        e1 = _circular_abs_diff(ang1, truth_angle).mean()
-    else:
-        e0 = (ang0 - truth_angle).abs().mean()
-        e1 = (ang1 - truth_angle).abs().mean()
-
-    return bool((e1 < e0).item())
 
 def move_batch_to_device(batch, device):
     if isinstance(batch, Data):
@@ -577,7 +551,6 @@ def run_test(cfg: Cfg, target: str, model: pl.LightningModule, test_loader) -> N
     n_rows = 0
 
 
-    swap_xy = None
 
     with torch.no_grad():
         for ib, batch in enumerate(test_loader):
@@ -587,25 +560,19 @@ def run_test(cfg: Cfg, target: str, model: pl.LightningModule, test_loader) -> N
 
             preds = model(batch)
             pred = preds[0] if isinstance(preds, (list, tuple)) else preds
-            pred = pred.detach()
+            pred = pred.detach().float()
 
 
+            # GraphNeT: pred = [angle, kappa]
+            if pred.ndim != 2 or pred.shape[1] != 2:
+                raise RuntimeError(f"Expected pred shape [N,2] (angle,kappa), got {tuple(pred.shape)}")
+            
 
-           
-            if pred.shape[1] < 3:
-                raise RuntimeError(f"Expected pred shape [N,>=3], got {tuple(pred.shape)}")
+            pred_angle = pred[:, 0]
+            kappa = pred[:, 1]
 
-            mu2 = pred[:, :2].float().cpu()
-            kappa = pred[:, 2].float().cpu()
+            truth = extract_field(batch, target).detach().float().view(-1)
 
-            truth = extract_field(batch, target).detach().float().cpu().view(-1)
-
-            # pick swap once using first batch
-            if swap_xy is None:
-                swap_xy = _choose_swap_xy(mu2, truth, target=target)
-                print(f"[Test={target}] decode: swap_xy={swap_xy}")
-
-            pred_angle = _decode_angle_from_pred2d(mu2, target=target, swap_xy=swap_xy)
 
             if target == "azimuth":
                 err = _circular_abs_diff(pred_angle, truth)  # radians
@@ -614,18 +581,24 @@ def run_test(cfg: Cfg, target: str, model: pl.LightningModule, test_loader) -> N
 
             # write rows
             err_deg = err * (180.0 / math.pi)
-            n_rows += len(err_deg)
+            n_rows += int(err_deg.numel())
+
 
             
+            truth_cpu = truth.float().cpu()
+            pred_cpu = pred_angle.float().cpu()
+            err_deg_cpu = err_deg.float().cpu()
+            kappa_cpu = kappa.float().cpu()
 
             batch_rows = []
-            for i in range(len(err_deg)):
-                batch_rows.append(
-                            {
-                                f"true_{target}": float(truth[i].item()),
-                                f"pred_{target}": float(pred_angle[i].item()),
-                                "abs_error_deg": float(err_deg[i].item()),
-                                "kappa": float(kappa[i].item()), }  )
+            for i in range(len(err_deg_cpu)):
+                batch_rows.append({
+                    f"true_{target}": float(truth_cpu[i].item()),
+                    f"pred_{target}": float(pred_cpu[i].item()),
+                    "abs_error_deg": float(err_deg_cpu[i].item()),
+                    "kappa": float(kappa_cpu[i].item()),
+                })
+
 
             pd.DataFrame(batch_rows).to_csv(
                 out_csv,
@@ -636,14 +609,9 @@ def run_test(cfg: Cfg, target: str, model: pl.LightningModule, test_loader) -> N
             write_header = False
 
 
-
-
-
-
-
-
             if ib % 50 == 0:
-                print(f"[Test={target}] batch {ib}/{len(test_loader)} | median_abs_error_deg={err_deg.median().item():.3f}")
+                print(f"[Test={target}] batch {ib}/{len(test_loader)} | median_abs_error_deg={err_deg_cpu.median().item():.3f}")
+
 
     
     print(f"[Test={target}] Wrote: {out_csv} | rows={n_rows}")
