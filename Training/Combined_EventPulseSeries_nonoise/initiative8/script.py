@@ -507,7 +507,7 @@ class Cfg:
     pin_memory: bool = True
 
     # Paper: 30 epoch budget, patience=5
-    max_epochs: int = 3  # 0. (change later)
+    max_epochs: int = 30 
     early_stopping_patience: int = 5
 
     # Paper LR schedule endpoints
