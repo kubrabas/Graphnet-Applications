@@ -1,12 +1,3 @@
-### merak ettigim seyler:
-# 1- hem zenith hem de azimuth makale ile uyumlu mu?
-# 2- global parameters dogru ayarlanmis mi? homophily falan
-# 3- bu scripti tam ayarladiktan sonra graphnet reponu duzenle, temizle, eski seyleri sil. graphnet source code'larini indir.
-# 4- ve bu scripti anla
-# 5- sorcagin sorulari biriktir
-# 6- geometry optimization calis.
-
-
 # =======================
 # 1) Imports + log suppression
 # =======================

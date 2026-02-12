@@ -27,5 +27,10 @@ bunlari belki farkli kullanmak istersin küb.
 21. birazcik cluster'i calis. ne kadar run edebilirim neyde edebilirim onda neler var vs.
 22. noisy data denemelisin.
 23. platolardan kurtulmak icin vsvs neler degistirip denemelisin? calis bunlari. ama once makalenin aynisini yapmayi ogren.
-
+24. As a target variable, which one is better to use as unit: Zenith or radians? Maybe should try both?
+25. hem zenith hem de azimuth makale ile uyumlu mu?
+26. global parameters dogru ayarlanmis mi? homophily falan
+27.  graphnet reponu duzenle, temizle, eski seyleri sil. 
+28.  sorcagin sorulari biriktir
+29. geometry optimization calis.
 
