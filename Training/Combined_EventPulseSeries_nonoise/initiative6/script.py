@@ -1,41 +1,18 @@
-## check after this script runs: is the files same as initiative3/4: config, best_model, metrics etc
-## cpu'da mi calistiriliyor bu script? neden yavas train edildi bu tur?
+### merak ettigim seyler:
+# 1- hem zenith hem de azimuth makale ile uyumlu mu?
+# 2- global parameters dogru ayarlanmis mi? homophily falan
+# 3- bu scripti tam ayarladiktan sonra graphnet reponu duzenle, temizle, eski seyleri sil. graphnet source code'larini indir.
+# 4- ve bu scripti anla
+# 5- sorcagin sorulari biriktir
+# 6- geometry optimization calis.
 
 
 # =======================
-# 0) Imports
+# 1) Imports + log suppression
 # =======================
 
 import logging
 import copy
-
-# ---- GraphNeT optional-deps warning suppress  ----
-class _SuppressGraphnetOptionalDepsAtImport(logging.Filter):
-    def filter(self, record: logging.LogRecord) -> bool:
-        if not record.name.startswith("graphnet"):
-            return True
-
-        msg = record.getMessage()
-        if (
-            "has_jammy_flows_package" in msg
-            or "jammy_flows" in msg
-            or "has_icecube_package" in msg
-            or "`icecube` not available" in msg
-            or "has_km3net_package" in msg
-            or "`km3net` not available" in msg
-        ):
-            return False
-
-        return True
-
-
-if not getattr(logging, "_GRAPHNET_OPTIONAL_DEPS_FILTER_INSTALLED", False):
-    _f_import = _SuppressGraphnetOptionalDepsAtImport()
-    logging.getLogger("graphnet").addFilter(_f_import)
-    logging.getLogger("graphnet.utilities.imports").addFilter(_f_import)
-    logging._GRAPHNET_OPTIONAL_DEPS_FILTER_INSTALLED = True
-
-
 import csv
 import math
 import os
@@ -49,6 +26,41 @@ import torch
 from pytorch_lightning.callbacks import Callback
 from torch_geometric.data import Data
 
+# ---- GraphNeT optional-deps warning suppress ----
+class _SuppressGraphnetOptionalDepsAtImport(logging.Filter):
+    def filter(self, record: logging.LogRecord) -> bool:
+        if not record.name.startswith("graphnet"):
+            return True
+        msg = record.getMessage()
+        if (
+            "has_jammy_flows_package" in msg
+            or "jammy_flows" in msg
+            or "has_icecube_package" in msg
+            or "`icecube` not available" in msg
+            or "has_km3net_package" in msg
+            or "`km3net` not available" in msg
+        ):
+            return False
+        return True
+
+if not getattr(logging, "_GRAPHNET_OPTIONAL_DEPS_FILTER_INSTALLED", False):
+    _f_import = _SuppressGraphnetOptionalDepsAtImport()
+    logging.getLogger("graphnet").addFilter(_f_import)
+    logging.getLogger("graphnet.utilities.imports").addFilter(_f_import)
+    logging._GRAPHNET_OPTIONAL_DEPS_FILTER_INSTALLED = True
+
+
+
+
+
+from graphnet.training.callbacks import PiecewiseLinearLR, GraphnetEarlyStopping
+from graphnet.training.loss_functions import LogCoshLoss, VonMisesFisher2DLoss
+
+
+# =======================
+# 2) GraphNeT imports
+# =======================
+
 from graphnet.data.dataset.parquet.parquet_dataset import ParquetDataset
 from graphnet.data.dataloader import DataLoader
 from graphnet.models.data_representation import KNNGraph, NodesAsPulses
@@ -59,18 +71,15 @@ from graphnet.models.task.reconstruction import (
     AzimuthReconstructionWithKappa,
     ZenithReconstructionWithKappa,
 )
-from graphnet.training.loss_functions import VonMisesFisher2DLoss
-from graphnet.training.callbacks import PiecewiseLinearLR, GraphnetEarlyStopping
+from graphnet.models.task import StandardLearnedTask
+from graphnet.utilities.maths import eps_like
 
 
 # =======================
-# 1) Logging helpers (epoch-in-logs + suppress spam)
+# 3) Logging helpers (epoch-in-earlystopping logs)
 # =======================
 
-
-# global epoch context 
 _EPOCH_CTX = {"epoch": None}
-
 
 class _EpochContextCallback(Callback):
     def _set_epoch(self, trainer):
@@ -84,43 +93,32 @@ class _EpochContextCallback(Callback):
     def on_validation_epoch_start(self, trainer, pl_module):
         self._set_epoch(trainer)
 
-
 class _InjectEpochIntoEarlyStoppingLog(logging.Filter):
     def filter(self, record: logging.LogRecord) -> bool:
-        # EarlyStopping'in klasik mesajı:
-        # "Metric val_loss improved by ... New best score: ..."
         msg = record.getMessage()
         ep = _EPOCH_CTX.get("epoch", None)
         if ep is not None and msg.startswith("Metric ") and "New best score" in msg:
-            # msg zaten formatlanmış string -> record.msg'yi güncelle, args boşalt
             record.msg = msg + f" | epoch: {ep}"
             record.args = ()
         return True
 
-
-
 _LOG_FILTERS_INSTALLED = False
 
-# Install log filters once (avoid duplicate filters in notebook/re-runs)
 def install_logging_filters() -> None:
     global _LOG_FILTERS_INSTALLED
     if _LOG_FILTERS_INSTALLED:
         return
     _LOG_FILTERS_INSTALLED = True
 
-    # EarlyStopping log'una epoch ekle
     es_filter = _InjectEpochIntoEarlyStoppingLog()
     logging.getLogger("pytorch_lightning.callbacks.early_stopping").addFilter(es_filter)
     logging.getLogger("lightning.pytorch.callbacks.early_stopping").addFilter(es_filter)
     logging.getLogger("graphnet.training.callbacks").addFilter(es_filter)
 
 
-
-
 # =======================
-# 2) Detector: PONE (robust scaling)
+# 4) Detector: PONE robust scaling (paper Eq. 2.1)
 # =======================
-
 
 class PONE(Detector):
     """Detector class for P-ONE."""
@@ -216,9 +214,8 @@ class PONE(Detector):
         return self._robust_scale(x, "pmt_z")
 
 # =======================
-# 3) Lightning callbacks (metrics CSV)
+# 5) Callbacks: metrics.csv
 # =======================
-
 
 class EpochCSVLogger(Callback):
     def __init__(self, out_dir, filename: str = "metrics.csv"):
@@ -230,25 +227,16 @@ class EpochCSVLogger(Callback):
         if trainer.sanity_checking:
             return
         metrics = trainer.callback_metrics
-
-        
-
         row = {
             "epoch": trainer.current_epoch,
             "train_loss": metrics.get("train_loss_epoch", metrics.get("train_loss")),
-            "val_loss": metrics.get("val_loss"),}
-
-
+            "val_loss": metrics.get("val_loss"),
+        }
         for k, v in row.items():
             if torch.is_tensor(v):
                 row[k] = v.item()
 
-
-
-
-
         write_header = not self.file.exists()
-
         with self.file.open("a", newline="") as f:
             writer = csv.DictWriter(f, fieldnames=row.keys())
             if write_header:
@@ -257,75 +245,28 @@ class EpochCSVLogger(Callback):
 
 
 # =======================
-# 4) Config
+# 6) Energy task (log10 target + LogCosh)
 # =======================
 
+def logarithm(E: torch.Tensor) -> torch.Tensor:
+    E_safe = torch.clamp(E, min=eps_like(E))
+    return torch.log10(E_safe)
 
+def exponential(t: torch.Tensor) -> torch.Tensor:
+    return torch.pow(10.0, t)
 
-@dataclass
-class Cfg:
+class DepositedEnergyLog10Task(StandardLearnedTask):
+    default_target_labels = ["energy"]
+    default_prediction_labels = ["log10_energy_pred"]
+    nb_inputs = 1
 
-    # seed
-    seed: int = 20260202
-
-    # Data paths
-    train_path: str = "/project/def-nahee/kbas/POM_Response_Parquet/merged/train_reindexed"
-    val_path: str = "/project/def-nahee/kbas/POM_Response_Parquet/merged/val_reindexed"
-    test_path: str = "/project/def-nahee/kbas/POM_Response_Parquet/merged/test_reindexed"
-
-    # ParquetDataset keys
-    pulsemaps: str = "features"
-    truth_table: str = "truth"
-
-    # Features / truth
-    features: Tuple[str, ...] = ("pmt_x", "pmt_y", "pmt_z", "dom_time", "charge")
-    truth: Tuple[str, ...] =  ("azimuth", "zenith")
-
-    # Loader
-    batch_size: int = 128
-    num_workers: int = 8
-    multiprocessing_context: str = "spawn"
-    persistent_workers: bool = True
-    pin_memory: bool = True
-
-    # Training (paper)
-    max_epochs: int = 3
-    base_lr: float = 1e-5
-    peak_lr: float = 1e-3
-    early_stopping_patience: int = 15
-
-    # If 1024 doesn't fit: micro-batch + grad accumulation => effective batch ~1024
-    accumulate_grad_batches: int = 8
-
-    # Model
-    nb_neighbours: int = 8
-    global_pooling_schemes: Tuple[str, ...] = ("min", "max", "mean", "sum")
-    add_global_variables_after_pooling: bool = True
-    add_norm_layer: bool = False
-    skip_readout: bool = False
-
-
-    # Outputs
-    save_dir: str = "/project/6061446/kbas/Graphnet-Applications/Training/AngleReconstruction_EventPulseSeries_nonoise/initiative5"
-
-
-    # Metrics (epoch-level)
-    metrics_name: str = "metrics.csv"
-
-    # Test
-    test_csv_name: str = "test_predictions.csv"
-
+    def _forward(self, x: torch.Tensor) -> torch.Tensor:
+        return x[:, :1]
 
 
 # =======================
-# 5) Batch / tensor helpers
+# 7) Helpers
 # =======================
-
-def num_graphs_in_batch(batch) -> int:
-    if isinstance(batch, Data):
-        return int(batch.num_graphs) if hasattr(batch, "num_graphs") else 1
-    return int(sum(getattr(d, "num_graphs", 1) for d in batch))
-
 
 def extract_field(batch, field: str) -> torch.Tensor:
     if isinstance(batch, Data):
@@ -334,45 +275,88 @@ def extract_field(batch, field: str) -> torch.Tensor:
         return torch.cat([b[field] for b in batch], dim=0)
     raise TypeError(f"Unsupported batch type: {type(batch)}")
 
-
-def _wrap_2pi(x: torch.Tensor) -> torch.Tensor:
-    return torch.remainder(x, 2 * math.pi)
-
-
-def _fold_0_pi(x: torch.Tensor) -> torch.Tensor:
-    # map angle to [0, 2pi) then fold to [0, pi]
-    x = _wrap_2pi(x)
-    return torch.where(x > math.pi, 2 * math.pi - x, x)
-
-
-def _circular_abs_diff(a: torch.Tensor, b: torch.Tensor, period: float = 2 * math.pi) -> torch.Tensor:
-    # minimal absolute difference on a circle
-    d = torch.remainder(a - b + period / 2, period) - period / 2
-    return d.abs()
-
-
-
-
-
-
 def move_batch_to_device(batch, device):
     if isinstance(batch, Data):
         return batch.to(device)
     return [b.to(device) for b in batch]
 
+def maybe_extract_event_id(batch) -> Optional[torch.Tensor]:
+    for key in ["event_id", "event_no", "event", "idx"]:
+        try:
+            return extract_field(batch, key)
+        except Exception:
+            pass
+    return None
+
+def _circular_abs_diff(a: torch.Tensor, b: torch.Tensor, period: float = 2 * math.pi) -> torch.Tensor:
+    d = torch.remainder(a - b + period / 2, period) - period / 2
+    return d.abs()
+
 
 # =======================
-# 6) Data (datasets + loaders)
+# 8) Config (paper-like)
 # =======================
 
+@dataclass
+class Cfg:
+    seed: int = 20260202
+
+    train_path: str = "/project/def-nahee/kbas/POM_Response_Parquet/merged/train_reindexed"
+    val_path: str = "/project/def-nahee/kbas/POM_Response_Parquet/merged/val_reindexed"
+    test_path: str = "/project/def-nahee/kbas/POM_Response_Parquet/merged/test_reindexed"
+
+    pulsemaps: str = "features"
+    truth_table: str = "truth"
+
+    # Node features you use
+    features: Tuple[str, ...] = ("pmt_x", "pmt_y", "pmt_z", "dom_time", "charge")
+
+    # Build dataset once with all needed truths; each task will pick what it needs.
+    truth_all: Tuple[str, ...] = ("azimuth", "zenith", "energy")
+
+    batch_size: int = 128
+    num_workers: int = 8
+    multiprocessing_context: str = "spawn"
+    persistent_workers: bool = True
+    pin_memory: bool = True
+
+    # Paper: 30 epoch budget, patience=5
+    max_epochs: int = 30
+    early_stopping_patience: int = 5
+
+    # Paper LR schedule endpoints
+    base_lr: float = 1e-5
+    peak_lr: float = 1e-3
+
+    # Effective batch 1024 = 128 * 8
+    accumulate_grad_batches: int = 8
+
+    nb_neighbours: int = 8
+    global_pooling_schemes: Tuple[str, ...] = ("min", "max", "mean", "sum")
+    add_global_variables_after_pooling: bool = True
+    add_norm_layer: bool = False
+    skip_readout: bool = False
+
+    # For energy inverse-transform stability
+    transform_support: Tuple[float, float] = (1e1, 1e8)
+
+    # Outputs
+    save_dir: str = "/project/6061446/kbas/Graphnet-Applications/Training/Combined_EventPulseSeries_nonoise/initiative6"
+    metrics_name: str = "metrics.csv"
+    test_csv_name: str = "test_predictions.csv"
+
+
+# =======================
+# 9) Build data once (shared across tasks)
+# =======================
 
 def build_data(cfg: Cfg):
-    print("[Data] Building data_representation (KNNGraph + PONE robust scaling)")
+    print("[Data] Building data_representation (KNNGraph + robust scaling)")
     data_representation = KNNGraph(
         detector=PONE(selected_features=list(cfg.features)),
         node_definition=NodesAsPulses(),
         nb_nearest_neighbours=cfg.nb_neighbours,
-        distance_as_edge_feature=False,
+        distance_as_edge_feature=False,  # paper doesn't describe using distance as edge feature
     )
 
     print("[Data] Creating ParquetDataset(s)")
@@ -381,7 +365,7 @@ def build_data(cfg: Cfg):
         pulsemaps=cfg.pulsemaps,
         truth_table=cfg.truth_table,
         features=list(cfg.features),
-        truth=list(cfg.truth),
+        truth=list(cfg.truth_all),
         data_representation=data_representation,
     )
 
@@ -390,7 +374,7 @@ def build_data(cfg: Cfg):
         pulsemaps=cfg.pulsemaps,
         truth_table=cfg.truth_table,
         features=list(cfg.features),
-        truth=list(cfg.truth),
+        truth=list(cfg.truth_all),
         data_representation=data_representation,
     )
 
@@ -401,14 +385,9 @@ def build_data(cfg: Cfg):
             pulsemaps=cfg.pulsemaps,
             truth_table=cfg.truth_table,
             features=list(cfg.features),
-            truth=list(cfg.truth),
+            truth=list(cfg.truth_all),
             data_representation=data_representation,
         )
-
-
-
-  
-
 
     print("[Data] Creating DataLoader(s)")
     train_loader = DataLoader(
@@ -453,12 +432,10 @@ def build_data(cfg: Cfg):
 
 
 # =======================
-# 7) Model (DynEdge + {target} vMF2D + kappa)
+# 10) Build model per target
 # =======================
 
-
 def build_model(cfg: Cfg, data_representation, steps_per_epoch_optimizer: int, target: str):
-    print("[Model] Building DynEdge backbone")
     backbone = DynEdge(
         nb_inputs=len(cfg.features),
         nb_neighbours=cfg.nb_neighbours,
@@ -468,36 +445,36 @@ def build_model(cfg: Cfg, data_representation, steps_per_epoch_optimizer: int, t
         skip_readout=cfg.skip_readout,
     )
 
-    print(f"[Model] Building {target} task (vMF2D + kappa)")
-
-
-
-
     if target == "zenith":
         task = ZenithReconstructionWithKappa(
             hidden_size=backbone.nb_outputs,
             loss_function=VonMisesFisher2DLoss(),
-            target_labels=["zenith"],    )
-
+            target_labels=["zenith"],
+        )
     elif target == "azimuth":
         task = AzimuthReconstructionWithKappa(
             hidden_size=backbone.nb_outputs,
             loss_function=VonMisesFisher2DLoss(),
-            target_labels=["azimuth"],)
+            target_labels=["azimuth"],
+        )
+    elif target == "energy":
+        task = DepositedEnergyLog10Task(
+            hidden_size=backbone.nb_outputs,
+            loss_function=LogCoshLoss(),
+            target_labels=["energy"],
+            prediction_labels=["log10_energy_pred"],
+            transform_target=lambda E: torch.log10(torch.clamp(E, min=eps_like(E))),
+            transform_inference=lambda t: torch.pow(10.0, t),
+            transform_support=cfg.transform_support,
+            loss_weight=None,
+        )
     else:
         raise ValueError(f"Unknown target={target}")
 
-
-    # Paper LR schedule (implemented in optimizer-step units):
+    # Paper one-cycle-like schedule (step-based)
     total_steps = steps_per_epoch_optimizer * cfg.max_epochs
     warmup_steps = max(1, int(0.5 * steps_per_epoch_optimizer))
     peak_factor = cfg.peak_lr / cfg.base_lr
-
-    print("[LR] Schedule setup:")
-    print(f"     base_lr={cfg.base_lr:g}, peak_lr={cfg.peak_lr:g} (factor={peak_factor:g})")
-    print(f"     steps/epoch (optimizer) = {steps_per_epoch_optimizer}")
-    print(f"     warmup_steps            = {warmup_steps} (first 50% of epoch 0)")
-    print(f"     total_steps             = {total_steps} (for {cfg.max_epochs} epochs)")
 
     model = StandardModel(
         tasks=task,
@@ -516,18 +493,17 @@ def build_model(cfg: Cfg, data_representation, steps_per_epoch_optimizer: int, t
 
 
 # =======================
-# 8) Train 
+# 11) Test writers (single-write for speed)
 # =======================
 
-def run_test(cfg: Cfg, target: str, model: pl.LightningModule, test_loader) -> None:
+def run_test(cfg: Cfg, target: str, model: pl.LightningModule, test_loader, out_dir: str) -> None:
     if test_loader is None:
         print(f"[Test={target}] No test_loader. Skipping.")
         return
 
-    best_path = os.path.join(cfg.save_dir, "best_model.pth")
+    best_path = os.path.join(out_dir, "best_model.pth")
     if os.path.exists(best_path):
         state = torch.load(best_path, map_location="cpu")
-        # bazen {"state_dict": ...} gelebiliyor; ikisini de kaldır
         if isinstance(state, dict) and "state_dict" in state:
             state = state["state_dict"]
         model.load_state_dict(state, strict=True)
@@ -543,116 +519,112 @@ def run_test(cfg: Cfg, target: str, model: pl.LightningModule, test_loader) -> N
             p.requires_grad = False
 
     device = next(model.parameters()).device
+    out_csv = os.path.join(out_dir, cfg.test_csv_name)
 
-    out_csv = os.path.join(cfg.save_dir, cfg.test_csv_name)
-
-    if os.path.exists(out_csv):
-        os.remove(out_csv)
-    write_header = True
-    n_rows = 0
-
-
-
+    rows = []
     with torch.no_grad():
         for ib, batch in enumerate(test_loader):
             batch = move_batch_to_device(batch, device)
 
-          
+            preds_list = model(batch)
+            pred0 = preds_list[0].detach().float()
 
-            preds = model(batch)
-            pred = preds[0] if isinstance(preds, (list, tuple)) else preds
-            pred = pred.detach().float()
+            event_id = maybe_extract_event_id(batch)
+            if event_id is not None:
+                event_id = event_id.detach().cpu().view(-1)
 
+            if target in ["zenith", "azimuth"]:
+                # pred shape [N,2] = [angle, kappa]
+                if pred0.ndim != 2 or pred0.shape[1] != 2:
+                    raise RuntimeError(f"[Test={target}] Expected pred [N,2], got {tuple(pred0.shape)}")
 
-            # GraphNeT: pred = [angle, kappa]
-            if pred.ndim != 2 or pred.shape[1] != 2:
-                raise RuntimeError(f"Expected pred shape [N,2] (angle,kappa), got {tuple(pred.shape)}")
-            
+                pred_angle = pred0[:, 0].cpu()
+                kappa = pred0[:, 1].cpu()
+                truth = extract_field(batch, target).detach().float().view(-1).cpu()
 
-            pred_angle = pred[:, 0]
-            kappa = pred[:, 1]
+                if target == "azimuth":
+                    err = _circular_abs_diff(pred_angle, truth)
+                else:
+                    err = (pred_angle - truth).abs()
 
-            truth = extract_field(batch, target).detach().float().view(-1)
+                err_deg = err * (180.0 / math.pi)
 
+                for i in range(len(err_deg)):
+                    row = {
+                        f"true_{target}": float(truth[i].item()),
+                        f"pred_{target}": float(pred_angle[i].item()),
+                        "abs_error_deg": float(err_deg[i].item()),
+                        "kappa": float(kappa[i].item()),
+                    }
+                    if event_id is not None and i < len(event_id):
+                        row["event_id"] = int(event_id[i].item())
+                    rows.append(row)
 
-            if target == "azimuth":
-                err = _circular_abs_diff(pred_angle, truth)  # radians
+                if ib % 50 == 0:
+                    print(f"[Test={target}] batch {ib}/{len(test_loader)} | median_abs_error_deg={err_deg.median().item():.3f}")
+
             else:
-                err = (pred_angle - truth).abs()            # radians
+                # energy: pred is log10(E)
+                pred_log10 = pred0.squeeze(-1).cpu()
+                true_E = extract_field(batch, "energy").detach().float().view(-1).cpu()
 
-            # write rows
-            err_deg = err * (180.0 / math.pi)
-            n_rows += int(err_deg.numel())
+                pred_E = exponential(pred_log10)
+                true_log10 = logarithm(true_E)
+                residual_log10 = (pred_log10 - true_log10)
 
+                if ib % 20 == 0:
+                    print(f"[Test=energy] batch {ib}/{len(test_loader)} | resid mean={residual_log10.mean().item():.3f}")
 
-            
-            truth_cpu = truth.float().cpu()
-            pred_cpu = pred_angle.float().cpu()
-            err_deg_cpu = err_deg.float().cpu()
-            kappa_cpu = kappa.float().cpu()
+                for i in range(len(pred_log10)):
+                    row = {
+                        "true_energy": float(true_E[i].item()),
+                        "pred_log10_energy": float(pred_log10[i].item()),
+                        "pred_energy": float(pred_E[i].item()),
+                        "residual_log10": float(residual_log10[i].item()),
+                    }
+                    if event_id is not None and i < len(event_id):
+                        row["event_id"] = int(event_id[i].item())
+                    rows.append(row)
 
-            batch_rows = []
-            for i in range(len(err_deg_cpu)):
-                batch_rows.append({
-                    f"true_{target}": float(truth_cpu[i].item()),
-                    f"pred_{target}": float(pred_cpu[i].item()),
-                    "abs_error_deg": float(err_deg_cpu[i].item()),
-                    "kappa": float(kappa_cpu[i].item()),
-                })
+    df = pd.DataFrame(rows)
+    df.to_csv(out_csv, index=False)
+    print(f"[Test={target}] Wrote: {out_csv} | rows={len(df)}")
 
-
-            pd.DataFrame(batch_rows).to_csv(
-                out_csv,
-                mode="a",
-                header=write_header,
-                index=False,
-            )
-            write_header = False
-
-
-            if ib % 50 == 0:
-                print(f"[Test={target}] batch {ib}/{len(test_loader)} | median_abs_error_deg={err_deg_cpu.median().item():.3f}")
-
-
-    
-    print(f"[Test={target}] Wrote: {out_csv} | rows={n_rows}")
-    df = pd.read_csv(out_csv, usecols=["abs_error_deg", "kappa"])
-
-
-
-    a = torch.tensor(df["abs_error_deg"].to_numpy(), dtype=torch.float32)
-    p16 = torch.quantile(a, 0.16).item()
-    p50 = torch.quantile(a, 0.50).item()
-    p84 = torch.quantile(a, 0.84).item()
-    kmean = float(df["kappa"].mean())
-
-    print(f"[Test={target}] abs_error_deg: p16={p16:.3f}, p50={p50:.3f}, p84={p84:.3f} | kappa_mean={kmean:.3f}")
+    # Quick summary
+    if target in ["zenith", "azimuth"]:
+        a = torch.tensor(df["abs_error_deg"].to_numpy(), dtype=torch.float32)
+        p16 = torch.quantile(a, 0.16).item()
+        p50 = torch.quantile(a, 0.50).item()
+        p84 = torch.quantile(a, 0.84).item()
+        kmean = float(df["kappa"].mean())
+        print(f"[Test={target}] abs_error_deg: p16={p16:.3f}, p50={p50:.3f}, p84={p84:.3f} | kappa_mean={kmean:.3f}")
+    else:
+        r = df["residual_log10"].to_numpy()
+        p16, p50, p84 = (float(pd.Series(r).quantile(q)) for q in [0.16, 0.50, 0.84])
+        W = (p84 - p16) / 2.0
+        print(f"[Test=energy] residual_log10: p16={p16:.4f}, p50={p50:.4f}, p84={p84:.4f}, W={W:.4f}")
 
 
-def run_one(cfg: Cfg, target: str):
+# =======================
+# 12) Run one target
+# =======================
+
+def run_one(cfg: Cfg, target: str, data_representation, train_loader, val_loader, test_loader):
     install_logging_filters()
-    cfg = copy.deepcopy(cfg)
 
-    cfg.save_dir = os.path.join(cfg.save_dir, target)
-    os.makedirs(cfg.save_dir, exist_ok=True)
+    out_dir = os.path.join(cfg.save_dir, target)
+    os.makedirs(out_dir, exist_ok=True)
 
     pl.seed_everything(cfg.seed, workers=True)
 
-    data_representation, train_loader, val_loader, test_loader = build_data(cfg)
-
-    # direction sanity check'i kaldır (şimdilik)
-    b0 = next(iter(train_loader))
-    az = extract_field(b0, "azimuth").detach().cpu().view(-1)
-    ze = extract_field(b0, "zenith").detach().cpu().view(-1)
-    print(f"[Sanity] azimuth range: {az.min():.3f}..{az.max():.3f} | zenith: {ze.min():.3f}..{ze.max():.3f}")
-
+    # optimizer-step schedule needs "optimizer steps per epoch"
     steps_per_epoch_batches = len(train_loader)
     steps_per_epoch_optimizer = math.ceil(steps_per_epoch_batches / cfg.accumulate_grad_batches)
 
     model = build_model(cfg, data_representation, steps_per_epoch_optimizer, target=target)
 
     early_stop = GraphnetEarlyStopping(
-        save_dir=cfg.save_dir,
+        save_dir=out_dir,
         monitor="val_loss",
         mode="min",
         patience=cfg.early_stopping_patience,
@@ -660,35 +632,56 @@ def run_one(cfg: Cfg, target: str):
         verbose=True,
     )
 
-    metrics_cb = EpochCSVLogger(cfg.save_dir, filename=cfg.metrics_name)
-
+    metrics_cb = EpochCSVLogger(out_dir, filename=cfg.metrics_name)
     epoch_ctx_cb = _EpochContextCallback()
+
+    # --- GPU sanity print
+    print(f"\n[Run={target}] torch.cuda.is_available() = {torch.cuda.is_available()}")
+    if torch.cuda.is_available():
+        print(f"[Run={target}] GPU = {torch.cuda.get_device_name(0)}")
 
     trainer = pl.Trainer(
         max_epochs=cfg.max_epochs,
         accelerator="gpu",
         devices=1,
-        callbacks=[epoch_ctx_cb, early_stop, metrics_cb],  # ValOpeningAngleLogger'ı çıkar
+        callbacks=[epoch_ctx_cb, early_stop, metrics_cb],
         enable_checkpointing=False,
         enable_progress_bar=False,
         accumulate_grad_batches=cfg.accumulate_grad_batches,
     )
 
     trainer.fit(model, train_dataloaders=train_loader, val_dataloaders=val_loader)
-    print(f"[Run={target}] best_model: {os.path.join(cfg.save_dir, 'best_model.pth')}")
-    print(f"[Run={target}] config:     {os.path.join(cfg.save_dir, 'config.yml')}")
-    print(f"[Run={target}] metrics:    {os.path.join(cfg.save_dir, cfg.metrics_name)}")
-    run_test(cfg, target=target, model=model, test_loader=test_loader)
+
+    print(f"[Run={target}] best_model: {os.path.join(out_dir, 'best_model.pth')}")
+    print(f"[Run={target}] config:     {os.path.join(out_dir, 'config.yml')}")
+    print(f"[Run={target}] metrics:    {os.path.join(out_dir, cfg.metrics_name)}")
+
+    run_test(cfg, target=target, model=model, test_loader=test_loader, out_dir=out_dir)
 
 
-    return
-
-
+# =======================
+# 13) Main: run zenith -> azimuth -> energy
+# =======================
 
 if __name__ == "__main__":
     cfg = Cfg()
-    for target in ["zenith", "azimuth"]:
-        run_one(cfg, target)
+    os.makedirs(cfg.save_dir, exist_ok=True)
 
+    print("\n========== CONFIG ==========")
+    for k, v in cfg.__dict__.items():
+        print(f"{k}: {v}")
+    print("============================\n")
 
+    data_representation, train_loader, val_loader, test_loader = build_data(cfg)
 
+    # quick sanity ranges
+    b0 = next(iter(train_loader))
+    az = extract_field(b0, "azimuth").detach().cpu().view(-1)
+    ze = extract_field(b0, "zenith").detach().cpu().view(-1)
+    en = extract_field(b0, "energy").detach().cpu().view(-1)
+    print(f"[Sanity] azimuth range: {az.min():.3f}..{az.max():.3f}")
+    print(f"[Sanity] zenith  range: {ze.min():.3f}..{ze.max():.3f}")
+    print(f"[Sanity] energy  range: {en.min():.3e}..{en.max():.3e}")
+
+    for target in ["energy", "zenith", "azimuth"]:
+        run_one(cfg, target, data_representation, train_loader, val_loader, test_loader)
