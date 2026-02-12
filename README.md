@@ -35,4 +35,14 @@ bunlari belki farkli kullanmak istersin küb.
 29. geometry optimization calis.
 30. script basinda ve sonunda zamani print edelim. ya da direkt kalan zamani print edelim en son.
 31. sunumun icin slayt hazirla. datani anlat. pom_response nasil olusturdun onu anlat. sonuclari goster.
+32. loglarda hiz, sure vs de olsun. cpu gpu kullanimi vsvs. plot da olsun? ne kadar datada ne kadar computational source.
+33. time_and_resources'i duzenle
+34. zenith veya azimuth. biri yanlis bunlarin.
+35. genel log outputlarini kiyasla silebilecegin training orneklerini sil. 
+36. .out dosyan daha organize, sectionlastirilmis olsun. daha 
+37. data loaderlari ayirsam mi?
+38. bu uzun training bitince tum output dosyalari vsvs chatgpt'ye ver ve genel yorum iste. bunu ayri ayri sohbetlerde yap. her dedigine odaklanip anlamaya calis. her dedgini ciddiye alip anlamaya calis.
+39. [Test=zenith] batch 50/162 | median_abs_error_deg=4.462
+gordum loglarda. ama energy icin bu sayi 50 degil 20 idi. neden?
+40. zenith ve azimuth source kodlarini kiyasla.
 
