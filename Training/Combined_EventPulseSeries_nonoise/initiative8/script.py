@@ -318,17 +318,18 @@ def _gpu_snapshot() -> Dict[str, float]:
 
 
 class EpochTimeLogger(Callback):
-    """
+     """
     Logs per-epoch timing + resource snapshots to a single CSV.
 
     Output CSV columns:
-      epoch, time_min, rss_gb, sys_mem_used_gb, cpu_load_pct,
+      epoch, elapsed_min, epoch_duration_min, rss_gb, sys_mem_used_gb, cpu_load_pct,
       gpu_util_pct, gpu_mem_used_gb, gpu_mem_total_gb, gpu_mem_util_pct
 
     Behavior:
-      - At fit start, writes header + epoch=0 row with time_min=0.000
-      - At each train epoch start, appends one row for the current epoch
-      - Prints previous epoch duration to stdout (.out) based on time deltas
+      - At fit start: writes header only.
+      - At each validation epoch end: appends one row for the completed epoch.
+        (So 'epoch' matches metrics.csv written at on_validation_epoch_end.)
+      - At fit end: prints a one-line summary with file path and total time.
     """
 
     def __init__(self, out_dir, filename: str = "epoch_time.csv"):
@@ -506,7 +507,7 @@ class Cfg:
     pin_memory: bool = True
 
     # Paper: 30 epoch budget, patience=5
-    max_epochs: int = 3.  # 0. (change later)
+    max_epochs: int = 3  # 0. (change later)
     early_stopping_patience: int = 5
 
     # Paper LR schedule endpoints
