@@ -873,5 +873,5 @@ if __name__ == "__main__":
     print(f"[Sanity] zenith  range: {ze.min():.3f}..{ze.max():.3f}")
     print(f"[Sanity] energy  range: {en.min():.3e}..{en.max():.3e}")
 
-    for target in ["energy", "zenith", "azimuth"]:
+    for target in ["energy",  "azimuth" , "zenith"]:
         run_one(cfg, target, data_representation, train_loader, val_loader, test_loader)
