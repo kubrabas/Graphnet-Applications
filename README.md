@@ -48,4 +48,4 @@ gordum loglarda. ama energy icin bu sayi 50 degil 20 idi. neden?
 41. batch size'i daha da arttirmaya calis. mumkun mu bu acaba. birden fazla gpu bi anda kullanabilir misin?
 42. not: script 7 kendi rizamla durdurmusum. neden bilmiyom.
 43. cmt sabah ilk is eski initiative scriptlerini sil (loglari inceleyerek). sonra son dokunuslari yap. push et. pazar gunu ve pazartesi gunu de geo optimization bakarsin.
-
+44. hafta ici hocaya yaz. hocam sunumumsu bir sey hazirlamak istiyorum. ilk once bizim ozel meetingde sunayim diyorum. ne dersiniz de. sonra sizin feedbacklere gore ecp meeeting, pone analysis call'da sunarim de.
