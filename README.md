@@ -33,4 +33,5 @@ bunlari belki farkli kullanmak istersin küb.
 27.  graphnet reponu duzenle, temizle, eski seyleri sil. 
 28.  sorcagin sorulari biriktir
 29. geometry optimization calis.
+30. script basinda ve sonunda zamani print edelim. ya da direkt kalan zamani print edelim en son.
 
