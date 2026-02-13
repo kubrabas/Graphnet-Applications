@@ -149,3 +149,178 @@ Metric val_loss improved by 0.001 >= min_delta = 0.0. New best score: 0.090 | ep
 [1;34mgraphnet[0m [MainProcess] [32mINFO    [0m 2026-02-12 10:36:37 - StandardModel.save_state_dict - Model state_dict saved to /project/6061446/kbas/Graphnet-Applications/Training/Combined_EventPulseSeries_nonoise/initiative6/energy/best_model.pth[0m
 Metric val_loss improved by 0.000 >= min_delta = 0.0. New best score: 0.089 | epoch: 20
 [1;34mgraphnet[0m [MainProcess] [32mINFO    [0m 2026-02-12 11:52:47 - StandardModel.save_state_dict - Model state_dict saved to /project/6061446/kbas/Graphnet-Applications/Training/Combined_EventPulseSeries_nonoise/initiative6/energy/best_model.pth[0m
+Monitored metric val_loss did not improve in the last 5 records. Best score: 0.089. Signaling Trainer to stop.
+[Run=energy] best_model: /project/6061446/kbas/Graphnet-Applications/Training/Combined_EventPulseSeries_nonoise/initiative6/energy/best_model.pth
+[Run=energy] config:     /project/6061446/kbas/Graphnet-Applications/Training/Combined_EventPulseSeries_nonoise/initiative6/energy/config.yml
+[Run=energy] metrics:    /project/6061446/kbas/Graphnet-Applications/Training/Combined_EventPulseSeries_nonoise/initiative6/energy/metrics.csv
+[Test=energy] Loaded best weights: /project/6061446/kbas/Graphnet-Applications/Training/Combined_EventPulseSeries_nonoise/initiative6/energy/best_model.pth
+[Test=energy] batch 0/324 | resid mean=-0.051
+[Test=energy] batch 20/324 | resid mean=-0.094
+[Test=energy] batch 40/324 | resid mean=-0.054
+[Test=energy] batch 60/324 | resid mean=-0.039
+[Test=energy] batch 80/324 | resid mean=-0.055
+[Test=energy] batch 100/324 | resid mean=-0.046
+[Test=energy] batch 120/324 | resid mean=-0.012
+[Test=energy] batch 140/324 | resid mean=-0.039
+[Test=energy] batch 160/324 | resid mean=0.016
+[Test=energy] batch 180/324 | resid mean=-0.026
+[Test=energy] batch 200/324 | resid mean=-0.001
+[Test=energy] batch 220/324 | resid mean=-0.047
+[Test=energy] batch 240/324 | resid mean=0.040
+[Test=energy] batch 260/324 | resid mean=0.066
+[Test=energy] batch 280/324 | resid mean=-0.067
+[Test=energy] batch 300/324 | resid mean=-0.022
+[Test=energy] batch 320/324 | resid mean=0.012
+[Test=energy] Wrote: /project/6061446/kbas/Graphnet-Applications/Training/Combined_EventPulseSeries_nonoise/initiative6/energy/test_predictions.csv | rows=41311
+[Test=energy] residual_log10: p16=-0.3379, p50=0.0298, p84=0.3318, W=0.3348
+[rank: 0] Seed set to 20260202
+
+[Run=zenith] torch.cuda.is_available() = True
+[Run=zenith] GPU = NVIDIA H100 80GB HBM3 MIG 3g.40gb
+GPU available: True (cuda), used: True
+TPU available: False, using: 0 TPU cores
+LOCAL_RANK: 0 - CUDA_VISIBLE_DEVICES: [MIG-584c35fc-dd15-55d4-a009-1b89b48764d5]
+
+  | Name                 | Type       | Params | Mode 
+------------------------------------------------------------
+0 | _tasks               | ModuleList | 258    | train
+1 | _data_representation | KNNGraph   | 0      | eval 
+2 | backbone             | DynEdge    | 1.4 M  | train
+------------------------------------------------------------
+1.4 M     Trainable params
+0         Non-trainable params
+1.4 M     Total params
+5.502     Total estimated model params size (MB)
+32        Modules in train mode
+4         Modules in eval mode
+SLURM auto-requeueing enabled. Setting signal handlers.
+/project/6061446/kbas/pone_offline/graphnet_env/lib/python3.10/site-packages/pytorch_lightning/loops/fit_loop.py:527: Found 4 module(s) in eval mode at the start of training. This may lead to unexpected behavior during training. If this is intentional, you can ignore this warning.
+Metric val_loss improved. New best score: 0.649 | epoch: 0
+[1;34mgraphnet[0m [MainProcess] [32mINFO    [0m 2026-02-12 14:14:41 - StandardModel.save_state_dict - Model state_dict saved to /project/6061446/kbas/Graphnet-Applications/Training/Combined_EventPulseSeries_nonoise/initiative6/zenith/best_model.pth[0m
+Metric val_loss improved by 0.727 >= min_delta = 0.0. New best score: -0.079 | epoch: 1
+[1;34mgraphnet[0m [MainProcess] [32mINFO    [0m 2026-02-12 14:33:48 - StandardModel.save_state_dict - Model state_dict saved to /project/6061446/kbas/Graphnet-Applications/Training/Combined_EventPulseSeries_nonoise/initiative6/zenith/best_model.pth[0m
+Metric val_loss improved by 0.229 >= min_delta = 0.0. New best score: -0.307 | epoch: 2
+[1;34mgraphnet[0m [MainProcess] [32mINFO    [0m 2026-02-12 14:52:58 - StandardModel.save_state_dict - Model state_dict saved to /project/6061446/kbas/Graphnet-Applications/Training/Combined_EventPulseSeries_nonoise/initiative6/zenith/best_model.pth[0m
+Metric val_loss improved by 0.225 >= min_delta = 0.0. New best score: -0.532 | epoch: 3
+[1;34mgraphnet[0m [MainProcess] [32mINFO    [0m 2026-02-12 15:12:14 - StandardModel.save_state_dict - Model state_dict saved to /project/6061446/kbas/Graphnet-Applications/Training/Combined_EventPulseSeries_nonoise/initiative6/zenith/best_model.pth[0m
+Metric val_loss improved by 0.127 >= min_delta = 0.0. New best score: -0.659 | epoch: 4
+[1;34mgraphnet[0m [MainProcess] [32mINFO    [0m 2026-02-12 15:31:21 - StandardModel.save_state_dict - Model state_dict saved to /project/6061446/kbas/Graphnet-Applications/Training/Combined_EventPulseSeries_nonoise/initiative6/zenith/best_model.pth[0m
+Metric val_loss improved by 0.094 >= min_delta = 0.0. New best score: -0.753 | epoch: 5
+[1;34mgraphnet[0m [MainProcess] [32mINFO    [0m 2026-02-12 15:50:27 - StandardModel.save_state_dict - Model state_dict saved to /project/6061446/kbas/Graphnet-Applications/Training/Combined_EventPulseSeries_nonoise/initiative6/zenith/best_model.pth[0m
+Metric val_loss improved by 0.047 >= min_delta = 0.0. New best score: -0.800 | epoch: 7
+[1;34mgraphnet[0m [MainProcess] [32mINFO    [0m 2026-02-12 16:29:25 - StandardModel.save_state_dict - Model state_dict saved to /project/6061446/kbas/Graphnet-Applications/Training/Combined_EventPulseSeries_nonoise/initiative6/zenith/best_model.pth[0m
+Metric val_loss improved by 0.020 >= min_delta = 0.0. New best score: -0.820 | epoch: 8
+[1;34mgraphnet[0m [MainProcess] [32mINFO    [0m 2026-02-12 16:48:55 - StandardModel.save_state_dict - Model state_dict saved to /project/6061446/kbas/Graphnet-Applications/Training/Combined_EventPulseSeries_nonoise/initiative6/zenith/best_model.pth[0m
+Metric val_loss improved by 0.033 >= min_delta = 0.0. New best score: -0.853 | epoch: 10
+[1;34mgraphnet[0m [MainProcess] [32mINFO    [0m 2026-02-12 17:28:20 - StandardModel.save_state_dict - Model state_dict saved to /project/6061446/kbas/Graphnet-Applications/Training/Combined_EventPulseSeries_nonoise/initiative6/zenith/best_model.pth[0m
+Metric val_loss improved by 0.010 >= min_delta = 0.0. New best score: -0.863 | epoch: 11
+[1;34mgraphnet[0m [MainProcess] [32mINFO    [0m 2026-02-12 17:47:36 - StandardModel.save_state_dict - Model state_dict saved to /project/6061446/kbas/Graphnet-Applications/Training/Combined_EventPulseSeries_nonoise/initiative6/zenith/best_model.pth[0m
+Metric val_loss improved by 0.010 >= min_delta = 0.0. New best score: -0.873 | epoch: 12
+[1;34mgraphnet[0m [MainProcess] [32mINFO    [0m 2026-02-12 18:07:15 - StandardModel.save_state_dict - Model state_dict saved to /project/6061446/kbas/Graphnet-Applications/Training/Combined_EventPulseSeries_nonoise/initiative6/zenith/best_model.pth[0m
+Metric val_loss improved by 0.001 >= min_delta = 0.0. New best score: -0.874 | epoch: 13
+[1;34mgraphnet[0m [MainProcess] [32mINFO    [0m 2026-02-12 18:26:56 - StandardModel.save_state_dict - Model state_dict saved to /project/6061446/kbas/Graphnet-Applications/Training/Combined_EventPulseSeries_nonoise/initiative6/zenith/best_model.pth[0m
+Metric val_loss improved by 0.007 >= min_delta = 0.0. New best score: -0.881 | epoch: 14
+[1;34mgraphnet[0m [MainProcess] [32mINFO    [0m 2026-02-12 18:46:16 - StandardModel.save_state_dict - Model state_dict saved to /project/6061446/kbas/Graphnet-Applications/Training/Combined_EventPulseSeries_nonoise/initiative6/zenith/best_model.pth[0m
+Metric val_loss improved by 0.011 >= min_delta = 0.0. New best score: -0.891 | epoch: 15
+[1;34mgraphnet[0m [MainProcess] [32mINFO    [0m 2026-02-12 19:05:33 - StandardModel.save_state_dict - Model state_dict saved to /project/6061446/kbas/Graphnet-Applications/Training/Combined_EventPulseSeries_nonoise/initiative6/zenith/best_model.pth[0m
+Metric val_loss improved by 0.011 >= min_delta = 0.0. New best score: -0.902 | epoch: 16
+[1;34mgraphnet[0m [MainProcess] [32mINFO    [0m 2026-02-12 19:25:35 - StandardModel.save_state_dict - Model state_dict saved to /project/6061446/kbas/Graphnet-Applications/Training/Combined_EventPulseSeries_nonoise/initiative6/zenith/best_model.pth[0m
+Metric val_loss improved by 0.004 >= min_delta = 0.0. New best score: -0.906 | epoch: 17
+[1;34mgraphnet[0m [MainProcess] [32mINFO    [0m 2026-02-12 19:45:03 - StandardModel.save_state_dict - Model state_dict saved to /project/6061446/kbas/Graphnet-Applications/Training/Combined_EventPulseSeries_nonoise/initiative6/zenith/best_model.pth[0m
+Metric val_loss improved by 0.003 >= min_delta = 0.0. New best score: -0.909 | epoch: 18
+[1;34mgraphnet[0m [MainProcess] [32mINFO    [0m 2026-02-12 20:04:19 - StandardModel.save_state_dict - Model state_dict saved to /project/6061446/kbas/Graphnet-Applications/Training/Combined_EventPulseSeries_nonoise/initiative6/zenith/best_model.pth[0m
+Metric val_loss improved by 0.008 >= min_delta = 0.0. New best score: -0.918 | epoch: 19
+[1;34mgraphnet[0m [MainProcess] [32mINFO    [0m 2026-02-12 20:23:43 - StandardModel.save_state_dict - Model state_dict saved to /project/6061446/kbas/Graphnet-Applications/Training/Combined_EventPulseSeries_nonoise/initiative6/zenith/best_model.pth[0m
+Metric val_loss improved by 0.001 >= min_delta = 0.0. New best score: -0.919 | epoch: 20
+[1;34mgraphnet[0m [MainProcess] [32mINFO    [0m 2026-02-12 20:43:16 - StandardModel.save_state_dict - Model state_dict saved to /project/6061446/kbas/Graphnet-Applications/Training/Combined_EventPulseSeries_nonoise/initiative6/zenith/best_model.pth[0m
+Metric val_loss improved by 0.003 >= min_delta = 0.0. New best score: -0.922 | epoch: 21
+[1;34mgraphnet[0m [MainProcess] [32mINFO    [0m 2026-02-12 21:02:49 - StandardModel.save_state_dict - Model state_dict saved to /project/6061446/kbas/Graphnet-Applications/Training/Combined_EventPulseSeries_nonoise/initiative6/zenith/best_model.pth[0m
+Metric val_loss improved by 0.002 >= min_delta = 0.0. New best score: -0.924 | epoch: 23
+[1;34mgraphnet[0m [MainProcess] [32mINFO    [0m 2026-02-12 21:42:57 - StandardModel.save_state_dict - Model state_dict saved to /project/6061446/kbas/Graphnet-Applications/Training/Combined_EventPulseSeries_nonoise/initiative6/zenith/best_model.pth[0m
+Metric val_loss improved by 0.003 >= min_delta = 0.0. New best score: -0.927 | epoch: 25
+[1;34mgraphnet[0m [MainProcess] [32mINFO    [0m 2026-02-12 22:22:06 - StandardModel.save_state_dict - Model state_dict saved to /project/6061446/kbas/Graphnet-Applications/Training/Combined_EventPulseSeries_nonoise/initiative6/zenith/best_model.pth[0m
+`Trainer.fit` stopped: `max_epochs=30` reached.
+[Run=zenith] best_model: /project/6061446/kbas/Graphnet-Applications/Training/Combined_EventPulseSeries_nonoise/initiative6/zenith/best_model.pth
+[Run=zenith] config:     /project/6061446/kbas/Graphnet-Applications/Training/Combined_EventPulseSeries_nonoise/initiative6/zenith/config.yml
+[Run=zenith] metrics:    /project/6061446/kbas/Graphnet-Applications/Training/Combined_EventPulseSeries_nonoise/initiative6/zenith/metrics.csv
+[Test=zenith] Loaded best weights: /project/6061446/kbas/Graphnet-Applications/Training/Combined_EventPulseSeries_nonoise/initiative6/zenith/best_model.pth
+[Test=zenith] batch 0/324 | median_abs_error_deg=2.357
+[Test=zenith] batch 50/324 | median_abs_error_deg=1.825
+[Test=zenith] batch 100/324 | median_abs_error_deg=1.788
+[Test=zenith] batch 150/324 | median_abs_error_deg=2.120
+[Test=zenith] batch 200/324 | median_abs_error_deg=2.257
+[Test=zenith] batch 250/324 | median_abs_error_deg=1.979
+[Test=zenith] batch 300/324 | median_abs_error_deg=1.664
+[Test=zenith] Wrote: /project/6061446/kbas/Graphnet-Applications/Training/Combined_EventPulseSeries_nonoise/initiative6/zenith/test_predictions.csv | rows=41311
+[Test=zenith] abs_error_deg: p16=0.497, p50=1.950, p84=7.367 | kappa_mean=83.859
+[rank: 0] Seed set to 20260202
+
+[Run=azimuth] torch.cuda.is_available() = True
+[Run=azimuth] GPU = NVIDIA H100 80GB HBM3 MIG 3g.40gb
+GPU available: True (cuda), used: True
+TPU available: False, using: 0 TPU cores
+LOCAL_RANK: 0 - CUDA_VISIBLE_DEVICES: [MIG-584c35fc-dd15-55d4-a009-1b89b48764d5]
+
+  | Name                 | Type       | Params | Mode 
+------------------------------------------------------------
+0 | _tasks               | ModuleList | 258    | train
+1 | _data_representation | KNNGraph   | 0      | eval 
+2 | backbone             | DynEdge    | 1.4 M  | train
+------------------------------------------------------------
+1.4 M     Trainable params
+0         Non-trainable params
+1.4 M     Total params
+5.502     Total estimated model params size (MB)
+32        Modules in train mode
+4         Modules in eval mode
+SLURM auto-requeueing enabled. Setting signal handlers.
+Metric val_loss improved. New best score: -0.001 | epoch: 0
+[1;34mgraphnet[0m [MainProcess] [32mINFO    [0m 2026-02-13 00:27:06 - StandardModel.save_state_dict - Model state_dict saved to /project/6061446/kbas/Graphnet-Applications/Training/Combined_EventPulseSeries_nonoise/initiative6/azimuth/best_model.pth[0m
+Metric val_loss improved by 0.297 >= min_delta = 0.0. New best score: -0.297 | epoch: 1
+[1;34mgraphnet[0m [MainProcess] [32mINFO    [0m 2026-02-13 00:46:44 - StandardModel.save_state_dict - Model state_dict saved to /project/6061446/kbas/Graphnet-Applications/Training/Combined_EventPulseSeries_nonoise/initiative6/azimuth/best_model.pth[0m
+Metric val_loss improved by 0.053 >= min_delta = 0.0. New best score: -0.350 | epoch: 3
+[1;34mgraphnet[0m [MainProcess] [32mINFO    [0m 2026-02-13 01:26:23 - StandardModel.save_state_dict - Model state_dict saved to /project/6061446/kbas/Graphnet-Applications/Training/Combined_EventPulseSeries_nonoise/initiative6/azimuth/best_model.pth[0m
+Metric val_loss improved by 0.039 >= min_delta = 0.0. New best score: -0.389 | epoch: 4
+[1;34mgraphnet[0m [MainProcess] [32mINFO    [0m 2026-02-13 01:46:03 - StandardModel.save_state_dict - Model state_dict saved to /project/6061446/kbas/Graphnet-Applications/Training/Combined_EventPulseSeries_nonoise/initiative6/azimuth/best_model.pth[0m
+Metric val_loss improved by 0.044 >= min_delta = 0.0. New best score: -0.433 | epoch: 5
+[1;34mgraphnet[0m [MainProcess] [32mINFO    [0m 2026-02-13 02:05:37 - StandardModel.save_state_dict - Model state_dict saved to /project/6061446/kbas/Graphnet-Applications/Training/Combined_EventPulseSeries_nonoise/initiative6/azimuth/best_model.pth[0m
+Metric val_loss improved by 0.022 >= min_delta = 0.0. New best score: -0.455 | epoch: 6
+[1;34mgraphnet[0m [MainProcess] [32mINFO    [0m 2026-02-13 02:25:48 - StandardModel.save_state_dict - Model state_dict saved to /project/6061446/kbas/Graphnet-Applications/Training/Combined_EventPulseSeries_nonoise/initiative6/azimuth/best_model.pth[0m
+Metric val_loss improved by 0.001 >= min_delta = 0.0. New best score: -0.457 | epoch: 7
+[1;34mgraphnet[0m [MainProcess] [32mINFO    [0m 2026-02-13 02:45:12 - StandardModel.save_state_dict - Model state_dict saved to /project/6061446/kbas/Graphnet-Applications/Training/Combined_EventPulseSeries_nonoise/initiative6/azimuth/best_model.pth[0m
+Metric val_loss improved by 0.026 >= min_delta = 0.0. New best score: -0.483 | epoch: 8
+[1;34mgraphnet[0m [MainProcess] [32mINFO    [0m 2026-02-13 03:04:46 - StandardModel.save_state_dict - Model state_dict saved to /project/6061446/kbas/Graphnet-Applications/Training/Combined_EventPulseSeries_nonoise/initiative6/azimuth/best_model.pth[0m
+Metric val_loss improved by 0.003 >= min_delta = 0.0. New best score: -0.486 | epoch: 9
+[1;34mgraphnet[0m [MainProcess] [32mINFO    [0m 2026-02-13 03:24:41 - StandardModel.save_state_dict - Model state_dict saved to /project/6061446/kbas/Graphnet-Applications/Training/Combined_EventPulseSeries_nonoise/initiative6/azimuth/best_model.pth[0m
+Metric val_loss improved by 0.016 >= min_delta = 0.0. New best score: -0.502 | epoch: 11
+[1;34mgraphnet[0m [MainProcess] [32mINFO    [0m 2026-02-13 04:03:40 - StandardModel.save_state_dict - Model state_dict saved to /project/6061446/kbas/Graphnet-Applications/Training/Combined_EventPulseSeries_nonoise/initiative6/azimuth/best_model.pth[0m
+Metric val_loss improved by 0.031 >= min_delta = 0.0. New best score: -0.533 | epoch: 13
+[1;34mgraphnet[0m [MainProcess] [32mINFO    [0m 2026-02-13 04:43:00 - StandardModel.save_state_dict - Model state_dict saved to /project/6061446/kbas/Graphnet-Applications/Training/Combined_EventPulseSeries_nonoise/initiative6/azimuth/best_model.pth[0m
+Metric val_loss improved by 0.026 >= min_delta = 0.0. New best score: -0.558 | epoch: 15
+[1;34mgraphnet[0m [MainProcess] [32mINFO    [0m 2026-02-13 05:21:54 - StandardModel.save_state_dict - Model state_dict saved to /project/6061446/kbas/Graphnet-Applications/Training/Combined_EventPulseSeries_nonoise/initiative6/azimuth/best_model.pth[0m
+Metric val_loss improved by 0.002 >= min_delta = 0.0. New best score: -0.561 | epoch: 17
+[1;34mgraphnet[0m [MainProcess] [32mINFO    [0m 2026-02-13 06:01:16 - StandardModel.save_state_dict - Model state_dict saved to /project/6061446/kbas/Graphnet-Applications/Training/Combined_EventPulseSeries_nonoise/initiative6/azimuth/best_model.pth[0m
+Metric val_loss improved by 0.022 >= min_delta = 0.0. New best score: -0.582 | epoch: 18
+[1;34mgraphnet[0m [MainProcess] [32mINFO    [0m 2026-02-13 06:20:41 - StandardModel.save_state_dict - Model state_dict saved to /project/6061446/kbas/Graphnet-Applications/Training/Combined_EventPulseSeries_nonoise/initiative6/azimuth/best_model.pth[0m
+Metric val_loss improved by 0.001 >= min_delta = 0.0. New best score: -0.583 | epoch: 19
+[1;34mgraphnet[0m [MainProcess] [32mINFO    [0m 2026-02-13 06:40:03 - StandardModel.save_state_dict - Model state_dict saved to /project/6061446/kbas/Graphnet-Applications/Training/Combined_EventPulseSeries_nonoise/initiative6/azimuth/best_model.pth[0m
+Metric val_loss improved by 0.002 >= min_delta = 0.0. New best score: -0.585 | epoch: 23
+[1;34mgraphnet[0m [MainProcess] [32mINFO    [0m 2026-02-13 07:57:44 - StandardModel.save_state_dict - Model state_dict saved to /project/6061446/kbas/Graphnet-Applications/Training/Combined_EventPulseSeries_nonoise/initiative6/azimuth/best_model.pth[0m
+Metric val_loss improved by 0.001 >= min_delta = 0.0. New best score: -0.586 | epoch: 24
+[1;34mgraphnet[0m [MainProcess] [32mINFO    [0m 2026-02-13 08:17:13 - StandardModel.save_state_dict - Model state_dict saved to /project/6061446/kbas/Graphnet-Applications/Training/Combined_EventPulseSeries_nonoise/initiative6/azimuth/best_model.pth[0m
+Monitored metric val_loss did not improve in the last 5 records. Best score: -0.586. Signaling Trainer to stop.
+`Trainer.fit` stopped: `max_epochs=30` reached.
+[Run=azimuth] best_model: /project/6061446/kbas/Graphnet-Applications/Training/Combined_EventPulseSeries_nonoise/initiative6/azimuth/best_model.pth
+[Run=azimuth] config:     /project/6061446/kbas/Graphnet-Applications/Training/Combined_EventPulseSeries_nonoise/initiative6/azimuth/config.yml
+[Run=azimuth] metrics:    /project/6061446/kbas/Graphnet-Applications/Training/Combined_EventPulseSeries_nonoise/initiative6/azimuth/metrics.csv
+[Test=azimuth] Loaded best weights: /project/6061446/kbas/Graphnet-Applications/Training/Combined_EventPulseSeries_nonoise/initiative6/azimuth/best_model.pth
+[Test=azimuth] batch 0/324 | median_abs_error_deg=3.007
+[Test=azimuth] batch 50/324 | median_abs_error_deg=2.783
+[Test=azimuth] batch 100/324 | median_abs_error_deg=2.887
+[Test=azimuth] batch 150/324 | median_abs_error_deg=2.585
+[Test=azimuth] batch 200/324 | median_abs_error_deg=3.162
+[Test=azimuth] batch 250/324 | median_abs_error_deg=2.227
+[Test=azimuth] batch 300/324 | median_abs_error_deg=2.446
+[Test=azimuth] Wrote: /project/6061446/kbas/Graphnet-Applications/Training/Combined_EventPulseSeries_nonoise/initiative6/azimuth/test_predictions.csv | rows=41311
+[Test=azimuth] abs_error_deg: p16=0.704, p50=2.894, p84=13.631 | kappa_mean=70.810
+===== DONE =====
