@@ -2,7 +2,7 @@
 
 ## ToDo:
 1. Check last analysis calls
-2. prepare resuls_analysis.ipynb. 
+2. 
 3. metrics.csv should include W at every epoches? plot train-val loss error. early stopping should monitor W?
 4. check the log file, adjust your script if needed
 5. understand everything in your combined script.
@@ -49,3 +49,6 @@ gordum loglarda. ama energy icin bu sayi 50 degil 20 idi. neden?
 42. not: script 7 kendi rizamla durdurmusum. neden bilmiyom.
 43. cmt sabah ilk is eski initiative scriptlerini sil (loglari inceleyerek). sonra son dokunuslari yap. push et. pazar gunu ve pazartesi gunu de geo optimization bakarsin.
 44. hafta ici hocaya yaz. hocam sunumumsu bir sey hazirlamak istiyorum. ilk once bizim ozel meetingde sunayim diyorum. ne dersiniz de. sonra sizin feedbacklere gore ecp meeeting, pone analysis call'da sunarim de.
+45. script/model inference sırasında log10(true_energy)’yi hesaplıyor, residual’ı üretiyor, ama CSV’ye ayrı bir kolon olarak yazmiyor. yazsin. sirasi da guzel olsun columnlarin
+46. datani incele. training datan nasil ayriliyor test datan nasil ayriliyor.
+47. toplam W ve diger ipynblerdeki plotlardan da ciz.
