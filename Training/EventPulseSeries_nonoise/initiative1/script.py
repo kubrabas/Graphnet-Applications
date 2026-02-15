@@ -527,7 +527,7 @@ class Cfg:
     transform_support: Tuple[float, float] = (1e1, 1e8)
 
     # Outputs
-    save_dir: str = "/project/6061446/kbas/Graphnet-Applications/Training/Combined_EventPulseSeries_nonoise/initiative8"
+    save_dir: str = "/project/6061446/kbas/Graphnet-Applications/Training/EventPulseSeries_nonoise/initiative1"
     metrics_name: str = "metrics.csv"
     test_csv_name: str = "test_predictions.csv"
     resources_and_time_csv_name: str = "resources_and_time.csv"   

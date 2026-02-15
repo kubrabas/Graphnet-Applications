@@ -5,8 +5,8 @@
 #SBATCH --mem=48G
 #SBATCH --cpus-per-task=12
 #SBATCH --gpus-per-node=h100:1
-#SBATCH --output=/project/6061446/kbas/Graphnet-Applications/Training/Combined_EventPulseSeries_nonoise/initiative8/dynedge_combined_%j.out
-#SBATCH --error=/project/6061446/kbas/Graphnet-Applications/Training/Combined_EventPulseSeries_nonoise/initiative8/dynedge_combined_%j.out
+#SBATCH --output=/project/6061446/kbas/Graphnet-Applications/Training/EventPulseSeries_nonoise/initiative1/dynedge_combined_%j.out
+#SBATCH --error=/project/6061446/kbas/Graphnet-Applications/Training/EventPulseSeries_nonoise/initiative1/dynedge_combined_%j.out
 #SBATCH --open-mode=append
 
 
@@ -31,7 +31,7 @@ module load StdEnv/2023 gcc/12.3 scipy-stack/2023b
 # ---- Env ----
 PONE_ENV_DIR="/project/def-nahee/kbas/pone_offline"
 VENV="${PONE_ENV_DIR}/graphnet_env/bin/activate"
-SCRIPT="/project/def-nahee/kbas/Graphnet-Applications/Training/Combined_EventPulseSeries_nonoise/initiative8/script.py"
+SCRIPT="/project/def-nahee/kbas/Graphnet-Applications/Training/EventPulseSeries_nonoise/initiative1/script.py"
 
 cd "${PONE_ENV_DIR}"
 
