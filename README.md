@@ -52,3 +52,8 @@ gordum loglarda. ama energy icin bu sayi 50 degil 20 idi. neden?
 45. script/model inference sırasında log10(true_energy)’yi hesaplıyor, residual’ı üretiyor, ama CSV’ye ayrı bir kolon olarak yazmiyor. yazsin. sirasi da guzel olsun columnlarin
 46. datani incele. training datan nasil ayriliyor test datan nasil ayriliyor.
 47. toplam W ve diger ipynblerdeki plotlardan da ciz.
+48. acaba AzimuthReconstruction mi kullanmaliyim AzimuthReconstructionWithKappa yerine
+49. su ikisi de ornek.pdf’deki yaklaşımla uyumlu:
+* `ZenithReconstructionWithKappa` ✅
+* `AzimuthReconstructionWithKappa` ✅
+ama tekrar check et. gpt dedi bunu.

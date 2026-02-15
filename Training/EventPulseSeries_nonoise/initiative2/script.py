@@ -316,6 +316,131 @@ def _gpu_snapshot() -> Dict[str, float]:
     except Exception:
         return out
 
+class ValidationResidualAndLRMetrics(Callback):
+    """
+    Computes extra validation metrics per epoch and logs them via pl_module.log so they appear in
+    trainer.callback_metrics (and thus can be written into metrics.csv and monitored by EarlyStopping).
+
+    NOTE: This does an extra forward pass over (a subset of) val_loader each epoch.
+    max_batches controls cost. None = full val set.
+    """
+
+    def __init__(self, target: str, val_loader, max_batches: Optional[int] = None):
+        self.target = target
+        self.val_loader = val_loader
+        self.max_batches = max_batches
+
+    @staticmethod
+    def _quantiles_and_W(x: torch.Tensor):
+        if x.numel() == 0:
+            nan = float("nan")
+            return nan, nan, nan, nan
+        qs = torch.tensor([0.16, 0.50, 0.84], dtype=torch.float32)
+        p16, p50, p84 = torch.quantile(x.to(torch.float32), qs)
+        W = (p84 - p16) / 2.0
+        return float(p16.item()), float(p50.item()), float(p84.item()), float(W.item())
+
+    def on_validation_epoch_end(self, trainer, pl_module):
+        if trainer.sanity_checking:
+            return
+
+        # --- LR at end of epoch ---
+        lr = float("nan")
+        try:
+            if trainer.optimizers:
+                lr = float(trainer.optimizers[0].param_groups[0].get("lr", float("nan")))
+        except Exception:
+            pass
+        pl_module.log("lr", lr, on_step=False, on_epoch=True, prog_bar=False, logger=False)
+
+        device = pl_module.device
+
+        # ---- preserve training/eval mode ----
+        was_training = pl_module.training
+        pl_module.eval()
+
+        residual_deg_all = []
+        kappa_all = []
+        residual_log10_all = []
+
+        with torch.no_grad():
+            for ib, batch in enumerate(self.val_loader):
+                if self.max_batches is not None and ib >= self.max_batches:
+                    break
+
+                batch = move_batch_to_device(batch, device)
+
+                preds_list = pl_module(batch)
+                pred0 = preds_list[0].detach().float()
+
+                if self.target in ["zenith", "azimuth"]:
+                    pred_angle = pred0[:, 0]
+                    pred_kappa = pred0[:, 1]
+
+                    truth = extract_field(batch, self.target).detach().float().view(-1).to(pred_angle.device)
+
+                    if self.target == "azimuth":
+                        residual_rad = _circular_signed_diff(pred_angle, truth)
+                    else:
+                        residual_rad = (pred_angle - truth)
+
+                    residual_deg = residual_rad * (180.0 / math.pi)
+
+                    residual_deg_all.append(residual_deg.detach().cpu())
+                    kappa_all.append(pred_kappa.detach().cpu())
+
+                elif self.target == "energy":
+                    pred_log10 = pred0.squeeze(-1)
+
+                    true_E = extract_field(batch, "energy").detach().float().view(-1).to(pred_log10.device)
+                    true_log10 = torch.log10(torch.clamp(true_E, min=eps_like(true_E)))
+
+                    residual_log10 = (pred_log10 - true_log10)
+                    residual_log10_all.append(residual_log10.detach().cpu())
+
+                else:
+                    break
+
+        # ---- restore mode ----
+        if was_training:
+            pl_module.train()
+
+        # --- Log metrics ---
+        if self.target in ["zenith", "azimuth"]:
+            residual_deg_all = torch.cat(residual_deg_all, dim=0) if residual_deg_all else torch.empty(0)
+            kappa_all = torch.cat(kappa_all, dim=0) if kappa_all else torch.empty(0)
+
+            p16, p50, p84, W = self._quantiles_and_W(residual_deg_all)
+            pl_module.log("val_residual_p16_deg", p16, on_step=False, on_epoch=True, prog_bar=False, logger=False)
+            pl_module.log("val_residual_p50_deg", p50, on_step=False, on_epoch=True, prog_bar=False, logger=False)
+            pl_module.log("val_residual_p84_deg", p84, on_step=False, on_epoch=True, prog_bar=False, logger=False)
+            pl_module.log("val_W_deg", W, on_step=False, on_epoch=True, prog_bar=False, logger=False)
+
+            kp16, kp50, kp84, kW = self._quantiles_and_W(kappa_all)
+            pl_module.log("val_kappa_p16", kp16, on_step=False, on_epoch=True, prog_bar=False, logger=False)
+            pl_module.log("val_kappa_p50", kp50, on_step=False, on_epoch=True, prog_bar=False, logger=False)
+            pl_module.log("val_kappa_p84", kp84, on_step=False, on_epoch=True, prog_bar=False, logger=False)
+            pl_module.log("val_kappa_W", kW, on_step=False, on_epoch=True, prog_bar=False, logger=False)
+
+        elif self.target == "energy":
+            residual_log10_all = torch.cat(residual_log10_all, dim=0) if residual_log10_all else torch.empty(0)
+
+            p16, p50, p84, W = self._quantiles_and_W(residual_log10_all)
+            pl_module.log("val_residual_log10_p16", p16, on_step=False, on_epoch=True, prog_bar=False, logger=False)
+            pl_module.log("val_residual_log10_p50", p50, on_step=False, on_epoch=True, prog_bar=False, logger=False)
+            pl_module.log("val_residual_log10_p84", p84, on_step=False, on_epoch=True, prog_bar=False, logger=False)
+            pl_module.log("val_W_log10", W, on_step=False, on_epoch=True, prog_bar=False, logger=False)
+
+            if residual_log10_all.numel() > 0:
+                mae = float(residual_log10_all.abs().mean().item())
+                rmse = float(torch.sqrt((residual_log10_all ** 2).mean()).item())
+            else:
+                mae = float("nan")
+                rmse = float("nan")
+
+            pl_module.log("val_mae_log10", mae, on_step=False, on_epoch=True, prog_bar=False, logger=False)
+            pl_module.log("val_rmse_log10", rmse, on_step=False, on_epoch=True, prog_bar=False, logger=False)
+
 
 class EpochTimeLogger(Callback):
     """
@@ -407,22 +532,40 @@ class EpochCSVLogger(Callback):
         self.out_dir.mkdir(parents=True, exist_ok=True)
         self.file = self.out_dir / filename
 
-        # --- Track best_model.pth updates per epoch ---
+        # --- Track best_model.pth updates per epoch (robust signature) ---
         self.best_model_path = self.out_dir / "best_model.pth"
-        self._best_mtime_prev: Optional[float] = None
+        self._best_sig_prev: Optional[Tuple[int, int]] = None  # (mtime_ns, size)
         self._last_epoch_written: Optional[int] = None
 
-    def _best_mtime(self) -> Optional[float]:
+        self.extra_keys_in_order = [
+            "val_residual_p16_deg",
+            "val_residual_p50_deg",
+            "val_residual_p84_deg",
+            "val_W_deg",
+            "val_kappa_p16",
+            "val_kappa_p50",
+            "val_kappa_p84",
+            "val_kappa_W",
+            "val_residual_log10_p16",
+            "val_residual_log10_p50",
+            "val_residual_log10_p84",
+            "val_W_log10",
+            "val_mae_log10",
+            "val_rmse_log10",
+        ]
+
+    def _best_sig(self) -> Optional[Tuple[int, int]]:
         try:
-            return self.best_model_path.stat().st_mtime
+            st = self.best_model_path.stat()
+            mtime_ns = getattr(st, "st_mtime_ns", int(st.st_mtime * 1e9))
+            return (int(mtime_ns), int(st.st_size))
         except FileNotFoundError:
             return None
 
     def on_fit_start(self, trainer, pl_module):
         if trainer.sanity_checking:
             return
-        # Baseline mtime (in case best_model.pth appears later)
-        self._best_mtime_prev = self._best_mtime()
+        self._best_sig_prev = self._best_sig()
         self._last_epoch_written = None
 
     def on_validation_epoch_end(self, trainer, pl_module):
@@ -431,35 +574,41 @@ class EpochCSVLogger(Callback):
 
         metrics = trainer.callback_metrics
 
-        # Detect updates that have already happened by this point
-        cur_mtime = self._best_mtime()
-        updated_now = (cur_mtime is not None) and (
-            self._best_mtime_prev is None or cur_mtime != self._best_mtime_prev
+        cur_sig = self._best_sig()
+        updated_now = (cur_sig is not None) and (
+            self._best_sig_prev is None or cur_sig != self._best_sig_prev
         )
 
-        row = {
+        row: Dict[str, object] = {
             "epoch": trainer.current_epoch,
             "train_loss": metrics.get("train_loss_epoch", metrics.get("train_loss")),
             "val_loss": metrics.get("val_loss"),
+            "lr": metrics.get("lr", float("nan")),
             "best_model_is_updated": bool(updated_now),
         }
 
-        for k, v in row.items():
+        for k in self.extra_keys_in_order:
+            row[k] = metrics.get(k, float("nan"))
+
+        for k, v in list(row.items()):
             if torch.is_tensor(v):
                 row[k] = v.item()
 
         write_header = not self.file.exists()
         with self.file.open("a", newline="") as f:
-            writer = csv.DictWriter(f, fieldnames=row.keys())
+            writer = csv.DictWriter(f, fieldnames=list(row.keys()))
             if write_header:
                 writer.writeheader()
             writer.writerow(row)
 
         self._last_epoch_written = trainer.current_epoch
 
+        # Update baseline *after* we wrote the row (so next epoch compares correctly)
+        if cur_sig is not None:
+            self._best_sig_prev = cur_sig
+
     def _patch_last_row_best_flag(self, epoch: int) -> None:
         """Patch the last row in metrics.csv for the given epoch -> set best_model_is_updated=True."""
-        # We assume metrics.csv is only appended (fresh run), so last row should be this epoch.
         if not self.file.exists():
             return
 
@@ -471,10 +620,9 @@ class EpochCSVLogger(Callback):
         if not rows or "best_model_is_updated" not in fieldnames:
             return
 
-        # Find last matching epoch row (should be the last row)
-        for row in reversed(rows):
-            if str(row.get("epoch", "")) == str(epoch):
-                row["best_model_is_updated"] = "True"
+        for r in reversed(rows):
+            if str(r.get("epoch", "")) == str(epoch):
+                r["best_model_is_updated"] = "True"
                 break
 
         tmp = self.file.with_suffix(".tmp")
@@ -490,17 +638,17 @@ class EpochCSVLogger(Callback):
             return
 
         # Catch updates that happen after on_validation_epoch_end
-        cur_mtime = self._best_mtime()
-        updated_late = (cur_mtime is not None) and (
-            self._best_mtime_prev is None or cur_mtime != self._best_mtime_prev
+        cur_sig = self._best_sig()
+        updated_late = (cur_sig is not None) and (
+            self._best_sig_prev is None or cur_sig != self._best_sig_prev
         )
 
         if updated_late and self._last_epoch_written == trainer.current_epoch:
             self._patch_last_row_best_flag(trainer.current_epoch)
 
-        # Update baseline for next epoch
-        if cur_mtime is not None:
-            self._best_mtime_prev = cur_mtime
+        if cur_sig is not None:
+            self._best_sig_prev = cur_sig
+
 
 # =======================
 # 6) Energy task (log10 target + LogCosh)
@@ -525,6 +673,17 @@ class DepositedEnergyLog10Task(StandardLearnedTask):
 # =======================
 # 7) Helpers
 # =======================
+
+
+def _wrap_to_pi(d: torch.Tensor) -> torch.Tensor:
+    """Wrap angle differences to [-pi, +pi]."""
+    period = 2 * math.pi
+    return torch.remainder(d + period / 2, period) - period / 2
+
+def _circular_signed_diff(a: torch.Tensor, b: torch.Tensor) -> torch.Tensor:
+    """Signed circular difference a-b in [-pi, pi]."""
+    return _wrap_to_pi(a - b)
+
 
 def extract_field(batch, field: str) -> torch.Tensor:
     if isinstance(batch, Data):
@@ -579,7 +738,7 @@ class Cfg:
     pin_memory: bool = True
 
     # Paper: 30 epoch budget, patience=5
-    max_epochs: int = 30 
+    max_epochs: int = 3  # 0 
     early_stopping_patience: int = 5
 
     # Paper LR schedule endpoints
@@ -599,10 +758,19 @@ class Cfg:
     transform_support: Tuple[float, float] = (1e1, 1e8)
 
     # Outputs
-    save_dir: str = "/project/6061446/kbas/Graphnet-Applications/Training/EventPulseSeries_nonoise/initiative1"
+    save_dir: str = "/project/6061446/kbas/Graphnet-Applications/Training/EventPulseSeries_nonoise/initiative2"
     metrics_name: str = "metrics.csv"
     test_csv_name: str = "test_predictions.csv"
     resources_and_time_csv_name: str = "resources_and_time.csv"   
+
+    # Early stopping monitors (separate)
+    early_stopping_monitor_energy: str = "val_loss"
+    early_stopping_monitor_angle: str = "val_loss"
+    early_stopping_mode: str = "min"
+
+    # Optional: speed control for extra val-metrics pass
+    val_metrics_max_batches: Optional[int] = None  # e.g. 50 to speed up; None = use all
+
 
 
 
@@ -793,8 +961,12 @@ def run_test(cfg: Cfg, target: str, model: pl.LightningModule, test_loader, out_
             if event_id is not None:
                 event_id = event_id.detach().cpu().view(-1)
 
+            def _eid(i):
+                if event_id is not None and i < len(event_id):
+                    return int(event_id[i].item())
+                return None
+
             if target in ["zenith", "azimuth"]:
-                # pred shape [N,2] = [angle, kappa]
                 if pred0.ndim != 2 or pred0.shape[1] != 2:
                     raise RuntimeError(f"[Test={target}] Expected pred [N,2], got {tuple(pred0.shape)}")
 
@@ -803,66 +975,128 @@ def run_test(cfg: Cfg, target: str, model: pl.LightningModule, test_loader, out_
                 truth = extract_field(batch, target).detach().float().view(-1).cpu()
 
                 if target == "azimuth":
-                    err = _circular_abs_diff(pred_angle, truth)
+                    residual_rad = _circular_signed_diff(pred_angle, truth)
                 else:
-                    err = (pred_angle - truth).abs()
+                    residual_rad = (pred_angle - truth)
 
-                err_deg = err * (180.0 / math.pi)
+                residual_deg = residual_rad * (180.0 / math.pi)
 
-                for i in range(len(err_deg)):
-                    row = {
-                        f"true_{target}": float(truth[i].item()),
-                        f"pred_{target}": float(pred_angle[i].item()),
-                        "abs_error_deg": float(err_deg[i].item()),
-                        "kappa": float(kappa[i].item()),
-                    }
-                    if event_id is not None and i < len(event_id):
-                        row["event_id"] = int(event_id[i].item())
+                true_deg = truth * (180.0 / math.pi)
+                pred_deg = pred_angle * (180.0 / math.pi)
+
+                for i in range(len(truth)):
+                    if target == "zenith":
+                        row = {
+                            "true_zenith_radian": float(truth[i].item()),
+                            "pred_zenith_radian": float(pred_angle[i].item()),
+                            "true_zenith_degree": float(true_deg[i].item()),
+                            "pred_zenith_degree": float(pred_deg[i].item()),
+                            "kappa": float(kappa[i].item()),
+                            "event_id": _eid(i),
+                            "residual_zenith_radian": float(residual_rad[i].item()),
+                            "residual_zenith_degree": float(residual_deg[i].item()),
+                        }
+                    else:
+                        row = {
+                            "true_azimuth_radian": float(truth[i].item()),
+                            "pred_azimuth_radian": float(pred_angle[i].item()),
+                            "true_azimuth_degree": float(true_deg[i].item()),
+                            "pred_azimuth_degree": float(pred_deg[i].item()),
+                            "kappa": float(kappa[i].item()),
+                            "event_id": _eid(i),
+                            "residual_azimuth_radian": float(residual_rad[i].item()),
+                            "residual_azimuth_degree": float(residual_deg[i].item()),
+                        }
                     rows.append(row)
 
-                if ib % 50 == 0:
-                    print(f"[Test={target}] batch {ib}/{len(test_loader)} | median_abs_error_deg={err_deg.median().item():.3f}")
-
             else:
-                # energy: pred is log10(E)
                 pred_log10 = pred0.squeeze(-1).cpu()
                 true_E = extract_field(batch, "energy").detach().float().view(-1).cpu()
 
-                pred_E = exponential(pred_log10)
                 true_log10 = logarithm(true_E)
-                residual_log10 = (pred_log10 - true_log10)
+                pred_E = exponential(pred_log10)
 
-                if ib % 20 == 0:
-                    print(f"[Test=energy] batch {ib}/{len(test_loader)} | resid mean={residual_log10.mean().item():.3f}")
+                residual_log10 = (pred_log10 - true_log10)
+                residual = (pred_E - true_E)
 
                 for i in range(len(pred_log10)):
                     row = {
                         "true_energy": float(true_E[i].item()),
-                        "pred_log10_energy": float(pred_log10[i].item()),
                         "pred_energy": float(pred_E[i].item()),
+                        "pred_log10_energy": float(pred_log10[i].item()),
+                        "true_log10_energy": float(true_log10[i].item()),
                         "residual_log10": float(residual_log10[i].item()),
+                        "residual": float(residual[i].item()),
+                        "event_id": _eid(i),
                     }
-                    if event_id is not None and i < len(event_id):
-                        row["event_id"] = int(event_id[i].item())
                     rows.append(row)
 
     df = pd.DataFrame(rows)
+
+    if target == "energy":
+        preferred = [
+            "true_energy",
+            "pred_energy",
+            "pred_log10_energy",
+            "true_log10_energy",
+            "residual_log10",
+            "residual",
+            "event_id",
+        ]
+        cols = preferred + [c for c in df.columns if c not in preferred]
+        df = df[cols]
+    elif target == "zenith":
+        preferred = [
+            "true_zenith_radian",
+            "pred_zenith_radian",
+            "true_zenith_degree",
+            "pred_zenith_degree",
+            "kappa",
+            "event_id",
+            "residual_zenith_radian",
+            "residual_zenith_degree",
+        ]
+        cols = preferred + [c for c in df.columns if c not in preferred]
+        df = df[cols]
+    elif target == "azimuth":
+        preferred = [
+            "true_azimuth_radian",
+            "pred_azimuth_radian",
+            "true_azimuth_degree",
+            "pred_azimuth_degree",
+            "kappa",
+            "event_id",
+            "residual_azimuth_radian",
+            "residual_azimuth_degree",
+        ]
+        cols = preferred + [c for c in df.columns if c not in preferred]
+        df = df[cols]
+
     df.to_csv(out_csv, index=False)
     print(f"[Test={target}] Wrote: {out_csv} | rows={len(df)}")
 
-    # Quick summary
+    # Quick summary: ONLY signed residual stats (no abs error)
     if target in ["zenith", "azimuth"]:
-        a = torch.tensor(df["abs_error_deg"].to_numpy(), dtype=torch.float32)
-        p16 = torch.quantile(a, 0.16).item()
-        p50 = torch.quantile(a, 0.50).item()
-        p84 = torch.quantile(a, 0.84).item()
+        if target == "zenith":
+            rdeg = torch.tensor(df["residual_zenith_degree"].to_numpy(), dtype=torch.float32)
+        else:
+            rdeg = torch.tensor(df["residual_azimuth_degree"].to_numpy(), dtype=torch.float32)
+
+        rp16 = torch.quantile(rdeg, 0.16).item()
+        rp50 = torch.quantile(rdeg, 0.50).item()
+        rp84 = torch.quantile(rdeg, 0.84).item()
+        Wdeg = (rp84 - rp16) / 2.0
         kmean = float(df["kappa"].mean())
-        print(f"[Test={target}] abs_error_deg: p16={p16:.3f}, p50={p50:.3f}, p84={p84:.3f} | kappa_mean={kmean:.3f}")
+        print(f"[Test={target}] residual_deg (signed): p16={rp16:.3f}, p50={rp50:.3f}, p84={rp84:.3f} | W_deg={Wdeg:.3f} | kappa_mean={kmean:.3f}")
     else:
-        r = df["residual_log10"].to_numpy()
-        p16, p50, p84 = (float(pd.Series(r).quantile(q)) for q in [0.16, 0.50, 0.84])
+        r = torch.tensor(df["residual_log10"].to_numpy(), dtype=torch.float32)
+        p16 = torch.quantile(r, 0.16).item()
+        p50 = torch.quantile(r, 0.50).item()
+        p84 = torch.quantile(r, 0.84).item()
         W = (p84 - p16) / 2.0
-        print(f"[Test=energy] residual_log10: p16={p16:.4f}, p50={p50:.4f}, p84={p84:.4f}, W={W:.4f}")
+        mae = r.abs().mean().item()
+        rmse = torch.sqrt((r ** 2).mean()).item()
+        print(f"[Test=energy] residual_log10: p16={p16:.4f}, p50={p50:.4f}, p84={p84:.4f}, W={W:.4f} | mae={mae:.4f} rmse={rmse:.4f}")
 
 
 # =======================
@@ -883,18 +1117,29 @@ def run_one(cfg: Cfg, target: str, data_representation, train_loader, val_loader
 
     model = build_model(cfg, data_representation, steps_per_epoch_optimizer, target=target)
 
+
+    monitor = cfg.early_stopping_monitor_energy if target == "energy" else cfg.early_stopping_monitor_angle
+
     early_stop = GraphnetEarlyStopping(
         save_dir=out_dir,
-        monitor="val_loss",
-        mode="min",
+        monitor=monitor,
+        mode=cfg.early_stopping_mode,
         patience=cfg.early_stopping_patience,
         check_on_train_epoch_end=False,
         verbose=True,
     )
 
+
+
     metrics_cb = EpochCSVLogger(out_dir, filename=cfg.metrics_name)
     epoch_ctx_cb = _EpochContextCallback()
     time_cb = EpochTimeLogger(out_dir, filename=cfg.resources_and_time_csv_name)
+
+    val_metrics_cb = ValidationResidualAndLRMetrics(
+        target=target,
+        val_loader=val_loader,
+        max_batches=cfg.val_metrics_max_batches,
+        )
 
 
     # --- GPU sanity print
@@ -902,11 +1147,12 @@ def run_one(cfg: Cfg, target: str, data_representation, train_loader, val_loader
     if torch.cuda.is_available():
         print(f"[Run={target}] GPU = {torch.cuda.get_device_name(0)}")
 
+
     trainer = pl.Trainer(
         max_epochs=cfg.max_epochs,
         accelerator="gpu",
         devices=1,
-        callbacks=[epoch_ctx_cb, early_stop, metrics_cb, time_cb],
+        callbacks=[epoch_ctx_cb, val_metrics_cb, early_stop, metrics_cb, time_cb],
         enable_checkpointing=False,
         enable_progress_bar=False,
         accumulate_grad_batches=cfg.accumulate_grad_batches,
