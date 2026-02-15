@@ -401,69 +401,49 @@ class EpochTimeLogger(Callback):
         total_min = (time.time() - self.t0) / 60.0
         print(f"[Resources] Wrote {self.file} | last_epoch={self.last_written_epoch} | total={total_min:.2f} min")
 
-
-
 class EpochCSVLogger(Callback):
     def __init__(self, out_dir, filename: str = "metrics.csv"):
         self.out_dir = Path(out_dir)
         self.out_dir.mkdir(parents=True, exist_ok=True)
         self.file = self.out_dir / filename
+
+        # --- Track best_model.pth updates per epoch ---
         self.best_model_path = self.out_dir / "best_model.pth"
-        self._best_mtime_prev = None
-        self._last_epoch_written = None
-    
+        self._best_mtime_prev: Optional[float] = None
+        self._last_epoch_written: Optional[int] = None
+
     def _best_mtime(self) -> Optional[float]:
         try:
             return self.best_model_path.stat().st_mtime
         except FileNotFoundError:
             return None
 
-    def _patch_best_flag_for_epoch(self, epoch: int, flag: bool) -> None:
-        """Rewrite metrics.csv and set best_model_is_updated for the row with given epoch."""
-        if not self.file.exists():
-            return
-
-        with self.file.open("r", newline="") as f:
-            reader = csv.DictReader(f)
-            fieldnames = reader.fieldnames
-            rows = list(reader)
-
-        if not fieldnames or not rows:
-            return
-
-        # Update the last matching epoch row (should be the last row)
-        for row in reversed(rows):
-            if str(row.get("epoch", "")) == str(epoch):
-                row["best_model_is_updated"] = "True" if flag else "False"
-                break
-
-        tmp = self.file.with_suffix(".tmp")
-        with tmp.open("w", newline="") as f:
-            writer = csv.DictWriter(f, fieldnames=fieldnames)
-            writer.writeheader()
-            writer.writerows(rows)
-
-        tmp.replace(self.file)
-
     def on_fit_start(self, trainer, pl_module):
         if trainer.sanity_checking:
             return
-        # Baseline mtime (in case file exists from an old run)
+        # Baseline mtime (in case best_model.pth appears later)
         self._best_mtime_prev = self._best_mtime()
-
-
+        self._last_epoch_written = None
 
     def on_validation_epoch_end(self, trainer, pl_module):
         if trainer.sanity_checking:
             return
+
         metrics = trainer.callback_metrics
+
+        # Detect updates that have already happened by this point
+        cur_mtime = self._best_mtime()
+        updated_now = (cur_mtime is not None) and (
+            self._best_mtime_prev is None or cur_mtime != self._best_mtime_prev
+        )
+
         row = {
             "epoch": trainer.current_epoch,
             "train_loss": metrics.get("train_loss_epoch", metrics.get("train_loss")),
             "val_loss": metrics.get("val_loss"),
-            "best_model_is_updated": False,  # will be patched to True if best_model.pth updated this epoch
-
+            "best_model_is_updated": bool(updated_now),
         }
+
         for k, v in row.items():
             if torch.is_tensor(v):
                 row[k] = v.item()
@@ -474,9 +454,53 @@ class EpochCSVLogger(Callback):
             if write_header:
                 writer.writeheader()
             writer.writerow(row)
-            self._last_epoch_written = trainer.current_epoch
 
+        self._last_epoch_written = trainer.current_epoch
 
+    def _patch_last_row_best_flag(self, epoch: int) -> None:
+        """Patch the last row in metrics.csv for the given epoch -> set best_model_is_updated=True."""
+        # We assume metrics.csv is only appended (fresh run), so last row should be this epoch.
+        if not self.file.exists():
+            return
+
+        with self.file.open("r", newline="") as f:
+            reader = csv.DictReader(f)
+            fieldnames = reader.fieldnames or []
+            rows = list(reader)
+
+        if not rows or "best_model_is_updated" not in fieldnames:
+            return
+
+        # Find last matching epoch row (should be the last row)
+        for row in reversed(rows):
+            if str(row.get("epoch", "")) == str(epoch):
+                row["best_model_is_updated"] = "True"
+                break
+
+        tmp = self.file.with_suffix(".tmp")
+        with tmp.open("w", newline="") as f:
+            writer = csv.DictWriter(f, fieldnames=fieldnames)
+            writer.writeheader()
+            writer.writerows(rows)
+
+        tmp.replace(self.file)
+
+    def on_validation_end(self, trainer, pl_module):
+        if trainer.sanity_checking:
+            return
+
+        # Catch updates that happen after on_validation_epoch_end
+        cur_mtime = self._best_mtime()
+        updated_late = (cur_mtime is not None) and (
+            self._best_mtime_prev is None or cur_mtime != self._best_mtime_prev
+        )
+
+        if updated_late and self._last_epoch_written == trainer.current_epoch:
+            self._patch_last_row_best_flag(trainer.current_epoch)
+
+        # Update baseline for next epoch
+        if cur_mtime is not None:
+            self._best_mtime_prev = cur_mtime
 
 # =======================
 # 6) Energy task (log10 target + LogCosh)
