@@ -191,3 +191,18 @@ LOCAL_RANK: 0 - CUDA_VISIBLE_DEVICES: [0]
 4         Modules in eval mode
 SLURM auto-requeueing enabled. Setting signal handlers.
 /project/6061446/kbas/pone_offline/graphnet_env/lib/python3.10/site-packages/pytorch_lightning/loops/fit_loop.py:527: Found 4 module(s) in eval mode at the start of training. This may lead to unexpected behavior during training. If this is intentional, you can ignore this warning.
+Metric val_loss improved. New best score: 0.219 | epoch: 0
+[1;34mgraphnet[0m [MainProcess] [32mINFO    [0m 2026-02-16 06:28:35 - StandardModel.save_state_dict - Model state_dict saved to /project/6061446/kbas/Graphnet-Applications/Training/EventPulseSeries_nonoise/initiative2/zenith/best_model.pth[0m
+Metric val_loss improved by 0.123 >= min_delta = 0.0. New best score: 0.096 | epoch: 1
+[1;34mgraphnet[0m [MainProcess] [32mINFO    [0m 2026-02-16 06:47:55 - StandardModel.save_state_dict - Model state_dict saved to /project/6061446/kbas/Graphnet-Applications/Training/EventPulseSeries_nonoise/initiative2/zenith/best_model.pth[0m
+Metric val_loss improved by 0.645 >= min_delta = 0.0. New best score: -0.549 | epoch: 2
+[1;34mgraphnet[0m [MainProcess] [32mINFO    [0m 2026-02-16 07:07:17 - StandardModel.save_state_dict - Model state_dict saved to /project/6061446/kbas/Graphnet-Applications/Training/EventPulseSeries_nonoise/initiative2/zenith/best_model.pth[0m
+`Trainer.fit` stopped: `max_epochs=3` reached.
+[Resources] Wrote /project/6061446/kbas/Graphnet-Applications/Training/EventPulseSeries_nonoise/initiative2/zenith/resources_and_time.csv | last_epoch=2 | total=63.50 min
+[Run=zenith] best_model: /project/6061446/kbas/Graphnet-Applications/Training/EventPulseSeries_nonoise/initiative2/zenith/best_model.pth
+[Run=zenith] config:     /project/6061446/kbas/Graphnet-Applications/Training/EventPulseSeries_nonoise/initiative2/zenith/config.yml
+[Run=zenith] metrics:    /project/6061446/kbas/Graphnet-Applications/Training/EventPulseSeries_nonoise/initiative2/zenith/metrics.csv
+[Test=zenith] Loaded best weights: /project/6061446/kbas/Graphnet-Applications/Training/EventPulseSeries_nonoise/initiative2/zenith/best_model.pth
+[Test=zenith] Wrote: /project/6061446/kbas/Graphnet-Applications/Training/EventPulseSeries_nonoise/initiative2/zenith/test_predictions.csv | rows=41311
+[Test=zenith] residual_deg (signed): p16=-6.860, p50=-0.067, p84=6.768 | W_deg=6.814 | kappa_mean=52.835
+===== DONE =====
