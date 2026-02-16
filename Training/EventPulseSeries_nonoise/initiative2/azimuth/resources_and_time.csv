@@ -1,0 +1,4 @@
+epoch,elapsed_min,epoch_duration_min,rss_gb,sys_mem_used_gb,cpu_load_pct,gpu_util_pct,gpu_mem_used_gb,gpu_mem_total_gb,gpu_mem_util_pct
+0,21.755,21.755,2.129,62.035,64.97,89.0,32.628,79.647,41.0
+1,41.192,19.436,2.129,62.120,70.17,0.0,38.694,79.647,48.6
+2,60.661,19.469,2.121,62.283,66.46,89.0,38.694,79.647,48.6
