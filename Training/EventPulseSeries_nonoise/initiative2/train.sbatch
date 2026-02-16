@@ -1,7 +1,7 @@
 #!/bin/bash
 #SBATCH --job-name=DynEdge_Combined
 #SBATCH --account=def-nahee
-#SBATCH --time=48:00:00
+#SBATCH --time=09:00:00
 #SBATCH --mem=48G
 #SBATCH --cpus-per-task=12
 #SBATCH --gpus-per-node=h100:1

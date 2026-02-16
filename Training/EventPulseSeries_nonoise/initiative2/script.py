@@ -437,6 +437,13 @@ class ValidationResidualAndLRMetrics(Callback):
             else:
                 mae = float("nan")
                 rmse = float("nan")
+            if residual_log10_all.numel() > 0:
+                bias = float(residual_log10_all.mean().item())
+            else:
+                bias = float("nan")
+
+            pl_module.log("val_bias_log10", bias, on_step=False, on_epoch=True, prog_bar=False, logger=False)
+
 
             pl_module.log("val_mae_log10", mae, on_step=False, on_epoch=True, prog_bar=False, logger=False)
             pl_module.log("val_rmse_log10", rmse, on_step=False, on_epoch=True, prog_bar=False, logger=False)
@@ -763,6 +770,37 @@ class Cfg:
     test_csv_name: str = "test_predictions.csv"
     resources_and_time_csv_name: str = "resources_and_time.csv"   
 
+    # Extra metric columns to write into metrics.csv (chosen by target)
+    metrics_extra_keys_energy: Tuple[str, ...] = (
+        "val_residual_log10_p16",
+        "val_residual_log10_p50",
+        "val_residual_log10_p84",
+        "val_W_log10",
+        "val_bias_log10",
+        "val_mae_log10",
+        "val_rmse_log10",
+    )
+    metrics_extra_keys_zenith: Tuple[str, ...] = (
+        "val_residual_p16_deg",
+        "val_residual_p50_deg",
+        "val_residual_p84_deg",
+        "val_W_deg",
+        "val_kappa_p16",
+        "val_kappa_p50",
+        "val_kappa_p84",
+        "val_kappa_W",
+    )
+    metrics_extra_keys_azimuth: Tuple[str, ...] = (
+        "val_residual_p16_deg",
+        "val_residual_p50_deg",
+        "val_residual_p84_deg",
+        "val_W_deg",
+        "val_kappa_p16",
+        "val_kappa_p50",
+        "val_kappa_p84",
+        "val_kappa_W",
+    )
+
     # Early stopping monitors (separate)
     early_stopping_monitor_energy: str = "val_loss"
     early_stopping_monitor_angle: str = "val_loss"
@@ -984,6 +1022,13 @@ def run_test(cfg: Cfg, target: str, model: pl.LightningModule, test_loader, out_
                 true_deg = truth * (180.0 / math.pi)
                 pred_deg = pred_angle * (180.0 / math.pi)
 
+                if target == "azimuth":
+                    true_signed_rad = _wrap_to_pi(truth)
+                    pred_signed_rad = _wrap_to_pi(pred_angle)
+                    true_signed_deg = true_signed_rad * (180.0 / math.pi)
+                    pred_signed_deg = pred_signed_rad * (180.0 / math.pi)
+                    pred_adj_deg = true_deg + residual_deg
+
                 for i in range(len(truth)):
                     if target == "zenith":
                         row = {
@@ -1002,6 +1047,9 @@ def run_test(cfg: Cfg, target: str, model: pl.LightningModule, test_loader, out_
                             "pred_azimuth_radian": float(pred_angle[i].item()),
                             "true_azimuth_degree": float(true_deg[i].item()),
                             "pred_azimuth_degree": float(pred_deg[i].item()),
+                            "true_azimuth_degree_signed": float(true_signed_deg[i].item()),
+                            "pred_azimuth_degree_signed": float(pred_signed_deg[i].item()),
+                            "pred_azimuth_degree_adj": float(pred_adj_deg[i].item()),
                             "kappa": float(kappa[i].item()),
                             "event_id": _eid(i),
                             "residual_azimuth_radian": float(residual_rad[i].item()),
@@ -1064,6 +1112,9 @@ def run_test(cfg: Cfg, target: str, model: pl.LightningModule, test_loader, out_
             "pred_azimuth_radian",
             "true_azimuth_degree",
             "pred_azimuth_degree",
+            "true_azimuth_degree_signed",
+            "pred_azimuth_degree_signed",
+            "pred_azimuth_degree_adj",
             "kappa",
             "event_id",
             "residual_azimuth_radian",
@@ -1132,6 +1183,14 @@ def run_one(cfg: Cfg, target: str, data_representation, train_loader, val_loader
 
 
     metrics_cb = EpochCSVLogger(out_dir, filename=cfg.metrics_name)
+    # Select per-target metric columns (avoid NaNs in metrics.csv)
+    if target == "energy":
+        metrics_cb.extra_keys_in_order = list(cfg.metrics_extra_keys_energy)
+    elif target == "zenith":
+        metrics_cb.extra_keys_in_order = list(cfg.metrics_extra_keys_zenith)
+    elif target == "azimuth":
+        metrics_cb.extra_keys_in_order = list(cfg.metrics_extra_keys_azimuth)
+
     epoch_ctx_cb = _EpochContextCallback()
     time_cb = EpochTimeLogger(out_dir, filename=cfg.resources_and_time_csv_name)
 
