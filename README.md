@@ -57,3 +57,34 @@ gordum loglarda. ama energy icin bu sayi 50 degil 20 idi. neden?
 * `ZenithReconstructionWithKappa` ✅
 * `AzimuthReconstructionWithKappa` ✅
 ama tekrar check et. gpt dedi bunu.
+50. hocaniy yolladigi paperlara bak.
+51. hoca noiseless data ile devam et dedi. simdilik. simdilik bu sadece muon da ok.
+52. hocayla konusmalarindan notlari yaz buraya
+53. analysis call'de hangi source'lari kullandigini ve neler yaptigini outputlarla anlat kendini tanit.
+54. gruba yaz hangi gun yapcaz de sor fln. design meetinge. 
+55. elenaya da yaz ve sunumunu yap neler yaptigina dair.
+56. caleb showers uretcek mi sorabilirsin. icecube ile de kiyasla, 10-10-10 ekleyerek de dene.
+57. su anda su anki datanla devamkeeee.
+58. icecube gen2 ile kiyasla. kendi yaptiklarini glb. 
+59. showers icin Caleb'e sorabilirsin.
+60. scriptte neden abs error degree? neden abs yani. degis onu mumkunse.
+61. analysis scriptini incele. doru mu yapmissin zenith azimuth vs
+62. VonMisesFisher2DLoss, radian bekliyor target'i. azimuth ve zenith siniflarin da oyleeee.
+gpt said:
+Evet. Bu üçüyle birlikte kullanacaksan, target açıların (azimuth ve zenith) radyan olmalı.
+
+Neden?
+
+VonMisesFisher2DLoss: sin/cos kullanıyor → PyTorch bunları radyan kabul eder.
+
+AzimuthReconstructionWithKappa: atan2 ile açı üretiyor ve + 2π ile [0, 2π] aralığına getiriyor → radyan.
+
+ZenithReconstructionWithKappa: sigmoid * π ile [0, π] aralığına map ediyor → radyan.
+
+Dolayısıyla target’ların beklenen aralığı:
+
+zenith ∈ [0, π]
+
+azimuth ∈ [0, 2π]
+
+Eğer target’ların dereceyse, eğitimden önce dönüştür.
