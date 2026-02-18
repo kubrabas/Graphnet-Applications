@@ -3,7 +3,7 @@
 ## ToDo:
 1. Check last analysis calls
 2. 
-3. metrics.csv should include W at every epoches? plot train-val loss error. early stopping should monitor W?
+3.  early stopping should monitor W?
 4. check the log file, adjust your script if needed
 5. understand everything in your combined script.
 6. sinav kayit, tez kayit vs sorun var mi
@@ -37,7 +37,7 @@ bunlari belki farkli kullanmak istersin küb.
 31. sunumun icin slayt hazirla. datani anlat. pom_response nasil olusturdun onu anlat. sonuclari goster.
 32. loglarda hiz, sure vs de olsun. cpu gpu kullanimi vsvs. plot da olsun? ne kadar datada ne kadar computational source.
 33. time_and_resources'i duzenle
-34. zenith veya azimuth. biri yanlis bunlarin.
+34. zenith veya azimuth. biri yanlis bunlarin. yok ya degil sanirim.
 35. genel log outputlarini kiyasla silebilecegin training orneklerini sil. 
 36. .out dosyan daha organize, sectionlastirilmis olsun. daha 
 37. data loaderlari ayirsam mi?
@@ -88,3 +88,5 @@ zenith ∈ [0, π]
 azimuth ∈ [0, 2π]
 
 Eğer target’ların dereceyse, eğitimden önce dönüştür.
+
+63. zattirizortzort. PMT response uretirken lepton weighter'i da ekleee eehehehehehehe. sonra ona yonelik bir feature extractor vsvsvsvs

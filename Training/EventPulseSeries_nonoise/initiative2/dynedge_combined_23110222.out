@@ -1,0 +1,245 @@
+===== SLURM INFO =====
+JOBID: 23110222
+NODELIST: fc10502
+CPUS_PER_TASK: 12
+GPUS_ON_NODE: 1
+SUBMIT_DIR: /project/6061446/kbas/Graphnet-Applications/Training/EventPulseSeries_nonoise/initiative2
+======================
+===== SCONTROL (Req/Alloc) =====
+   ReqNodeList=(null) ExcNodeList=(null)
+   NodeList=fc10502
+   ReqTRES=cpu=12,mem=48G,node=1,billing=12200,gres/gpu=1,gres/gpu:h100=1
+   AllocTRES=cpu=12,mem=48G,node=1,billing=12200,gres/gpu=1,gres/gpu:h100=1
+================================
+The following modules were not unloaded:
+  (Use "module --force purge" to unload all):
+
+  1) CCconfig        6)  ucx/1.14.1         11) flexiblas/3.3.1
+  2) gentoo/2023     7)  libfabric/1.18.0   12) aocl-blas/5.1
+  3) gcccore/.12.3   8)  pmix/4.2.4         13) aocl-lapack/5.1
+  4) gcc/12.3        9)  ucc/1.2.0          14) StdEnv/2023
+  5) hwloc/2.9.1     10) openmpi/4.1.5
+===== ENV SETUP =====
+PWD: /project/def-nahee/kbas/pone_offline
+Activating venv: /project/def-nahee/kbas/pone_offline/graphnet_env/bin/activate
+Python: /project/6061446/kbas/pone_offline/graphnet_env/bin/python3
+sys.executable = /project/6061446/kbas/pone_offline/graphnet_env/bin/python3
+torch: 2.6.0
+cuda available: True
+cuda device: NVIDIA H100 80GB HBM3
+===== GPU INFO =====
+Mon Feb 16 15:45:15 2026       
++-----------------------------------------------------------------------------------------+
+| NVIDIA-SMI 580.65.06              Driver Version: 580.65.06      CUDA Version: 13.0     |
++-----------------------------------------+------------------------+----------------------+
+| GPU  Name                 Persistence-M | Bus-Id          Disp.A | Volatile Uncorr. ECC |
+| Fan  Temp   Perf          Pwr:Usage/Cap |           Memory-Usage | GPU-Util  Compute M. |
+|                                         |                        |               MIG M. |
+|=========================================+========================+======================|
+|   0  NVIDIA H100 80GB HBM3          On  |   00000000:06:00.0 Off |                    0 |
+| N/A   23C    P0             66W /  700W |       0MiB /  81559MiB |      0%      Default |
+|                                         |                        |             Disabled |
++-----------------------------------------+------------------------+----------------------+
+
++-----------------------------------------------------------------------------------------+
+| Processes:                                                                              |
+|  GPU   GI   CI              PID   Type   Process name                        GPU Memory |
+|        ID   ID                                                               Usage      |
+|=========================================================================================|
+|  No running processes found                                                             |
++-----------------------------------------------------------------------------------------+
+====================
+===== RUN =====
+
+========== CONFIG ==========
+seed: 20260202
+train_path: /project/def-nahee/kbas/POM_Response_Parquet/merged/train_reindexed
+val_path: /project/def-nahee/kbas/POM_Response_Parquet/merged/val_reindexed
+test_path: /project/def-nahee/kbas/POM_Response_Parquet/merged/test_reindexed
+pulsemaps: features
+truth_table: truth
+features: ('pmt_x', 'pmt_y', 'pmt_z', 'dom_time', 'charge')
+truth_all: ('azimuth', 'zenith', 'energy')
+batch_size: 256
+num_workers: 8
+multiprocessing_context: spawn
+persistent_workers: True
+pin_memory: True
+max_epochs: 30
+early_stopping_patience: 5
+base_lr: 1e-05
+peak_lr: 0.001
+accumulate_grad_batches: 4
+nb_neighbours: 8
+global_pooling_schemes: ('min', 'max', 'mean', 'sum')
+add_global_variables_after_pooling: True
+add_norm_layer: False
+skip_readout: False
+transform_support: (10.0, 100000000.0)
+save_dir: /project/6061446/kbas/Graphnet-Applications/Training/EventPulseSeries_nonoise/initiative2
+metrics_name: metrics.csv
+test_csv_name: test_predictions.csv
+resources_and_time_csv_name: resources_and_time.csv
+metrics_extra_keys_energy: ('val_residual_log10_p16', 'val_residual_log10_p50', 'val_residual_log10_p84', 'val_W_log10', 'val_bias_log10', 'val_mae_log10', 'val_rmse_log10')
+metrics_extra_keys_zenith: ('val_residual_p16_deg', 'val_residual_p50_deg', 'val_residual_p84_deg', 'val_W_deg', 'val_kappa_p16', 'val_kappa_p50', 'val_kappa_p84', 'val_kappa_W')
+metrics_extra_keys_azimuth: ('val_residual_p16_deg', 'val_residual_p50_deg', 'val_residual_p84_deg', 'val_W_deg', 'val_kappa_p16', 'val_kappa_p50', 'val_kappa_p84', 'val_kappa_W')
+early_stopping_monitor_energy: val_loss
+early_stopping_monitor_angle: val_loss
+early_stopping_mode: min
+val_metrics_max_batches: None
+============================
+
+[Data] Building data_representation (KNNGraph + robust scaling)
+[1;34mgraphnet[0m [MainProcess] [32mINFO    [0m 2026-02-16 15:48:50 - PONE.__init__ - Writing log to [1mlogs/graphnet_20260216-154850.log[0m
+[Data] Creating ParquetDataset(s)
+[Data] Creating DataLoader(s)
+[Data] len(train_loader) = 1256 batches/epoch (drop_last=True)
+[Data] len(val_loader)   = 156 batches/epoch
+[Data] len(test_loader)  = 162 batches
+[Sanity] azimuth range: 0.042..6.268
+[Sanity] zenith  range: 0.183..3.012
+[Sanity] energy  range: 1.001e+02..5.791e+06
+[rank: 0] Seed set to 20260202
+
+[Run=energy] torch.cuda.is_available() = True
+[Run=energy] GPU = NVIDIA H100 80GB HBM3
+GPU available: True (cuda), used: True
+TPU available: False, using: 0 TPU cores
+/project/6061446/kbas/pone_offline/graphnet_env/lib/python3.10/site-packages/pytorch_lightning/trainer/connectors/logger_connector/logger_connector.py:76: Starting from v1.9.0, `tensorboardX` has been removed as a dependency of the `pytorch_lightning` package, due to potential conflicts with other packages in the ML ecosystem. For this reason, `logger=True` will use `CSVLogger` as the default logger, unless the `tensorboard` or `tensorboardX` packages are found. Please `pip install lightning[extra]` or one of them to enable TensorBoard support by default
+You are using a CUDA device ('NVIDIA H100 80GB HBM3') that has Tensor Cores. To properly utilize them, you should set `torch.set_float32_matmul_precision('medium' | 'high')` which will trade-off precision for performance. For more details, read https://pytorch.org/docs/stable/generated/torch.set_float32_matmul_precision.html#torch.set_float32_matmul_precision
+LOCAL_RANK: 0 - CUDA_VISIBLE_DEVICES: [0]
+
+  | Name                 | Type       | Params | Mode 
+------------------------------------------------------------
+0 | _tasks               | ModuleList | 129    | train
+1 | _data_representation | KNNGraph   | 0      | train
+2 | backbone             | DynEdge    | 1.4 M  | train
+------------------------------------------------------------
+1.4 M     Trainable params
+0         Non-trainable params
+1.4 M     Total params
+5.501     Total estimated model params size (MB)
+36        Modules in train mode
+0         Modules in eval mode
+SLURM auto-requeueing enabled. Setting signal handlers.
+Metric val_loss improved. New best score: 0.133 | epoch: 0
+[1;34mgraphnet[0m [MainProcess] [32mINFO    [0m 2026-02-16 16:11:28 - StandardModel.save_state_dict - Model state_dict saved to /project/6061446/kbas/Graphnet-Applications/Training/EventPulseSeries_nonoise/initiative2/energy/best_model.pth[0m
+Metric val_loss improved by 0.015 >= min_delta = 0.0. New best score: 0.119 | epoch: 1
+[1;34mgraphnet[0m [MainProcess] [32mINFO    [0m 2026-02-16 16:30:57 - StandardModel.save_state_dict - Model state_dict saved to /project/6061446/kbas/Graphnet-Applications/Training/EventPulseSeries_nonoise/initiative2/energy/best_model.pth[0m
+Metric val_loss improved by 0.007 >= min_delta = 0.0. New best score: 0.111 | epoch: 2
+[1;34mgraphnet[0m [MainProcess] [32mINFO    [0m 2026-02-16 16:50:24 - StandardModel.save_state_dict - Model state_dict saved to /project/6061446/kbas/Graphnet-Applications/Training/EventPulseSeries_nonoise/initiative2/energy/best_model.pth[0m
+Metric val_loss improved by 0.005 >= min_delta = 0.0. New best score: 0.107 | epoch: 3
+[1;34mgraphnet[0m [MainProcess] [32mINFO    [0m 2026-02-16 17:09:55 - StandardModel.save_state_dict - Model state_dict saved to /project/6061446/kbas/Graphnet-Applications/Training/EventPulseSeries_nonoise/initiative2/energy/best_model.pth[0m
+Metric val_loss improved by 0.000 >= min_delta = 0.0. New best score: 0.106 | epoch: 4
+[1;34mgraphnet[0m [MainProcess] [32mINFO    [0m 2026-02-16 17:29:01 - StandardModel.save_state_dict - Model state_dict saved to /project/6061446/kbas/Graphnet-Applications/Training/EventPulseSeries_nonoise/initiative2/energy/best_model.pth[0m
+Metric val_loss improved by 0.008 >= min_delta = 0.0. New best score: 0.099 | epoch: 5
+[1;34mgraphnet[0m [MainProcess] [32mINFO    [0m 2026-02-16 17:48:00 - StandardModel.save_state_dict - Model state_dict saved to /project/6061446/kbas/Graphnet-Applications/Training/EventPulseSeries_nonoise/initiative2/energy/best_model.pth[0m
+Metric val_loss improved by 0.001 >= min_delta = 0.0. New best score: 0.098 | epoch: 6
+[1;34mgraphnet[0m [MainProcess] [32mINFO    [0m 2026-02-16 18:07:13 - StandardModel.save_state_dict - Model state_dict saved to /project/6061446/kbas/Graphnet-Applications/Training/EventPulseSeries_nonoise/initiative2/energy/best_model.pth[0m
+Metric val_loss improved by 0.000 >= min_delta = 0.0. New best score: 0.098 | epoch: 8
+[1;34mgraphnet[0m [MainProcess] [32mINFO    [0m 2026-02-16 18:45:45 - StandardModel.save_state_dict - Model state_dict saved to /project/6061446/kbas/Graphnet-Applications/Training/EventPulseSeries_nonoise/initiative2/energy/best_model.pth[0m
+Metric val_loss improved by 0.003 >= min_delta = 0.0. New best score: 0.095 | epoch: 9
+[1;34mgraphnet[0m [MainProcess] [32mINFO    [0m 2026-02-16 19:04:55 - StandardModel.save_state_dict - Model state_dict saved to /project/6061446/kbas/Graphnet-Applications/Training/EventPulseSeries_nonoise/initiative2/energy/best_model.pth[0m
+Metric val_loss improved by 0.003 >= min_delta = 0.0. New best score: 0.092 | epoch: 10
+[1;34mgraphnet[0m [MainProcess] [32mINFO    [0m 2026-02-16 19:24:42 - StandardModel.save_state_dict - Model state_dict saved to /project/6061446/kbas/Graphnet-Applications/Training/EventPulseSeries_nonoise/initiative2/energy/best_model.pth[0m
+Metric val_loss improved by 0.001 >= min_delta = 0.0. New best score: 0.091 | epoch: 11
+[1;34mgraphnet[0m [MainProcess] [32mINFO    [0m 2026-02-16 19:44:25 - StandardModel.save_state_dict - Model state_dict saved to /project/6061446/kbas/Graphnet-Applications/Training/EventPulseSeries_nonoise/initiative2/energy/best_model.pth[0m
+Metric val_loss improved by 0.001 >= min_delta = 0.0. New best score: 0.091 | epoch: 15
+[1;34mgraphnet[0m [MainProcess] [32mINFO    [0m 2026-02-16 21:02:31 - StandardModel.save_state_dict - Model state_dict saved to /project/6061446/kbas/Graphnet-Applications/Training/EventPulseSeries_nonoise/initiative2/energy/best_model.pth[0m
+Metric val_loss improved by 0.000 >= min_delta = 0.0. New best score: 0.091 | epoch: 16
+[1;34mgraphnet[0m [MainProcess] [32mINFO    [0m 2026-02-16 21:21:32 - StandardModel.save_state_dict - Model state_dict saved to /project/6061446/kbas/Graphnet-Applications/Training/EventPulseSeries_nonoise/initiative2/energy/best_model.pth[0m
+Metric val_loss improved by 0.001 >= min_delta = 0.0. New best score: 0.090 | epoch: 17
+[1;34mgraphnet[0m [MainProcess] [32mINFO    [0m 2026-02-16 21:40:35 - StandardModel.save_state_dict - Model state_dict saved to /project/6061446/kbas/Graphnet-Applications/Training/EventPulseSeries_nonoise/initiative2/energy/best_model.pth[0m
+Metric val_loss improved by 0.001 >= min_delta = 0.0. New best score: 0.089 | epoch: 18
+[1;34mgraphnet[0m [MainProcess] [32mINFO    [0m 2026-02-16 21:59:41 - StandardModel.save_state_dict - Model state_dict saved to /project/6061446/kbas/Graphnet-Applications/Training/EventPulseSeries_nonoise/initiative2/energy/best_model.pth[0m
+Monitored metric val_loss did not improve in the last 5 records. Best score: 0.089. Signaling Trainer to stop.
+[Resources] Wrote /project/6061446/kbas/Graphnet-Applications/Training/EventPulseSeries_nonoise/initiative2/energy/resources_and_time.csv | last_epoch=23 | total=466.09 min
+[Run=energy] best_model: /project/6061446/kbas/Graphnet-Applications/Training/EventPulseSeries_nonoise/initiative2/energy/best_model.pth
+[Run=energy] config:     /project/6061446/kbas/Graphnet-Applications/Training/EventPulseSeries_nonoise/initiative2/energy/config.yml
+[Run=energy] metrics:    /project/6061446/kbas/Graphnet-Applications/Training/EventPulseSeries_nonoise/initiative2/energy/metrics.csv
+[Test=energy] Loaded best weights: /project/6061446/kbas/Graphnet-Applications/Training/EventPulseSeries_nonoise/initiative2/energy/best_model.pth
+[Test=energy] Wrote: /project/6061446/kbas/Graphnet-Applications/Training/EventPulseSeries_nonoise/initiative2/energy/test_predictions.csv | rows=41311
+[Test=energy] residual_log10: p16=-0.3331, p50=0.0361, p84=0.3330, W=0.3331 | mae=0.3084 rmse=0.4624
+[rank: 0] Seed set to 20260202
+
+[Run=azimuth] torch.cuda.is_available() = True
+[Run=azimuth] GPU = NVIDIA H100 80GB HBM3
+GPU available: True (cuda), used: True
+TPU available: False, using: 0 TPU cores
+LOCAL_RANK: 0 - CUDA_VISIBLE_DEVICES: [0]
+
+  | Name                 | Type       | Params | Mode 
+------------------------------------------------------------
+0 | _tasks               | ModuleList | 258    | train
+1 | _data_representation | KNNGraph   | 0      | eval 
+2 | backbone             | DynEdge    | 1.4 M  | train
+------------------------------------------------------------
+1.4 M     Trainable params
+0         Non-trainable params
+1.4 M     Total params
+5.502     Total estimated model params size (MB)
+32        Modules in train mode
+4         Modules in eval mode
+SLURM auto-requeueing enabled. Setting signal handlers.
+/project/6061446/kbas/pone_offline/graphnet_env/lib/python3.10/site-packages/pytorch_lightning/loops/fit_loop.py:527: Found 4 module(s) in eval mode at the start of training. This may lead to unexpected behavior during training. If this is intentional, you can ignore this warning.
+Metric val_loss improved. New best score: 0.086 | epoch: 0
+[1;34mgraphnet[0m [MainProcess] [32mINFO    [0m 2026-02-17 00:20:28 - StandardModel.save_state_dict - Model state_dict saved to /project/6061446/kbas/Graphnet-Applications/Training/EventPulseSeries_nonoise/initiative2/azimuth/best_model.pth[0m
+Metric val_loss improved by 0.322 >= min_delta = 0.0. New best score: -0.236 | epoch: 1
+[1;34mgraphnet[0m [MainProcess] [32mINFO    [0m 2026-02-17 00:39:41 - StandardModel.save_state_dict - Model state_dict saved to /project/6061446/kbas/Graphnet-Applications/Training/EventPulseSeries_nonoise/initiative2/azimuth/best_model.pth[0m
+Metric val_loss improved by 0.073 >= min_delta = 0.0. New best score: -0.309 | epoch: 2
+[1;34mgraphnet[0m [MainProcess] [32mINFO    [0m 2026-02-17 00:58:53 - StandardModel.save_state_dict - Model state_dict saved to /project/6061446/kbas/Graphnet-Applications/Training/EventPulseSeries_nonoise/initiative2/azimuth/best_model.pth[0m
+Metric val_loss improved by 0.048 >= min_delta = 0.0. New best score: -0.357 | epoch: 3
+[1;34mgraphnet[0m [MainProcess] [32mINFO    [0m 2026-02-17 01:18:27 - StandardModel.save_state_dict - Model state_dict saved to /project/6061446/kbas/Graphnet-Applications/Training/EventPulseSeries_nonoise/initiative2/azimuth/best_model.pth[0m
+Metric val_loss improved by 0.024 >= min_delta = 0.0. New best score: -0.381 | epoch: 4
+[1;34mgraphnet[0m [MainProcess] [32mINFO    [0m 2026-02-17 01:37:47 - StandardModel.save_state_dict - Model state_dict saved to /project/6061446/kbas/Graphnet-Applications/Training/EventPulseSeries_nonoise/initiative2/azimuth/best_model.pth[0m
+Metric val_loss improved by 0.053 >= min_delta = 0.0. New best score: -0.434 | epoch: 5
+[1;34mgraphnet[0m [MainProcess] [32mINFO    [0m 2026-02-17 01:57:13 - StandardModel.save_state_dict - Model state_dict saved to /project/6061446/kbas/Graphnet-Applications/Training/EventPulseSeries_nonoise/initiative2/azimuth/best_model.pth[0m
+Metric val_loss improved by 0.008 >= min_delta = 0.0. New best score: -0.442 | epoch: 6
+[1;34mgraphnet[0m [MainProcess] [32mINFO    [0m 2026-02-17 02:16:55 - StandardModel.save_state_dict - Model state_dict saved to /project/6061446/kbas/Graphnet-Applications/Training/EventPulseSeries_nonoise/initiative2/azimuth/best_model.pth[0m
+Metric val_loss improved by 0.032 >= min_delta = 0.0. New best score: -0.474 | epoch: 7
+[1;34mgraphnet[0m [MainProcess] [32mINFO    [0m 2026-02-17 02:36:19 - StandardModel.save_state_dict - Model state_dict saved to /project/6061446/kbas/Graphnet-Applications/Training/EventPulseSeries_nonoise/initiative2/azimuth/best_model.pth[0m
+Metric val_loss improved by 0.029 >= min_delta = 0.0. New best score: -0.504 | epoch: 9
+[1;34mgraphnet[0m [MainProcess] [32mINFO    [0m 2026-02-17 03:14:51 - StandardModel.save_state_dict - Model state_dict saved to /project/6061446/kbas/Graphnet-Applications/Training/EventPulseSeries_nonoise/initiative2/azimuth/best_model.pth[0m
+Metric val_loss improved by 0.031 >= min_delta = 0.0. New best score: -0.535 | epoch: 11
+[1;34mgraphnet[0m [MainProcess] [32mINFO    [0m 2026-02-17 03:53:54 - StandardModel.save_state_dict - Model state_dict saved to /project/6061446/kbas/Graphnet-Applications/Training/EventPulseSeries_nonoise/initiative2/azimuth/best_model.pth[0m
+Metric val_loss improved by 0.011 >= min_delta = 0.0. New best score: -0.545 | epoch: 13
+[1;34mgraphnet[0m [MainProcess] [32mINFO    [0m 2026-02-17 04:32:29 - StandardModel.save_state_dict - Model state_dict saved to /project/6061446/kbas/Graphnet-Applications/Training/EventPulseSeries_nonoise/initiative2/azimuth/best_model.pth[0m
+Metric val_loss improved by 0.013 >= min_delta = 0.0. New best score: -0.558 | epoch: 14
+[1;34mgraphnet[0m [MainProcess] [32mINFO    [0m 2026-02-17 04:51:41 - StandardModel.save_state_dict - Model state_dict saved to /project/6061446/kbas/Graphnet-Applications/Training/EventPulseSeries_nonoise/initiative2/azimuth/best_model.pth[0m
+Metric val_loss improved by 0.000 >= min_delta = 0.0. New best score: -0.559 | epoch: 15
+[1;34mgraphnet[0m [MainProcess] [32mINFO    [0m 2026-02-17 05:10:52 - StandardModel.save_state_dict - Model state_dict saved to /project/6061446/kbas/Graphnet-Applications/Training/EventPulseSeries_nonoise/initiative2/azimuth/best_model.pth[0m
+Metric val_loss improved by 0.011 >= min_delta = 0.0. New best score: -0.570 | epoch: 16
+[1;34mgraphnet[0m [MainProcess] [32mINFO    [0m 2026-02-17 05:30:11 - StandardModel.save_state_dict - Model state_dict saved to /project/6061446/kbas/Graphnet-Applications/Training/EventPulseSeries_nonoise/initiative2/azimuth/best_model.pth[0m
+Metric val_loss improved by 0.010 >= min_delta = 0.0. New best score: -0.580 | epoch: 17
+[1;34mgraphnet[0m [MainProcess] [32mINFO    [0m 2026-02-17 05:49:48 - StandardModel.save_state_dict - Model state_dict saved to /project/6061446/kbas/Graphnet-Applications/Training/EventPulseSeries_nonoise/initiative2/azimuth/best_model.pth[0m
+Metric val_loss improved by 0.011 >= min_delta = 0.0. New best score: -0.591 | epoch: 21
+[1;34mgraphnet[0m [MainProcess] [32mINFO    [0m 2026-02-17 07:08:47 - StandardModel.save_state_dict - Model state_dict saved to /project/6061446/kbas/Graphnet-Applications/Training/EventPulseSeries_nonoise/initiative2/azimuth/best_model.pth[0m
+Monitored metric val_loss did not improve in the last 5 records. Best score: -0.591. Signaling Trainer to stop.
+[Resources] Wrote /project/6061446/kbas/Graphnet-Applications/Training/EventPulseSeries_nonoise/initiative2/azimuth/resources_and_time.csv | last_epoch=26 | total=527.63 min
+[Run=azimuth] best_model: /project/6061446/kbas/Graphnet-Applications/Training/EventPulseSeries_nonoise/initiative2/azimuth/best_model.pth
+[Run=azimuth] config:     /project/6061446/kbas/Graphnet-Applications/Training/EventPulseSeries_nonoise/initiative2/azimuth/config.yml
+[Run=azimuth] metrics:    /project/6061446/kbas/Graphnet-Applications/Training/EventPulseSeries_nonoise/initiative2/azimuth/metrics.csv
+[Test=azimuth] Loaded best weights: /project/6061446/kbas/Graphnet-Applications/Training/EventPulseSeries_nonoise/initiative2/azimuth/best_model.pth
+[Test=azimuth] Wrote: /project/6061446/kbas/Graphnet-Applications/Training/EventPulseSeries_nonoise/initiative2/azimuth/test_predictions.csv | rows=41311
+[Test=azimuth] residual_deg (signed): p16=-5.929, p50=-0.146, p84=5.659 | W_deg=5.794 | kappa_mean=69.337
+[rank: 0] Seed set to 20260202
+
+[Run=zenith] torch.cuda.is_available() = True
+[Run=zenith] GPU = NVIDIA H100 80GB HBM3
+GPU available: True (cuda), used: True
+TPU available: False, using: 0 TPU cores
+LOCAL_RANK: 0 - CUDA_VISIBLE_DEVICES: [0]
+
+  | Name                 | Type       | Params | Mode 
+------------------------------------------------------------
+0 | _tasks               | ModuleList | 258    | train
+1 | _data_representation | KNNGraph   | 0      | eval 
+2 | backbone             | DynEdge    | 1.4 M  | train
+------------------------------------------------------------
+1.4 M     Trainable params
+0         Non-trainable params
+1.4 M     Total params
+5.502     Total estimated model params size (MB)
+32        Modules in train mode
+4         Modules in eval mode
+SLURM auto-requeueing enabled. Setting signal handlers.
