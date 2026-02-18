@@ -90,3 +90,4 @@ azimuth ∈ [0, 2π]
 Eğer target’ların dereceyse, eğitimden önce dönüştür.
 
 63. zattirizortzort. PMT response uretirken lepton weighter'i da ekleee eehehehehehehe. sonra ona yonelik bir feature extractor vsvsvsvs
+64. .out dosyasina neden zenith ile alakali bilgiler yazilmadi?
