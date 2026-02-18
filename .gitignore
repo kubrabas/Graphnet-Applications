@@ -216,3 +216,6 @@ Meetings/
 
 .ipynb_checkpoints
 logs
+.DS_Store
+Training/.DS_Store
+Training/EventPulseSeries_nonoise/.DS_Store
