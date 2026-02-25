@@ -1,6 +1,3 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-
 """
 Skim ONE i3 file per Slurm array task, using FilterFrame.
 
@@ -19,13 +16,7 @@ Key fix in this version:
 - Do NOT use Streams=... when adding FilterFrame (your IceTray build treats it as a module parameter).
 - Instead, run FilterFrame ONLY on DAQ frames via If=... so it won't touch Geometry/Cal/DetStatus frames.
 
-Run (inside IceTray container env):
-  python3 340_string_to_98_string.py \
-    --indir /path/to/Photon \
-    --pattern "*.i3" \
-    --outdir /project/def-nahee/kbas/98_string/Raw_Muon \
-    --gcd /project/6008051/pone_simulation/GCD_Library/PONE_800mGrid.i3.gz \
-    --selection /project/.../string_ids.csv
+
 
 Notes:
 - Deterministic: input files are sorted.
