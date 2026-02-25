@@ -1,22 +1,3 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-
-"""
-sanity_checks.py
-
-Print a clean summary of how many files ("batches") exist under key dataset folders,
-and how those files are distributed by format (i3, i3.gz, i3.zst, zst, parquet, etc.).
-
-UPDATED:
-- Also writes the same terminal output to a timestamped .txt file (Europe/Berlin).
-- Section 1: "340 String - I3Photons" (muon/electron/tau simulation folders).
-- Section 2: "340 String - PMT Response" (local scratch PMT response folders).
-- Section 3: "98 String - I3Photons" (Raw_ folders).
-- Removed the top global header block.
-- ADDED: Summary table at the very end (rows: Muon/Tau/Electron, columns: 340 I3Photons / 340 PMT Response / 98 I3Photons),
-         with I3-like totals in the cells.
-"""
-
 from __future__ import annotations
 
 import sys
@@ -33,42 +14,59 @@ except ImportError:
 
 
 # =============================================================================
-# 0) Output log path
+# Configuration
 # =============================================================================
 
-LOG_DIR = "/project/def-nahee/kbas/Graphnet-Applications/Playground/Datasets"
-BERLIN_TZ = "Europe/Berlin"
+OUTPUT_LOG_DIR = Path("/project/def-nahee/kbas/Graphnet-Applications/Playground/Datasets")
+TIMEZONE_NAME = "Europe/Berlin"
 
-
-# =============================================================================
-# 1) Paths
-# =============================================================================
-
-############ Section 1: 340 String - I3Photons ############
-MUON_I3PHOTONS = "/project/6008051/pone_simulation/MC10-000002-nu_mu-2_7-LeptonInjector-PROPOSAL-clsim/Photon"
-ELECTRON_I3PHOTONS = "/project/6008051/pone_simulation/MC000003-nu_e-2_7-LeptonInjector_PROPOSAL_clsim-v10/Generator"
-TAU_I3PHOTONS = "/project/6008051/pone_simulation/MC000004-nu_tau-2_7-LeptonInjector_PROPOSAL_clsim-v10/Generator"
-
-############ Section 2: 340 String - PMT Response (local scratch) ############
-MAIN_340 = "/home/kbas/scratch/340_string"
-MUON_REL_340 = "PMT_RESPONSE_Muon"
-ELECTRON_REL_340 = "PMT_RESPONSE_Electron"
-TAU_REL_340 = "PMT_RESPONSE_Tau"
-
-############ Section 3: 98 String - I3Photons (Raw_ folders; local scratch) ############
-MAIN_98 = "/home/kbas/scratch/98_string"
-RAW_MUON_REL_98 = "Raw_Muon"
-RAW_ELECTRON_REL_98 = "Raw_Electron"
+I3_LIKE_EXTENSIONS = ("i3", "i3.gz", "i3.zst", "i3.bz2")
 
 
 # =============================================================================
-# 2) Small Utilities
+# Dataset Paths
+# =============================================================================
+
+# ---- Section 1: 340 String - I3Photons (absolute locations) ----
+I3PHOTONS_340_PATHS = {
+    "Muon": Path("/project/6008051/pone_simulation/MC10-000002-nu_mu-2_7-LeptonInjector-PROPOSAL-clsim/Photon"),
+    "Electron": Path("/project/6008051/pone_simulation/MC000003-nu_e-2_7-LeptonInjector_PROPOSAL_clsim-v10/Generator"),
+    "Tau": Path("/project/6008051/pone_simulation/MC000004-nu_tau-2_7-LeptonInjector_PROPOSAL_clsim-v10/Generator"),
+}
+
+# ---- Section 2: 340 String - PMT Response ----
+PMT_RESPONSE_340_BASE = Path("/home/kbas/scratch/340_string")
+PMT_RESPONSE_340_SUBDIRS = {
+    "Muon": "Muon_PMT_Response",
+    "Electron": "Electron_PMT_Response",
+    "Tau": "Tau_PMT_Response",
+}
+
+# ---- Section 3: 98 String - I3Photons ----
+I3PHOTONS_98_BASE = Path("/home/kbas/scratch/98_string")
+I3PHOTONS_98_SUBDIRS = {
+    "Muon": "Muon_I3Photons",
+    "Electron": "Electron_I3Photons",
+    "Tau": "Tau_I3Photons",
+}
+
+# ---- Section 4: 98 String - PMT Response ----
+PMT_RESPONSE_98_BASE = Path("/home/kbas/scratch/98_string")
+PMT_RESPONSE_98_SUBDIRS = {
+    "Muon": "Muon_PMT_Response",
+    "Electron": "Electron_PMT_Response",
+    "Tau": "Tau_PMT_Response",
+}
+
+
+# =============================================================================
+# Utilities
 # =============================================================================
 
 def berlin_timestamp_str() -> str:
     """Return timestamp string as DD_MM_YYYY_HH_MM_SS in Europe/Berlin timezone."""
     if ZoneInfo is not None:
-        tz = ZoneInfo(BERLIN_TZ)
+        tz = ZoneInfo(TIMEZONE_NAME)
         now = datetime.now(tz)
     else:
         now = datetime.now()
@@ -81,21 +79,25 @@ class Tee:
         self.streams = streams
 
     def write(self, data: str) -> int:
-        for s in self.streams:
-            s.write(data)
-            s.flush()
+        for stream in self.streams:
+            stream.write(data)
+            stream.flush()
         return len(data)
 
     def flush(self) -> None:
-        for s in self.streams:
-            s.flush()
+        for stream in self.streams:
+            stream.flush()
 
 
-def classify_format(p: Path) -> str:
-    """Classify file formats with common multi-suffix cases first."""
-    name = p.name.lower()
+def separator(char: str = "=", width: int = 80) -> str:
+    return char * width
 
-    # Multi-suffix (most specific first)
+
+def detect_file_format(path: Path) -> str:
+    """Classify file formats, handling multi-suffix cases first."""
+    name = path.name.lower()
+
+    # Multi-suffix first (more specific)
     if name.endswith(".i3.gz"):
         return "i3.gz"
     if name.endswith(".i3.zst"):
@@ -120,184 +122,193 @@ def classify_format(p: Path) -> str:
     return "other"
 
 
-def scan_dir(root: Path) -> dict:
+@dataclass(frozen=True)
+class DirectoryScanResult:
+    exists: bool
+    total_files: int
+    by_format: Counter
+    i3_like_total: int
+
+
+def scan_directory(root_dir: Path) -> DirectoryScanResult:
     """Recursively scan a directory and count files by format."""
-    if not root.exists():
-        return {"exists": False, "total": 0, "by_format": Counter()}
+    if not root_dir.exists():
+        return DirectoryScanResult(False, 0, Counter(), 0)
 
-    files = [p for p in root.rglob("*") if p.is_file()]
-    fmt = Counter(classify_format(p) for p in files)
-    return {"exists": True, "total": len(files), "by_format": fmt}
+    try:
+        files = [p for p in root_dir.rglob("*") if p.is_file()]
+    except Exception:
+        # If permissions / filesystem issues occur, fail gracefully.
+        return DirectoryScanResult(True, 0, Counter(), 0)
+
+    format_counts = Counter(detect_file_format(p) for p in files)
+    i3_like_total = sum(format_counts.get(ext, 0) for ext in I3_LIKE_EXTENSIONS)
+
+    return DirectoryScanResult(True, len(files), format_counts, i3_like_total)
 
 
-def hline(char: str = "=", n: int = 80) -> str:
-    return char * n
+def print_directory_report(title: str, root_dir: Path) -> None:
+    result = scan_directory(root_dir)
 
-
-def print_block(title: str, root: Path) -> None:
-    info = scan_dir(root)
-
-    print("\n" + hline("="))
+    print("\n" + separator("="))
     print(title)
-    print(hline("="))
-    print(f"Path           : {root}")
-    print(f"Exists         : {info['exists']}")
+    print(separator("="))
+    print(f"Path           : {root_dir}")
+    print(f"Exists         : {result.exists}")
 
-    if not info["exists"]:
+    if not result.exists:
         print("Note           : Directory not found.")
         return
 
-    print(f"Batches (files): {info['total']}")
+    print(f"Batches (files): {result.total_files}")
 
-    fmt = info["by_format"]
-    if not fmt:
+    if not result.by_format:
         print("Formats        : (no files found)")
         return
 
     print("\nFormats:")
-    for k, v in sorted(fmt.items(), key=lambda kv: (-kv[1], kv[0])):
-        print(f"  - {k:<10} : {v}")
+    for fmt, count in sorted(result.by_format.items(), key=lambda kv: (-kv[1], kv[0])):
+        print(f"  - {fmt:<10} : {count}")
 
-    i3_like = sum(fmt.get(x, 0) for x in ["i3", "i3.gz", "i3.zst", "i3.bz2"])
-    if i3_like:
-        print(f"\nI3-like total  : {i3_like}")
+    if result.i3_like_total:
+        print(f"\nI3-like total  : {result.i3_like_total}")
 
 
 # =============================================================================
-# 3) Dataset Definitions
+# Dataset Specs + Builders
 # =============================================================================
 
 @dataclass(frozen=True)
 class DatasetSpec:
-    title: str
+    label: str
     path: Path
 
 
-def build_section1_datasets() -> list[DatasetSpec]:
-    return [
-        DatasetSpec("Muon", Path(MUON_I3PHOTONS)),
-        DatasetSpec("Electron", Path(ELECTRON_I3PHOTONS)),
-        DatasetSpec("Tau", Path(TAU_I3PHOTONS)),
-    ]
+def build_specs_from_mapping(mapping: dict[str, Path]) -> list[DatasetSpec]:
+    return [DatasetSpec(label=particle, path=path) for particle, path in mapping.items()]
 
 
-def build_section2_datasets() -> list[DatasetSpec]:
-    base_340 = Path(MAIN_340)
-    return [
-        DatasetSpec("Muon", base_340 / MUON_REL_340),
-        DatasetSpec("Electron", base_340 / ELECTRON_REL_340),
-        DatasetSpec("Tau", base_340 / TAU_REL_340),
-    ]
+def build_specs_from_base(base_dir: Path, subdirs: dict[str, str]) -> list[DatasetSpec]:
+    return [DatasetSpec(label=particle, path=base_dir / subdir) for particle, subdir in subdirs.items()]
 
 
-def build_section3_datasets() -> list[DatasetSpec]:
-    base_98 = Path(MAIN_98)
-    return [
-        DatasetSpec("Muon", base_98 / RAW_MUON_REL_98),
-        DatasetSpec("Electron", base_98 / RAW_ELECTRON_REL_98),
-    ]
+def build_section1_specs() -> list[DatasetSpec]:
+    return build_specs_from_mapping(I3PHOTONS_340_PATHS)
+
+
+def build_section2_specs() -> list[DatasetSpec]:
+    return build_specs_from_base(PMT_RESPONSE_340_BASE, PMT_RESPONSE_340_SUBDIRS)
+
+
+def build_section3_specs() -> list[DatasetSpec]:
+    return build_specs_from_base(I3PHOTONS_98_BASE, I3PHOTONS_98_SUBDIRS)
+
+
+def build_section4_specs() -> list[DatasetSpec]:
+    return build_specs_from_base(PMT_RESPONSE_98_BASE, PMT_RESPONSE_98_SUBDIRS)
 
 
 # =============================================================================
-# 3b) Summary Table Helpers
+# Summary Table
 # =============================================================================
 
-def i3_like_total_str(root: Path) -> str:
+def i3_like_total_str(root_dir: Path) -> str:
     """Return I3-like total as string; if missing -> 'MISSING'."""
-    info = scan_dir(root)
-    if not info["exists"]:
+    result = scan_directory(root_dir)
+    if not result.exists:
         return "MISSING"
-    fmt = info["by_format"]
-    total = sum(fmt.get(x, 0) for x in ["i3", "i3.gz", "i3.zst", "i3.bz2"])
-    return str(total)
+    return str(result.i3_like_total)
 
 
 def format_table(headers: list[str], rows: list[list[str]]) -> str:
     """Simple fixed-width ASCII table."""
     widths = [len(h) for h in headers]
-    for r in rows:
-        for i, cell in enumerate(r):
+    for row in rows:
+        for i, cell in enumerate(row):
             widths[i] = max(widths[i], len(cell))
 
-    def fmt_row(r: list[str]) -> str:
-        return " | ".join(r[i].ljust(widths[i]) for i in range(len(headers)))
+    def fmt_row(row: list[str]) -> str:
+        return " | ".join(row[i].ljust(widths[i]) for i in range(len(headers)))
 
     sep = "-+-".join("-" * w for w in widths)
 
-    out = [fmt_row(headers), sep]
-    for r in rows:
-        out.append(fmt_row(r))
-    return "\n".join(out)
+    out_lines = [fmt_row(headers), sep]
+    out_lines.extend(fmt_row(r) for r in rows)
+    return "\n".join(out_lines)
 
 
 def print_summary_table() -> None:
-    # Maps: particle -> Path
-    s1 = {ds.title: ds.path for ds in build_section1_datasets()}
-    s2 = {ds.title: ds.path for ds in build_section2_datasets()}
-    s3 = {ds.title: ds.path for ds in build_section3_datasets()}
+    section1 = {ds.label: ds.path for ds in build_section1_specs()}
+    section2 = {ds.label: ds.path for ds in build_section2_specs()}
+    section3 = {ds.label: ds.path for ds in build_section3_specs()}
+    section4 = {ds.label: ds.path for ds in build_section4_specs()}
 
-    particles = ["Muon", "Tau", "Electron"]  # requested order
+    particle_order = ["Muon", "Tau", "Electron"]  # requested order
 
     rows: list[list[str]] = []
-    for p in particles:
-        c1 = i3_like_total_str(s1[p]) if p in s1 else "N/A"
-        c2 = i3_like_total_str(s2[p]) if p in s2 else "N/A"
-        c3 = i3_like_total_str(s3[p]) if p in s3 else "N/A"  # Tau -> N/A
-        rows.append([p, c1, c2, c3])
+    for particle in particle_order:
+        rows.append([
+            particle,
+            i3_like_total_str(section1[particle]) if particle in section1 else "N/A",
+            i3_like_total_str(section2[particle]) if particle in section2 else "N/A",
+            i3_like_total_str(section3[particle]) if particle in section3 else "N/A",
+            i3_like_total_str(section4[particle]) if particle in section4 else "N/A",
+        ])
 
-    print("\n" + hline("#"))
+    print("\n" + separator("#"))
     print("Summary table (I3-like totals)")
-    print(hline("#"))
+    print(separator("#"))
     print(format_table(
-        ["Particle", "340 I3Photons", "340 PMT Response", "98 I3Photons"],
+        ["Particle", "340 I3Photons", "340 PMT Response", "98 I3Photons", "98 PMT Response"],
         rows
     ))
 
 
 # =============================================================================
-# 4) Main (with log-to-txt)
+# Main report
 # =============================================================================
 
 def run_report() -> None:
-    # ----- Section 1 -----
-    print("\n" + hline("#"))
+    print("\n" + separator("#"))
     print("Section 1: 340 String - I3Photons")
-    print(hline("#"))
-    for ds in build_section1_datasets():
-        print_block(ds.title, ds.path)
+    print(separator("#"))
+    for ds in build_section1_specs():
+        print_directory_report(ds.label, ds.path)
 
-    # ----- Section 2 -----
-    print("\n" + hline("#"))
+    print("\n" + separator("#"))
     print("Section 2: 340 String - PMT Response")
-    print(hline("#"))
-    for ds in build_section2_datasets():
-        print_block(ds.title, ds.path)
+    print(separator("#"))
+    for ds in build_section2_specs():
+        print_directory_report(ds.label, ds.path)
 
-    # ----- Section 3 -----
-    print("\n" + hline("#"))
+    print("\n" + separator("#"))
     print("Section 3: 98 String - I3Photons")
-    print(hline("#"))
-    for ds in build_section3_datasets():
-        print_block(ds.title, ds.path)
+    print(separator("#"))
+    for ds in build_section3_specs():
+        print_directory_report(ds.label, ds.path)
 
-    # ----- Summary Table at the very end -----
+    print("\n" + separator("#"))
+    print("Section 4: 98 String - PMT Response")
+    print(separator("#"))
+    for ds in build_section4_specs():
+        print_directory_report(ds.label, ds.path)
+
     print_summary_table()
 
 
 def main() -> None:
-    log_dir = Path(LOG_DIR)
-    log_dir.mkdir(parents=True, exist_ok=True)
+    OUTPUT_LOG_DIR.mkdir(parents=True, exist_ok=True)
 
     stamp = berlin_timestamp_str()
-    log_path = log_dir / f"{stamp}.txt"
+    log_file = OUTPUT_LOG_DIR / f"{stamp}.txt"
 
-    with open(log_path, "w", encoding="utf-8") as f:
+    with open(log_file, "w", encoding="utf-8") as f:
         tee = Tee(sys.stdout, f)
         with redirect_stdout(tee):
             run_report()
-            print("\n" + hline("-"))
-            print(f"Log file saved : {log_path}")
-            print(hline("-"))
+            print("\n" + separator("-"))
+            print(f"Log file saved : {log_file}")
+            print(separator("-"))
 
 
 if __name__ == "__main__":
