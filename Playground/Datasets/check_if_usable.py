@@ -188,3 +188,5 @@ if __name__ == "__main__":
 
 
 ## check the definition of "corrupt file" in this script    
+## 98'de pmt responselar yok nburda glb. 
+## 100 degil de hepsini mi incelesem ve txt olarak kayit mi etsem

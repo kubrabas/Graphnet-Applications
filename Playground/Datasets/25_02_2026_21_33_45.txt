@@ -49,27 +49,37 @@ Section 2: 340 String - PMT Response
 Muon
 ================================================================================
 Path           : /home/kbas/scratch/340_string/Muon_PMT_Response
-Exists         : False
-Note           : Directory not found.
+Exists         : True
+Batches (files): 9817
+
+Formats:
+  - i3.gz      : 9817
+
+I3-like total  : 9817
 
 ================================================================================
 Electron
 ================================================================================
 Path           : /home/kbas/scratch/340_string/Electron_PMT_Response
-Exists         : False
-Note           : Directory not found.
+Exists         : True
+Batches (files): 6882
+
+Formats:
+  - i3.gz      : 6882
+
+I3-like total  : 6882
 
 ================================================================================
 Tau
 ================================================================================
 Path           : /home/kbas/scratch/340_string/Tau_PMT_Response
 Exists         : True
-Batches (files): 1484
+Batches (files): 9996
 
 Formats:
-  - i3.gz      : 1484
+  - i3.gz      : 9996
 
-I3-like total  : 1484
+I3-like total  : 9996
 
 ################################################################################
 Section 3: 98 String - I3Photons
@@ -80,36 +90,36 @@ Muon
 ================================================================================
 Path           : /home/kbas/scratch/98_string/Muon_I3Photons
 Exists         : True
-Batches (files): 2553
+Batches (files): 9817
 
 Formats:
-  - i3.gz      : 2553
+  - i3.gz      : 9817
 
-I3-like total  : 2553
+I3-like total  : 9817
 
 ================================================================================
 Electron
 ================================================================================
 Path           : /home/kbas/scratch/98_string/Electron_I3Photons
 Exists         : True
-Batches (files): 2496
+Batches (files): 6882
 
 Formats:
-  - i3.gz      : 2496
+  - i3.gz      : 6882
 
-I3-like total  : 2496
+I3-like total  : 6882
 
 ================================================================================
 Tau
 ================================================================================
 Path           : /home/kbas/scratch/98_string/Tau_I3Photons
 Exists         : True
-Batches (files): 6039
+Batches (files): 9996
 
 Formats:
-  - i3.gz      : 6039
+  - i3.gz      : 9996
 
-I3-like total  : 6039
+I3-like total  : 9996
 
 ################################################################################
 Section 4: 98 String - PMT Response
@@ -119,32 +129,47 @@ Section 4: 98 String - PMT Response
 Muon
 ================================================================================
 Path           : /home/kbas/scratch/98_string/Muon_PMT_Response
-Exists         : False
-Note           : Directory not found.
+Exists         : True
+Batches (files): 9817
+
+Formats:
+  - i3.gz      : 9817
+
+I3-like total  : 9817
 
 ================================================================================
 Electron
 ================================================================================
 Path           : /home/kbas/scratch/98_string/Electron_PMT_Response
-Exists         : False
-Note           : Directory not found.
+Exists         : True
+Batches (files): 6882
+
+Formats:
+  - i3.gz      : 6882
+
+I3-like total  : 6882
 
 ================================================================================
 Tau
 ================================================================================
 Path           : /home/kbas/scratch/98_string/Tau_PMT_Response
-Exists         : False
-Note           : Directory not found.
+Exists         : True
+Batches (files): 9996
+
+Formats:
+  - i3.gz      : 9996
+
+I3-like total  : 9996
 
 ################################################################################
 Summary table (I3-like totals)
 ################################################################################
 Particle | 340 I3Photons | 340 PMT Response | 98 I3Photons | 98 PMT Response
 ---------+---------------+------------------+--------------+----------------
-Muon     | 9817          | MISSING          | 2617         | MISSING        
-Tau      | 9996          | 1521             | 6138         | MISSING        
-Electron | 6882          | MISSING          | 2545         | MISSING        
+Muon     | 9817          | 9817             | 9817         | 9817           
+Tau      | 9996          | 9996             | 9996         | 9996           
+Electron | 6882          | 6882             | 6882         | 6882           
 
 --------------------------------------------------------------------------------
-Log file saved : /project/def-nahee/kbas/Graphnet-Applications/Playground/Datasets/25_02_2026_01_49_46.txt
+Log file saved : /project/def-nahee/kbas/Graphnet-Applications/Playground/Datasets/25_02_2026_21_33_45.txt
 --------------------------------------------------------------------------------
