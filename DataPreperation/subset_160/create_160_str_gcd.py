@@ -6,10 +6,10 @@ OnlyDAQ=False (so it filters Geometry/Calibration/DetectorStatus),
 and writes ONLY the G, C, D frames to a new output GCD file.
 
 Usage example:
-  python3 create_102_str_gcd.py \
+  python3 create_160_str_gcd.py \
     --gcd-in  /project/6008051/pone_simulation/GCD_Library/PONE_800mGrid.i3.gz \
-    --gcd-out /scratch/kbas/102_string/GCD_102strings.i3.gz \
-    --selection /project/def-nahee/kbas/Graphnet-Applications/DataPreperation/subset_102/string_ids_102.csv
+    --gcd-out /scratch/kbas/160_string/GCD_160strings.i3.gz \
+    --selection /project/def-nahee/kbas/Graphnet-Applications/DataPreperation/subset_160/string_ids_160.csv
 
 Optional:
   --filterframe /project/def-nahee/kbas/GeometrySkimmer/FilterFrame.py
