@@ -42,17 +42,17 @@ PMT_RESPONSE_340_SUBDIRS = {
     "Tau": "Tau_PMT_Response",
 }
 
-# ---- Section 3: 98 String - I3Photons ----
-I3PHOTONS_98_BASE = Path("/home/kbas/scratch/98_string")
-I3PHOTONS_98_SUBDIRS = {
+# ---- Section 3: 102 String - I3Photons ----
+I3PHOTONS_102_BASE = Path("/home/kbas/scratch/102_string")
+I3PHOTONS_102_SUBDIRS = {
     "Muon": "Muon_I3Photons",
     "Electron": "Electron_I3Photons",
     "Tau": "Tau_I3Photons",
 }
 
-# ---- Section 4: 98 String - PMT Response ----
-PMT_RESPONSE_98_BASE = Path("/home/kbas/scratch/98_string")
-PMT_RESPONSE_98_SUBDIRS = {
+# ---- Section 4: 102 String - PMT Response ----
+PMT_RESPONSE_102_BASE = Path("/home/kbas/scratch/102_string")
+PMT_RESPONSE_102_SUBDIRS = {
     "Muon": "Muon_PMT_Response",
     "Electron": "Electron_PMT_Response",
     "Tau": "Tau_PMT_Response",
@@ -201,11 +201,11 @@ def build_section2_specs() -> list[DatasetSpec]:
 
 
 def build_section3_specs() -> list[DatasetSpec]:
-    return build_specs_from_base(I3PHOTONS_98_BASE, I3PHOTONS_98_SUBDIRS)
+    return build_specs_from_base(I3PHOTONS_102_BASE, I3PHOTONS_102_SUBDIRS)
 
 
 def build_section4_specs() -> list[DatasetSpec]:
-    return build_specs_from_base(PMT_RESPONSE_98_BASE, PMT_RESPONSE_98_SUBDIRS)
+    return build_specs_from_base(PMT_RESPONSE_102_BASE, PMT_RESPONSE_102_SUBDIRS)
 
 
 # =============================================================================
@@ -259,7 +259,7 @@ def print_summary_table() -> None:
     print("Summary table (I3-like totals)")
     print(separator("#"))
     print(format_table(
-        ["Particle", "340 I3Photons", "340 PMT Response", "98 I3Photons", "98 PMT Response"],
+        ["Particle", "340 I3Photons", "340 PMT Response", "102 I3Photons", "102 PMT Response"],
         rows
     ))
 
@@ -282,13 +282,13 @@ def run_report() -> None:
         print_directory_report(ds.label, ds.path)
 
     print("\n" + separator("#"))
-    print("Section 3: 98 String - I3Photons")
+    print("Section 3: 102 String - I3Photons")
     print(separator("#"))
     for ds in build_section3_specs():
         print_directory_report(ds.label, ds.path)
 
     print("\n" + separator("#"))
-    print("Section 4: 98 String - PMT Response")
+    print("Section 4: 102 String - PMT Response")
     print(separator("#"))
     for ds in build_section4_specs():
         print_directory_report(ds.label, ds.path)
