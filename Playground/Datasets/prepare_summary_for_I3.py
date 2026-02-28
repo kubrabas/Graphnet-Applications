@@ -18,20 +18,20 @@ from concurrent.futures import ProcessPoolExecutor, as_completed
 # Config: sources to scan
 # -------------------------
 SOURCES = [
-    # 98String - I3Photons (*.i3.gz)
+    # 102String - I3Photons (*.i3.gz)
     {
-        "section": "98String/Muon_I3Photons",
-        "dir": "/home/kbas/scratch/98_string/Muon_I3Photons",
+        "section": "102String/Muon_I3Photons",
+        "dir": "/home/kbas/scratch/102_string/Muon_I3Photons",
         "pattern": "*.i3.gz",
     },
     {
-        "section": "98String/Electron_I3Photons",
-        "dir": "/home/kbas/scratch/98_string/Electron_I3Photons",
+        "section": "102String/Electron_I3Photons",
+        "dir": "/home/kbas/scratch/102_string/Electron_I3Photons",
         "pattern": "*.i3.gz",
     },
     {
-        "section": "98String/Tau_I3Photons",
-        "dir": "/home/kbas/scratch/98_string/Tau_I3Photons",
+        "section": "102String/Tau_I3Photons",
+        "dir": "/home/kbas/scratch/102_string/Tau_I3Photons",
         "pattern": "*.i3.gz",
     },
 
@@ -70,7 +70,7 @@ def section_pretty(section: str) -> str:
     parts = section.split("/", 1)
     if len(parts) == 2:
         head, tail = parts
-        head_pretty = head.replace("340string", "340 String").replace("98String", "98 String")
+        head_pretty = head.replace("340string", "340 String").replace("102String", "102 String")
         return f"{head_pretty} - {tail}"
     return section
 
@@ -122,7 +122,6 @@ def analyze_file(path: str, photon_key: str, max_frames: Optional[int] = None) -
       - unique_string_ids: sorted list of unique string IDs that have >=1 photon somewhere
       - unique_string_id_count: len(unique_string_ids)
       - avg_photons_per_nonempty_frame
-      - avg_modulekeys_per_nonempty_frame
     """
     unique_strings = set()
 
@@ -131,7 +130,6 @@ def analyze_file(path: str, photon_key: str, max_frames: Optional[int] = None) -
     total_photons = 0
 
     sum_photons_in_nonempty_frames = 0
-    sum_modulekeys_in_nonempty_frames = 0
 
     f = dataio.I3File(path)
     n_seen = 0
@@ -171,15 +169,11 @@ def analyze_file(path: str, photon_key: str, max_frames: Optional[int] = None) -
             if frame_photons > 0:
                 frames_with_nonempty += 1
                 sum_photons_in_nonempty_frames += frame_photons
-                try:
-                    sum_modulekeys_in_nonempty_frames += len(phot_map)
-                except Exception:
-                    pass
+              
     finally:
         f.close()
 
     avg_ph = (sum_photons_in_nonempty_frames / frames_with_nonempty) if frames_with_nonempty > 0 else 0.0
-    avg_keys = (sum_modulekeys_in_nonempty_frames / frames_with_nonempty) if frames_with_nonempty > 0 else 0.0
 
     unique_list = sorted(unique_strings)
 
@@ -192,7 +186,6 @@ def analyze_file(path: str, photon_key: str, max_frames: Optional[int] = None) -
         "unique_string_ids": unique_list,
         "total_photon_count": total_photons,
         "avg_photons_per_nonempty_frame": avg_ph,
-        "avg_modulekeys_per_nonempty_frame": avg_keys,
     }
 
 
@@ -211,7 +204,6 @@ def analyze_one_file(section: str, fp: str, photon_key: str, max_frames: Optiona
         "unique_string_id_count": 0,
         "total_photon_count": 0,
         "avg_photons_per_nonempty_frame": 0.0,
-        "avg_modulekeys_per_nonempty_frame": 0.0,
         "status": "ok",
         "error": "",
         # not written to CSV, but used for TXT union lists
@@ -258,7 +250,6 @@ def write_csv(rows: List[Dict], out_csv: str) -> None:
         "unique_string_id_count",
         "total_photon_count",
         "avg_photons_per_nonempty_frame",
-        "avg_modulekeys_per_nonempty_frame",
         "status",
         "error",
     ]
@@ -452,8 +443,8 @@ def main(args):
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("--photon-key", default=PHOTON_KEY_DEFAULT, help="Frame key to analyze (default: I3Photons)")
-    ap.add_argument("--out-csv", default="/project/def-nahee/kbas/Graphnet-Applications/Playground/Datasets/summary.csv")
-    ap.add_argument("--out-txt", default="/project/def-nahee/kbas/Graphnet-Applications/Playground/Datasets/summary.txt")
+    ap.add_argument("--out-csv", default="/project/def-nahee/kbas/Graphnet-Applications/Playground/Datasets/summary_i3.csv")
+    ap.add_argument("--out-txt", default="/project/def-nahee/kbas/Graphnet-Applications/Playground/Datasets/summary_i3.txt")
     ap.add_argument("--progress-every", type=int, default=50, help="Print progress every N files")
     ap.add_argument("--max-files-per-section", type=int, default=None, help="Debug: limit number of files per section")
     ap.add_argument("--max-frames-per-file", type=int, default=None, help="Debug: limit frames per file (speed)")
