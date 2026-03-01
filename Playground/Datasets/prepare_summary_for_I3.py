@@ -35,6 +35,23 @@ SOURCES = [
         "pattern": "*.i3.gz",
     },
 
+    # 160String - I3Photons (*.i3.gz)  <-- NEW (same as 102 style)
+    {
+        "section": "160String/Muon_I3Photons",
+        "dir": "/home/kbas/scratch/160_string/Muon_I3Photons",
+        "pattern": "*.i3.gz",
+    },
+    {
+        "section": "160String/Electron_I3Photons",
+        "dir": "/home/kbas/scratch/160_string/Electron_I3Photons",
+        "pattern": "*.i3.gz",
+    },
+    {
+        "section": "160String/Tau_I3Photons",
+        "dir": "/home/kbas/scratch/160_string/Tau_I3Photons",
+        "pattern": "*.i3.gz",
+    },
+
     # 340 string - Photon directory (only *.i3)
     {
         "section": "340string/Muon_I3Photons",
@@ -70,7 +87,11 @@ def section_pretty(section: str) -> str:
     parts = section.split("/", 1)
     if len(parts) == 2:
         head, tail = parts
-        head_pretty = head.replace("340string", "340 String").replace("102String", "102 String")
+        head_pretty = (
+            head.replace("340string", "340 String")
+                .replace("102String", "102 String")
+                .replace("160String", "160 String")
+        )
         return f"{head_pretty} - {tail}"
     return section
 
@@ -169,7 +190,7 @@ def analyze_file(path: str, photon_key: str, max_frames: Optional[int] = None) -
             if frame_photons > 0:
                 frames_with_nonempty += 1
                 sum_photons_in_nonempty_frames += frame_photons
-              
+
     finally:
         f.close()
 

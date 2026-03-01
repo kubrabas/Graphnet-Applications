@@ -88,8 +88,7 @@ class PONE_Reader(I3Reader):
             try:
                 frame = i3_file_io.pop_daq()
             except Exception as e:
-                if "I3" in str(e):
-                    continue
+                continue
             # check if frame should be skipped
             if self._skip_frame(frame):
                 continue

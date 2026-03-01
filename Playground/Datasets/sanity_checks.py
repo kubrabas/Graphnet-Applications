@@ -58,13 +58,28 @@ PMT_RESPONSE_102_SUBDIRS = {
     "Tau": "Tau_PMT_Response",
 }
 
+# ---- Section 5: 160 String - I3Photons (NEW, same as 102) ----
+I3PHOTONS_160_BASE = Path("/home/kbas/scratch/160_string")
+I3PHOTONS_160_SUBDIRS = {
+    "Muon": "Muon_I3Photons",
+    "Electron": "Electron_I3Photons",
+    "Tau": "Tau_I3Photons",
+}
+
+# ---- Section 6: 160 String - PMT Response (NEW, same as 102) ----
+PMT_RESPONSE_160_BASE = Path("/home/kbas/scratch/160_string")
+PMT_RESPONSE_160_SUBDIRS = {
+    "Muon": "Muon_PMT_Response",
+    "Electron": "Electron_PMT_Response",
+    "Tau": "Tau_PMT_Response",
+}
+
 
 # =============================================================================
 # Utilities
 # =============================================================================
 
 def berlin_timestamp_str() -> str:
-    """Return timestamp string as DD_MM_YYYY_HH_MM_SS in Europe/Berlin timezone."""
     if ZoneInfo is not None:
         tz = ZoneInfo(TIMEZONE_NAME)
         now = datetime.now(tz)
@@ -74,7 +89,6 @@ def berlin_timestamp_str() -> str:
 
 
 class Tee:
-    """File-like object that duplicates writes to multiple streams."""
     def __init__(self, *streams):
         self.streams = streams
 
@@ -94,10 +108,8 @@ def separator(char: str = "=", width: int = 80) -> str:
 
 
 def detect_file_format(path: Path) -> str:
-    """Classify file formats, handling multi-suffix cases first."""
     name = path.name.lower()
 
-    # Multi-suffix first (more specific)
     if name.endswith(".i3.gz"):
         return "i3.gz"
     if name.endswith(".i3.zst"):
@@ -105,7 +117,6 @@ def detect_file_format(path: Path) -> str:
     if name.endswith(".i3.bz2"):
         return "i3.bz2"
 
-    # Single-suffix
     if name.endswith(".i3"):
         return "i3"
     if name.endswith(".zst"):
@@ -131,14 +142,12 @@ class DirectoryScanResult:
 
 
 def scan_directory(root_dir: Path) -> DirectoryScanResult:
-    """Recursively scan a directory and count files by format."""
     if not root_dir.exists():
         return DirectoryScanResult(False, 0, Counter(), 0)
 
     try:
         files = [p for p in root_dir.rglob("*") if p.is_file()]
     except Exception:
-        # If permissions / filesystem issues occur, fail gracefully.
         return DirectoryScanResult(True, 0, Counter(), 0)
 
     format_counts = Counter(detect_file_format(p) for p in files)
@@ -175,7 +184,7 @@ def print_directory_report(title: str, root_dir: Path) -> None:
 
 
 # =============================================================================
-# Dataset Specs + Builders
+# Builders
 # =============================================================================
 
 @dataclass(frozen=True)
@@ -192,20 +201,12 @@ def build_specs_from_base(base_dir: Path, subdirs: dict[str, str]) -> list[Datas
     return [DatasetSpec(label=particle, path=base_dir / subdir) for particle, subdir in subdirs.items()]
 
 
-def build_section1_specs() -> list[DatasetSpec]:
-    return build_specs_from_mapping(I3PHOTONS_340_PATHS)
-
-
-def build_section2_specs() -> list[DatasetSpec]:
-    return build_specs_from_base(PMT_RESPONSE_340_BASE, PMT_RESPONSE_340_SUBDIRS)
-
-
-def build_section3_specs() -> list[DatasetSpec]:
-    return build_specs_from_base(I3PHOTONS_102_BASE, I3PHOTONS_102_SUBDIRS)
-
-
-def build_section4_specs() -> list[DatasetSpec]:
-    return build_specs_from_base(PMT_RESPONSE_102_BASE, PMT_RESPONSE_102_SUBDIRS)
+def build_section1_specs(): return build_specs_from_mapping(I3PHOTONS_340_PATHS)
+def build_section2_specs(): return build_specs_from_base(PMT_RESPONSE_340_BASE, PMT_RESPONSE_340_SUBDIRS)
+def build_section3_specs(): return build_specs_from_base(I3PHOTONS_102_BASE, I3PHOTONS_102_SUBDIRS)
+def build_section4_specs(): return build_specs_from_base(PMT_RESPONSE_102_BASE, PMT_RESPONSE_102_SUBDIRS)
+def build_section5_specs(): return build_specs_from_base(I3PHOTONS_160_BASE, I3PHOTONS_160_SUBDIRS)
+def build_section6_specs(): return build_specs_from_base(PMT_RESPONSE_160_BASE, PMT_RESPONSE_160_SUBDIRS)
 
 
 # =============================================================================
@@ -213,62 +214,63 @@ def build_section4_specs() -> list[DatasetSpec]:
 # =============================================================================
 
 def i3_like_total_str(root_dir: Path) -> str:
-    """Return I3-like total as string; if missing -> 'MISSING'."""
     result = scan_directory(root_dir)
     if not result.exists:
         return "MISSING"
     return str(result.i3_like_total)
 
 
-def format_table(headers: list[str], rows: list[list[str]]) -> str:
-    """Simple fixed-width ASCII table."""
+def format_table(headers, rows):
     widths = [len(h) for h in headers]
     for row in rows:
         for i, cell in enumerate(row):
             widths[i] = max(widths[i], len(cell))
 
-    def fmt_row(row: list[str]) -> str:
+    def fmt_row(row):
         return " | ".join(row[i].ljust(widths[i]) for i in range(len(headers)))
 
     sep = "-+-".join("-" * w for w in widths)
+    out = [fmt_row(headers), sep]
+    out.extend(fmt_row(r) for r in rows)
+    return "\n".join(out)
 
-    out_lines = [fmt_row(headers), sep]
-    out_lines.extend(fmt_row(r) for r in rows)
-    return "\n".join(out_lines)
 
+def print_summary_table():
+    s1 = {ds.label: ds.path for ds in build_section1_specs()}
+    s2 = {ds.label: ds.path for ds in build_section2_specs()}
+    s3 = {ds.label: ds.path for ds in build_section3_specs()}
+    s4 = {ds.label: ds.path for ds in build_section4_specs()}
+    s5 = {ds.label: ds.path for ds in build_section5_specs()}
+    s6 = {ds.label: ds.path for ds in build_section6_specs()}
 
-def print_summary_table() -> None:
-    section1 = {ds.label: ds.path for ds in build_section1_specs()}
-    section2 = {ds.label: ds.path for ds in build_section2_specs()}
-    section3 = {ds.label: ds.path for ds in build_section3_specs()}
-    section4 = {ds.label: ds.path for ds in build_section4_specs()}
+    particle_order = ["Muon", "Tau", "Electron"]
 
-    particle_order = ["Muon", "Tau", "Electron"]  # requested order
-
-    rows: list[list[str]] = []
-    for particle in particle_order:
+    rows = []
+    for p in particle_order:
         rows.append([
-            particle,
-            i3_like_total_str(section1[particle]) if particle in section1 else "N/A",
-            i3_like_total_str(section2[particle]) if particle in section2 else "N/A",
-            i3_like_total_str(section3[particle]) if particle in section3 else "N/A",
-            i3_like_total_str(section4[particle]) if particle in section4 else "N/A",
+            p,
+            i3_like_total_str(s1[p]),
+            i3_like_total_str(s2[p]),
+            i3_like_total_str(s3[p]),
+            i3_like_total_str(s4[p]),
+            i3_like_total_str(s5[p]),
+            i3_like_total_str(s6[p]),
         ])
 
     print("\n" + separator("#"))
     print("Summary table (I3-like totals)")
     print(separator("#"))
     print(format_table(
-        ["Particle", "340 I3Photons", "340 PMT Response", "102 I3Photons", "102 PMT Response"],
+        ["Particle", "340 I3Photons", "340 PMT", "102 I3Photons", "102 PMT", "160 I3Photons", "160 PMT"],
         rows
     ))
 
 
 # =============================================================================
-# Main report
+# Main
 # =============================================================================
 
-def run_report() -> None:
+def run_report():
     print("\n" + separator("#"))
     print("Section 1: 340 String - I3Photons")
     print(separator("#"))
@@ -293,10 +295,22 @@ def run_report() -> None:
     for ds in build_section4_specs():
         print_directory_report(ds.label, ds.path)
 
+    print("\n" + separator("#"))
+    print("Section 5: 160 String - I3Photons")
+    print(separator("#"))
+    for ds in build_section5_specs():
+        print_directory_report(ds.label, ds.path)
+
+    print("\n" + separator("#"))
+    print("Section 6: 160 String - PMT Response")
+    print(separator("#"))
+    for ds in build_section6_specs():
+        print_directory_report(ds.label, ds.path)
+
     print_summary_table()
 
 
-def main() -> None:
+def main():
     OUTPUT_LOG_DIR.mkdir(parents=True, exist_ok=True)
 
     stamp = berlin_timestamp_str()

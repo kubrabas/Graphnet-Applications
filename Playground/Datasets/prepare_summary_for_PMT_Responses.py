@@ -22,6 +22,11 @@ SOURCES = [
     {"section": "102String/Electron_PMT_Response",  "dir": "/scratch/kbas/102_string/Electron_PMT_Response",  "pattern": "*.i3.gz"},
     {"section": "102String/Tau_PMT_Response",       "dir": "/scratch/kbas/102_string/Tau_PMT_Response",       "pattern": "*.i3.gz"},
 
+    # 160String (NEW) - same layout as 102String
+    {"section": "160String/Muon_PMT_Response",      "dir": "/scratch/kbas/160_string/Muon_PMT_Response",      "pattern": "*.i3.gz"},
+    {"section": "160String/Electron_PMT_Response",  "dir": "/scratch/kbas/160_string/Electron_PMT_Response",  "pattern": "*.i3.gz"},
+    {"section": "160String/Tau_PMT_Response",       "dir": "/scratch/kbas/160_string/Tau_PMT_Response",       "pattern": "*.i3.gz"},
+
     {"section": "340String/Muon_PMT_Response",     "dir": "/scratch/kbas/340_string/Muon_PMT_Response",     "pattern": "*.i3.gz"},
     {"section": "340String/Electron_PMT_Response", "dir": "/scratch/kbas/340_string/Electron_PMT_Response", "pattern": "*.i3.gz"},
     {"section": "340String/Tau_PMT_Response",      "dir": "/scratch/kbas/340_string/Tau_PMT_Response",      "pattern": "*.i3.gz"},
@@ -196,7 +201,7 @@ def analyze_one_job(
 
     try:
         eps = analyze_pulse_map_in_file(fp, key=eps_key, max_frames=max_frames)
-        nn  = analyze_pulse_map_in_file(fp, key=nonoise_key, max_frames=max_frames)
+        nn = analyze_pulse_map_in_file(fp, key=nonoise_key, max_frames=max_frames)
 
         row["frames_with_EPS"] = eps["frames_with_key"]
         row["frames_with_nonempty_EPS"] = eps["frames_with_nonempty"]
