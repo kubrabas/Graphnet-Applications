@@ -1,0 +1,15 @@
+102 vs 160 — Angular resolution summary
+=====================================
+
+Overall (all energies):
+  102 median ΔΨ = 5.368 deg (16–84%: 2.055–18.690)
+  160 median ΔΨ = 4.434 deg (16–84%: 1.632–16.212)
+  Relative improvement (median) = 17.4% (160 better if positive)
+
+Energy band 4.0 ≤ log10(E/GeV) < 5.0:
+  102 median ΔΨ = 3.526 deg (16–84%: 1.574–9.527)
+  160 median ΔΨ = 2.844 deg (16–84%: 1.191–8.392)
+  Relative improvement (median) = 19.3% (160 better if positive)
+
+Ratio curve:
+  median over bins of (median_102 / median_160) = 1.271

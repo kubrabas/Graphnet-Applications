@@ -220,3 +220,55 @@ Metric val_loss improved by 0.014 >= min_delta = 0.0. New best score: -0.935 | e
 [1;34mgraphnet[0m [MainProcess] [32mINFO    [0m 2026-03-01 23:36:52 - StandardModel.save_state_dict - Model state_dict saved to /project/6061446/kbas/Graphnet-Applications/Training/EventPulseSeries_nonoise/presentation/340string/zenith/best_model.pth[0m
 Metric val_loss improved by 0.008 >= min_delta = 0.0. New best score: -0.943 | epoch: 22
 [1;34mgraphnet[0m [MainProcess] [32mINFO    [0m 2026-03-02 00:36:01 - StandardModel.save_state_dict - Model state_dict saved to /project/6061446/kbas/Graphnet-Applications/Training/EventPulseSeries_nonoise/presentation/340string/zenith/best_model.pth[0m
+Monitored metric val_loss did not improve in the last 5 records. Best score: -0.943. Signaling Trainer to stop.
+[Resources] Wrote /project/6061446/kbas/Graphnet-Applications/Training/EventPulseSeries_nonoise/presentation/340string/zenith/resources_and_time.csv | last_epoch=27 | total=565.36 min
+[Run=zenith] best_model: /project/6061446/kbas/Graphnet-Applications/Training/EventPulseSeries_nonoise/presentation/340string/zenith/best_model.pth
+[Run=zenith] config:     /project/6061446/kbas/Graphnet-Applications/Training/EventPulseSeries_nonoise/presentation/340string/zenith/config.yml
+[Run=zenith] metrics:    /project/6061446/kbas/Graphnet-Applications/Training/EventPulseSeries_nonoise/presentation/340string/zenith/metrics.csv
+[Test=zenith] Loaded best weights: /project/6061446/kbas/Graphnet-Applications/Training/EventPulseSeries_nonoise/presentation/340string/zenith/best_model.pth
+[Test=zenith] Wrote: /project/6061446/kbas/Graphnet-Applications/Training/EventPulseSeries_nonoise/presentation/340string/zenith/test_predictions.csv | rows=40957
+[Test=zenith] residual_deg (signed): p16=-3.716, p50=-0.142, p84=3.255 | W_deg=3.485 | kappa_mean=81.656
+[rank: 0] Seed set to 20260202
+
+[Run=energy] torch.cuda.is_available() = True
+[Run=energy] GPU = NVIDIA H100 80GB HBM3
+GPU available: True (cuda), used: True
+TPU available: False, using: 0 TPU cores
+LOCAL_RANK: 0 - CUDA_VISIBLE_DEVICES: [0]
+
+  | Name                 | Type       | Params | Mode 
+------------------------------------------------------------
+0 | _tasks               | ModuleList | 129    | train
+1 | _data_representation | KNNGraph   | 0      | eval 
+2 | backbone             | DynEdge    | 1.4 M  | train
+------------------------------------------------------------
+1.4 M     Trainable params
+0         Non-trainable params
+1.4 M     Total params
+5.501     Total estimated model params size (MB)
+32        Modules in train mode
+4         Modules in eval mode
+SLURM auto-requeueing enabled. Setting signal handlers.
+/project/6061446/kbas/pone_offline/graphnet_env/lib/python3.10/site-packages/pytorch_lightning/loops/fit_loop.py:527: Found 4 module(s) in eval mode at the start of training. This may lead to unexpected behavior during training. If this is intentional, you can ignore this warning.
+Metric val_loss improved. New best score: 0.136 | epoch: 0
+[1;34mgraphnet[0m [MainProcess] [32mINFO    [0m 2026-03-02 03:02:51 - StandardModel.save_state_dict - Model state_dict saved to /project/6061446/kbas/Graphnet-Applications/Training/EventPulseSeries_nonoise/presentation/340string/energy/best_model.pth[0m
+Metric val_loss improved by 0.020 >= min_delta = 0.0. New best score: 0.116 | epoch: 1
+[1;34mgraphnet[0m [MainProcess] [32mINFO    [0m 2026-03-02 03:23:31 - StandardModel.save_state_dict - Model state_dict saved to /project/6061446/kbas/Graphnet-Applications/Training/EventPulseSeries_nonoise/presentation/340string/energy/best_model.pth[0m
+Metric val_loss improved by 0.002 >= min_delta = 0.0. New best score: 0.114 | epoch: 2
+[1;34mgraphnet[0m [MainProcess] [32mINFO    [0m 2026-03-02 03:43:59 - StandardModel.save_state_dict - Model state_dict saved to /project/6061446/kbas/Graphnet-Applications/Training/EventPulseSeries_nonoise/presentation/340string/energy/best_model.pth[0m
+Metric val_loss improved by 0.012 >= min_delta = 0.0. New best score: 0.102 | epoch: 3
+[1;34mgraphnet[0m [MainProcess] [32mINFO    [0m 2026-03-02 04:04:12 - StandardModel.save_state_dict - Model state_dict saved to /project/6061446/kbas/Graphnet-Applications/Training/EventPulseSeries_nonoise/presentation/340string/energy/best_model.pth[0m
+Metric val_loss improved by 0.006 >= min_delta = 0.0. New best score: 0.095 | epoch: 5
+[1;34mgraphnet[0m [MainProcess] [32mINFO    [0m 2026-03-02 04:44:42 - StandardModel.save_state_dict - Model state_dict saved to /project/6061446/kbas/Graphnet-Applications/Training/EventPulseSeries_nonoise/presentation/340string/energy/best_model.pth[0m
+Metric val_loss improved by 0.002 >= min_delta = 0.0. New best score: 0.094 | epoch: 6
+[1;34mgraphnet[0m [MainProcess] [32mINFO    [0m 2026-03-02 05:04:57 - StandardModel.save_state_dict - Model state_dict saved to /project/6061446/kbas/Graphnet-Applications/Training/EventPulseSeries_nonoise/presentation/340string/energy/best_model.pth[0m
+Metric val_loss improved by 0.001 >= min_delta = 0.0. New best score: 0.092 | epoch: 7
+[1;34mgraphnet[0m [MainProcess] [32mINFO    [0m 2026-03-02 05:25:15 - StandardModel.save_state_dict - Model state_dict saved to /project/6061446/kbas/Graphnet-Applications/Training/EventPulseSeries_nonoise/presentation/340string/energy/best_model.pth[0m
+Metric val_loss improved by 0.000 >= min_delta = 0.0. New best score: 0.092 | epoch: 9
+[1;34mgraphnet[0m [MainProcess] [32mINFO    [0m 2026-03-02 06:05:53 - StandardModel.save_state_dict - Model state_dict saved to /project/6061446/kbas/Graphnet-Applications/Training/EventPulseSeries_nonoise/presentation/340string/energy/best_model.pth[0m
+Metric val_loss improved by 0.002 >= min_delta = 0.0. New best score: 0.090 | epoch: 10
+[1;34mgraphnet[0m [MainProcess] [32mINFO    [0m 2026-03-02 06:26:03 - StandardModel.save_state_dict - Model state_dict saved to /project/6061446/kbas/Graphnet-Applications/Training/EventPulseSeries_nonoise/presentation/340string/energy/best_model.pth[0m
+Metric val_loss improved by 0.001 >= min_delta = 0.0. New best score: 0.089 | epoch: 12
+[1;34mgraphnet[0m [MainProcess] [32mINFO    [0m 2026-03-02 07:06:07 - StandardModel.save_state_dict - Model state_dict saved to /project/6061446/kbas/Graphnet-Applications/Training/EventPulseSeries_nonoise/presentation/340string/energy/best_model.pth[0m
+Metric val_loss improved by 0.001 >= min_delta = 0.0. New best score: 0.088 | epoch: 16
+[1;34mgraphnet[0m [MainProcess] [32mINFO    [0m 2026-03-02 08:26:13 - StandardModel.save_state_dict - Model state_dict saved to /project/6061446/kbas/Graphnet-Applications/Training/EventPulseSeries_nonoise/presentation/340string/energy/best_model.pth[0m
