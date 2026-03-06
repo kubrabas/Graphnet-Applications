@@ -12,11 +12,6 @@ Skim ONE i3 file per Slurm array task, using FilterFrame.
     reads [GCD, input] -> applies FilterFrame(AllowedStrings=...) -> writes DAQ stream to:
     <outdir>/<input_stem>_skim.i3   (or keeps suffixes like .i3.gz if present)
 
-Key fix in this version:
-- Do NOT use Streams=... when adding FilterFrame (your IceTray build treats it as a module parameter).
-- Instead, run FilterFrame ONLY on DAQ frames via If=... so it won't touch Geometry/Cal/DetStatus frames.
-
-
 
 Notes:
 - Deterministic: input files are sorted.
@@ -80,10 +75,8 @@ def output_name_for(infile: Path, outdir: Path, suffix: str = "_skim") -> Path:
 def process_one_file(FilterFrame, infile: Path, gcd: Path, allowed: List[int], outfile: Path) -> None:
     tray = icetray.I3Tray()
 
-    # Read GCD first, then data
     tray.Add("I3Reader", FilenameList=[str(gcd), str(infile)])
 
-    # IMPORTANT: only run FilterFrame on DAQ frames (avoid Geometry/Cal/DetStatus)
     tray.Add(
         FilterFrame,
         AllowedStrings=allowed,
@@ -92,17 +85,22 @@ def process_one_file(FilterFrame, infile: Path, gcd: Path, allowed: List[int], o
 
 
 
-    # Match your GeoSkimmer behavior: write DAQ only
     tray.Add("I3Writer", Filename=str(outfile), Streams=[icetray.I3Frame.DAQ])
 
     tray.Execute()
     tray.Finish()
 
 
+
+##### for electron data, pattern should be chosen as "*.i3.zst", because the 340 string electron I3 files has that type
+##### for muon data, pattern should be chosen as "*.i3", because the 340 string muon I3 files has that type
+##### for tau data, pattern should be chosen as "*.i3.zst", because the 340 string tau I3 files has that type
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--indir", required=True, help="Folder containing input i3 files")
-    ap.add_argument("--pattern", default="*.i3.zst", help="Glob pattern, default: *.i3.zst")
+    ap.add_argument("--pattern", required=True, help="Glob pattern, default: *.i3.zst")
 
     ap.add_argument("--outdir", required=True, help="Output folder")
     ap.add_argument("--gcd", required=True, help="GCD file path")
@@ -168,6 +166,7 @@ def main() -> int:
     process_one_file(FilterFrame, infile, gcd, allowed, outfile)
     icetray.logging.log_info("DONE")
     return 0
+
 
 
 if __name__ == "__main__":
