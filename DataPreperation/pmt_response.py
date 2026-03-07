@@ -2,6 +2,14 @@ import glob
 import os, sys, random
 from os.path import expandvars
 
+from pathlib import Path
+
+# --- make pone_offline imports work although this script lives outside pone_offline ---
+DEFAULT_PONE_ENV_DIR = "/project/def-nahee/kbas/pone_offline"
+PONE_ENV_DIR = os.environ.get("PONE_ENV_DIR", DEFAULT_PONE_ENV_DIR)
+if PONE_ENV_DIR not in sys.path:
+    sys.path.insert(0, PONE_ENV_DIR)
+
 from DOM.DOMAcceptance import DOMAcceptance
 from DOM.PONEDOMLauncher import DOMSimulation
 
@@ -43,6 +51,7 @@ from icecube.dataclasses import ModuleKey
 import numpy as np
 from math import sqrt
 from copy import deepcopy
+import argparse
 
 
 # Custom classes are kept as they inherit from I3Module directly.
@@ -57,44 +66,68 @@ except KeyError:
     SLURM_ARRAY_TASK_ID = 0
 print("script check point 3")
 
-OUTPUT_FOLDER =  "/home/kbas/scratch/102_string/Muon_PMT_Response/"
-SIM_PATH = "/home/kbas/scratch/102_string/Muon_I3Photons"
+parser = argparse.ArgumentParser()
+parser.add_argument("--infile", type=str, required=True)
+args = parser.parse_args()
+file_path = args.infile
 
-GCD_FILE = '/scratch/kbas/102_string/GCD_102strings.i3.gz'
+# --- runtime configuration from env / slurm wrapper ---
+FLAVOR = os.environ["FLAVOR"]
+SUB_GEOMETRY = os.environ["SUB_GEOMETRY"]
+SIM_PATH = os.environ["SIM_PATH"]
+OUTPUT_FOLDER = os.environ["OUTPUT_FOLDER"]
+GCD_FILE = os.environ["GCD_FILE"]
 
 os.makedirs(OUTPUT_FOLDER, exist_ok=True)
 print("script check point 4")
 
-# Get ALL input files
-all_input_files = sorted(glob.glob(f"{SIM_PATH}/cls_*.i3.gz"))
+print(f"--- CONFIG: flavor={FLAVOR}")
+print(f"--- CONFIG: sub_geometry={SUB_GEOMETRY}")
+print(f"--- CONFIG: sim_path={SIM_PATH}")
+print(f"--- CONFIG: output_folder={OUTPUT_FOLDER}")
+print(f"--- CONFIG: gcd_file={GCD_FILE}")
+print(f"--- CONFIG: pone_env_dir={PONE_ENV_DIR}")
 
 # --- SELECT THE FILE FOR THIS ARRAY JOB ---
-if SLURM_ARRAY_TASK_ID >= len(all_input_files):
-    print(f"SLURM_ARRAY_TASK_ID {SLURM_ARRAY_TASK_ID} exceeds the total number of files. Exiting.")
-    sys.exit(0)
+if not os.path.exists(file_path):
+    print(f"Input file does not exist: {file_path}")
+    sys.exit(1)
 print("script check point 5")
-
-file_path = all_input_files[SLURM_ARRAY_TASK_ID]
 
 # --- FILE NAMING ---
 base_name = os.path.basename(file_path)
 
-# >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-# ONLY CHANGE: make muon ID parsing like tau-style regex parsing
-m = re.search(r"cls_(\d+)", base_name)
+m = re.search(r"(?:gen|cls)_(\d+)", base_name)
 if not m:
     raise ValueError(f"Could not parse run number from filename: {base_name}")
-file_id_part = m.group(1)
-# <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 
-new_filename = f"muon_batch_{file_id_part}.i3.gz"
+file_id_part = m.group(1)
+
+
+name_no_ext = base_name
+if name_no_ext.endswith(".i3.gz"):
+    name_no_ext = name_no_ext[:-6]
+elif name_no_ext.endswith(".i3.zst"):
+    name_no_ext = name_no_ext[:-7]
+elif name_no_ext.endswith(".i3"):
+    name_no_ext = name_no_ext[:-3]
+
+if name_no_ext.endswith("_skim"):
+    new_filename = f"{name_no_ext[:-5]}_pmt_response.i3.gz"
+else:
+    new_filename = f"{name_no_ext}_pmt_response.i3.gz"
+
 output_path = os.path.join(OUTPUT_FOLDER, new_filename)
 
 if os.path.exists(output_path):
     print(f"Output already exists: {output_path} (skipping)")
     sys.exit(0)
 
+
+
 print(f"Starting Array Job {SLURM_ARRAY_TASK_ID}. Processing {file_path}")
+print(f"--- CONFIG: infile={file_path}")
+print(f"--- CONFIG: output_path={output_path}")
 print("script check point 6")
 
 # --- TRAY CONFIGURATION ---
@@ -102,7 +135,7 @@ runnumber = int(file_id_part) # "The run/dataset number for this simulation, is 
 pulsesep = 0.2 # "Time needed to separate two pulses. Assume that this is 3.5*sample time." what is sample time in this data?
 
 nDOMs = 1 # "Number of DOMs for detector trigger"
-# I changed the name _3PMT_2DOM to _3PMT_1DOM
+# I changed the name _3PMT_2DOM to _3PMT_1DOM 
 
 randomService = phys_services.I3SPRNGRandomService(
     seed=1234567, nstreams=10000, streamnum=runnumber
@@ -410,6 +443,8 @@ class DetectorTrigger(icetray.I3ConditionalModule):
         tmin = mintrigtime - self.TriggerTime
         tmax = mintrigtime + self.EventLength - self.TriggerTime
 
+
+
         for om in pulseseriesmap.keys():
             pulseseries = dataclasses.I3RecoPulseSeries()
             for pulse in pulseseriesmap[om]:
@@ -441,13 +476,17 @@ class DetectorTrigger(icetray.I3ConditionalModule):
         self.PushFrame(frame)
         Pframe = icetray.I3Frame("P")
         self.PushFrame(Pframe)
+## what I have added in this new DetectorTrigger:
+### once event trigger time is calculated using triggerpulsemap and the outcomes from DOMTrigger, PMT_Response and PMT_Response_nonoise has the same window cut and same t_new adjustment 
+
+
 
 
 # do I want to use this:
 class HitCountCheck(icetray.I3Module):
     def __init__(self, context):
         super(HitCountCheck, self).__init__(context)
-        self.AddParameter("NHits", "required number of OMs hit to pass frame","")
+        self.AddParameter("NHits", "required number of OMs hit to pass frame","") 
     def Configure(self):
         self.NHits=self.GetParameter("NHits")
 
@@ -456,6 +495,9 @@ class HitCountCheck(icetray.I3Module):
             return False
         else:
             self.PushFrame(frame)
+## NOTE: I took this from Examples/POM_Response. it says "required number of OMs hit to pass frame" but it actually checks number of PMT's. if i change PMT_Response_nonoise to triggerpulsemap, maybe it could check number of OM's? or maybe I dont need to use this class at all? I already have triggering system? but still I used it here.
+
+
 
 
 # Set up the IceTray pipeline
@@ -464,53 +506,98 @@ photon_series = "I3Photons"
 tray.context["I3RandomService"] = randomService
 tray.AddModule("I3Reader", "reader", FilenameList=[GCD_FILE, file_path])
 
+
 print("script check point 8")
 
 # Modules are added by STRING NAME to avoid Python import conflicts
-tray.AddModule(DOMAcceptance, 'DOMAcceptance',
-               input_map=photon_series, output_map='Accepted_PulseMap',
+tray.AddModule(DOMAcceptance, 'DOMAcceptance', 
+               input_map=photon_series, output_map='Accepted_PulseMap', 
                random_service=randomService,
                drop_empty=True)
 
-tray.AddModule(DarkNoise, 'AddDarkNoise',
-               input_map='Accepted_PulseMap', output_map='Noise_Dark',
+## drop_empty: drops the event if I3Photons is empty. I dont want to drop, because even if there is no any real pulse coming to the OM, still there will be noises. But I dropped here.
+## drop_empty do not drop the cases where OM receives photons (I3Photons is not empty empty) but they are not accepted by any PMT, they will still be included. It only drops frames where I3Photons are empty
+
+
+tray.AddModule(DarkNoise, 'AddDarkNoise', 
+               input_map='Accepted_PulseMap', output_map='Noise_Dark', 
                random_service=randomService, gcd_file=GCD_FILE)
 
-tray.AddModule(K40Noise, 'AddK40Noise',
-               input_map='Accepted_PulseMap', output_map='Noise_K40',
+# Dark noise is not limited to PMTs that already have pulses in the input_map (Accepted_PulseMap); the input_map is used only to define the time window over which the noise will be generated. Noise is added by iterating over all OMs in the geometry (omkeys_to_use), excluding those removed via drop_strings/drop_oms, and generating random (Poisson) hits for all PMT indices (1..num_pmts) defined by the POM model. However, since the process is Poisson, a hit is not guaranteed to occur on every PMT.
+
+
+
+tray.AddModule(K40Noise, 'AddK40Noise', 
+               input_map='Accepted_PulseMap', output_map='Noise_K40', 
                random_service=randomService, gcd_file=GCD_FILE)
 
-tray.AddModule(DOMSimulation, 'DOMLauncher',
-               input_map='Accepted_PulseMap',
+# K40Noise follows the same basic principle: `input_map` does not determine which PMTs will receive noise; it is only used to define the time window over which noise is generated. Noise is produced for all OMs that are not excluded via `drop_strings/drop_oms`. The difference from DarkNoise is this: while DarkNoise can generate independent Poisson hits for each PMT in each OM, K40Noise generates K40 “events/correlations” within each OM and randomly selects which PMTs those events will hit (for single-fold, a single PMT; for multi-fold, PMT combinations taken from the characterization file, then mapped onto the module’s PMTs via flip/rotation). Therefore, in theory all PMTs can receive hits, but in practice each event writes hits only to the selected PMTs.
+
+
+# If a manual boundary is not selected, the boundaries for noise generation for each event are:
+## lower bound = (earliest time in the input_map) − 2000 ns
+## upper bound = (latest time in the input_map) + 10000 ns
+
+
+
+tray.AddModule(DOMSimulation, 'DOMLauncher', 
+               input_map='Accepted_PulseMap', 
                output_map='PMT_Response', # PMT_Response_nonoise will also be produced
-               random_service=randomService, min_time_sep=pulsesep, split_doms=True,
+               random_service=randomService, min_time_sep=pulsesep, split_doms=True, 
                use_dark=True, dark_map='Noise_Dark', use_k40=True, k40_map='Noise_K40')
+# The `drop_empty` and `no_pure_noise_events` checks run at the beginning of the DAQ function, before `PMT_Response` and `PMT_Response_nonoise` are produced. In other words, the drop decision is made based only on `Accepted_PulseMap` (the true/simulated signal) and, if present, the noise maps `DarkHits`/`K40Hits`.
+# understand all parameters of this class
+
 
 # Filter
 tray.AddModule(HitCountCheck, "hitcheck", NHits=5)
 print("script check point 9")
 
 tray.AddModule(DOMTrigger, "DOMTrigger", trigger_map="triggerpulsemap")
+# triggerpulsemap is POMResponse including noise and pulse. it is on OM level.
+# understand all parameters of this class
+
+
 
 tray.AddModule(
     DetectorTrigger,
     "PONE_Trigger",
     output="_3PMT_1DOM",
+    # input : default
+    # FullDetectorCoincidenceWindow : default
+    # StringCoincidenceN : default
+    # StringCoincidenceWindow : default
+    # StringNRows : default
+    # StringDist : default
+    # ScaleBySpacing : default
+    # ForceAdjacency : default
+    # PulseSeriesIn : default (PMT_Response)
+    # PulseSeriesOut : default (EventPulseSeries)
+    # PulseSeriesInNoNoise : default (PMT_Response_nonoise)
+    # PulseSeriesOutNoNoise : default (EventPulseSeries_nonoise)
+    # SingleOMTriggerCoince : default
     OMPMTCoinc=3,
     FullDetectorCoincidenceN=nDOMs,
-    CutOnTrigger=True,
+    CutOnTrigger=True, # if all "detector trigger", "string trigger" and, "single-OM trigger" are empty, then the event is dropped. 
     EventLength=10000,
-    TriggerTime=2000
-)
+    TriggerTime=2000)
+# I believe it makes sense to drop  non-triggered (?) events. Because in the real experiment setup, they are not recorded?
+# is my definition of event being triggered correct? I believe, if TriggerTime_3PMT_2DOM could be calculated (it is not 99999999.0), then the event was triggered? so I set CutOnTrigger=True, but in the Example/POM_Response, it was set CutOnTrigger=False
+# understand all parameters of this class
+
+
+
+
+
 
 # Write results
 tray.AddModule(
     "I3Writer",
     "writer",
     Filename=output_path,
-    Streams=[icetray.I3Frame.DAQ],
-    SkipKeys = ["I3Photons", "Accepted_PulseMap",
-                    "Noise_Dark", "Noise_K40",
+    Streams=[icetray.I3Frame.DAQ],  ## I checked results for both DAQ and Physics frame. They looked pretty same, so here I created only DAQ. Is this correct?
+    SkipKeys = ["I3Photons", "Accepted_PulseMap",  
+                    "Noise_Dark", "Noise_K40", 
                     "PMT_Response", "PMT_Response_nonoise", "triggerpulsemap"]
 )
 print("script check point 10")
@@ -520,6 +607,11 @@ tray.Execute()
 tray.Finish()
 
 print(f" Finished Array Job {SLURM_ARRAY_TASK_ID}. Output: {output_path}")
+
+
+
+
+
 
 ## Notes
 # In this script, reproducible noise generation is ensured by using a fixed random seed (e.g., `1234567`) and assigning a unique `streamnum` to each input file, typically derived from the file’s batch ID parsed from the filename. This way, rerunning the same infile produces identical noise, while different infiles get different random streams. To make this work reliably, `nstreams` is set sufficiently large so that it covers the full range of possible `streamnum` values (for example, if batch IDs can be a few thousand like 4910, `nstreams` is chosen as `100000` or larger).
