@@ -16,7 +16,7 @@ from icecube import dataio
 gcd_path = "/project/6008051/pone_simulation/GCD_Library/PONE_800mGrid.i3.gz"
 
 # Which sub-geometry CSV to use
-geometry_name = "modified"   # compact / default / expanded / large / modified
+geometry_name = "160_string"   # compact / default / expanded / large / modified / 102_string / 160_string
 
 # Read CSV from the same folder as this script
 script_dir = os.path.dirname(os.path.abspath(__file__))
