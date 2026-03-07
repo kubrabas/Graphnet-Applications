@@ -33,6 +33,18 @@ icetray.I3Logger.global_logger.set_level(I3LogLevel.LOG_INFO)
 
 DEFAULT_FILTERFRAME_PY = "/project/def-nahee/kbas/GeometrySkimmer/FilterFrame.py"
 
+PARTICLE_TO_PATTERN = {
+    "electron": "*.i3.zst",
+    "muon": "*.i3",
+    "tau": "*.i3.zst",
+}
+
+PARTICLE_TO_INDIR = {
+    "electron": "/project/6008051/pone_simulation/MC000003-nu_e-2_7-LeptonInjector_PROPOSAL_clsim-v10/Generator",
+    "muon": "/project/6008051/pone_simulation/MC10-000002-nu_mu-2_7-LeptonInjector-PROPOSAL-clsim/Photon",
+    "tau": "/project/6008051/pone_simulation/MC000004-nu_tau-2_7-LeptonInjector_PROPOSAL_clsim-v10/Generator",
+}
+
 
 def import_filterframe(filterframe_py: str):
     """Import FilterFrame from an absolute path to FilterFrame.py."""
@@ -67,7 +79,7 @@ def list_inputs(indir: str, pattern: str) -> List[Path]:
 
 
 def output_name_for(infile: Path, outdir: Path, suffix: str = "_skim") -> Path:
-    suffixes = "".join(infile.suffixes) 
+    suffixes = "".join(infile.suffixes)
     name_no_suffixes = infile.name[: -len(suffixes)] if suffixes else infile.stem
     return outdir / f"{name_no_suffixes}{suffix}.i3.gz"
 
@@ -83,25 +95,28 @@ def process_one_file(FilterFrame, infile: Path, gcd: Path, allowed: List[int], o
         OnlyDAQ=True,
     )
 
-
-
     tray.Add("I3Writer", Filename=str(outfile), Streams=[icetray.I3Frame.DAQ])
 
     tray.Execute()
     tray.Finish()
 
 
-
-##### for electron data, pattern should be chosen as "*.i3.zst", because the 340 string electron I3 files has that type
-##### for muon data, pattern should be chosen as "*.i3", because the 340 string muon I3 files has that type
-##### for tau data, pattern should be chosen as "*.i3.zst", because the 340 string tau I3 files has that type
-
-
 def main() -> int:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--indir", required=True, help="Folder containing input i3 files")
-    ap.add_argument("--pattern", required=True, help="Glob pattern, default: *.i3.zst")
+    ap.add_argument("--indir", default=None, help="Folder containing input i3 files")
+    ap.add_argument(
+        "--particle",
+        required=True,
+        choices=["electron", "muon", "tau"],
+        help="Particle type; selects the default input glob pattern automatically",
+    )
+    ap.add_argument(
+        "--pattern",
+        default=None,
+        help="Optional override for glob pattern. If not given, chosen from --particle",
+    )
 
+    ap.add_argument("--sub-geometry", default=None, help="Sub-geometry name used for logging")
     ap.add_argument("--outdir", required=True, help="Output folder")
     ap.add_argument("--gcd", required=True, help="GCD file path")
     ap.add_argument("--selection", required=True, help="Selection file containing allowed string IDs")
@@ -114,7 +129,10 @@ def main() -> int:
 
     args = ap.parse_args()
 
-    indir = Path(args.indir).resolve()
+    pattern = args.pattern if args.pattern is not None else PARTICLE_TO_PATTERN[args.particle]
+    indir_str = args.indir if args.indir is not None else PARTICLE_TO_INDIR[args.particle]
+
+    indir = Path(indir_str).resolve()
     outdir = Path(args.outdir).resolve()
     gcd = Path(args.gcd).resolve()
     selection = Path(args.selection).resolve()
@@ -128,6 +146,10 @@ def main() -> int:
 
     outdir.mkdir(parents=True, exist_ok=True)
 
+    array_job_id = os.environ.get("SLURM_ARRAY_JOB_ID", "unknown")
+    array_task_id = os.environ.get("SLURM_ARRAY_TASK_ID", "unknown")
+    job_id = os.environ.get("SLURM_JOB_ID", "unknown")
+
     # task index
     if args.task_id is not None:
         task_id = args.task_id
@@ -138,9 +160,9 @@ def main() -> int:
             return 2
 
     # list inputs (deterministic)
-    inputs = list_inputs(str(indir), args.pattern)
+    inputs = list_inputs(str(indir), pattern)
     if not inputs:
-        print(f"ERROR: No files found in {indir} matching pattern {args.pattern}")
+        print(f"ERROR: No files found in {indir} matching pattern {pattern}")
         return 3
 
     if not (0 <= task_id < len(inputs)):
@@ -158,7 +180,17 @@ def main() -> int:
     FilterFrame = import_filterframe(args.filterframe)
     allowed = read_allowed_strings(str(selection))
 
+    icetray.logging.log_info(f"array_job_id={array_job_id}")
+    icetray.logging.log_info(f"array_task_id={array_task_id}")
+    icetray.logging.log_info(f"job_id={job_id}")
+    icetray.logging.log_info(f"particle={args.particle}")
+    icetray.logging.log_info(f"sub_geometry={args.sub_geometry}")
+    icetray.logging.log_info(f"pattern={pattern}")
     icetray.logging.log_info(f"task_id={task_id}/{len(inputs)-1}")
+    icetray.logging.log_info(f"indir={indir}")
+    icetray.logging.log_info(f"gcd={gcd}")
+    icetray.logging.log_info(f"selection={selection}")
+    icetray.logging.log_info(f"filterframe={args.filterframe}")
     icetray.logging.log_info(f"infile={infile}")
     icetray.logging.log_info(f"outfile={outfile}")
     icetray.logging.log_info(f"AllowedStrings count={len(allowed)}")
@@ -166,7 +198,6 @@ def main() -> int:
     process_one_file(FilterFrame, infile, gcd, allowed, outfile)
     icetray.logging.log_info("DONE")
     return 0
-
 
 
 if __name__ == "__main__":
