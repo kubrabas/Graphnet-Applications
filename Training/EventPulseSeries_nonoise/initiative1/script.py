@@ -9,11 +9,14 @@ import math
 import os
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable, Dict, List, Optional, Tuple
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Tuple
 import time
 from datetime import datetime
 import subprocess
 
+import numpy as np
+import matplotlib.path as mpath
+from scipy.spatial import ConvexHull, Delaunay
 
 import pandas as pd
 import pytorch_lightning as pl
@@ -45,9 +48,6 @@ if not getattr(logging, "_GRAPHNET_OPTIONAL_DEPS_FILTER_INSTALLED", False):
     logging._GRAPHNET_OPTIONAL_DEPS_FILTER_INSTALLED = True
 
 
-
-
-
 from graphnet.training.callbacks import PiecewiseLinearLR, GraphnetEarlyStopping
 from graphnet.training.loss_functions import LogCoshLoss, VonMisesFisher2DLoss
 
@@ -68,6 +68,20 @@ from graphnet.models.task.reconstruction import (
 )
 from graphnet.models.task import StandardLearnedTask
 from graphnet.utilities.maths import eps_like
+
+from graphnet.data.extractors.icecube.utilities.frames import frame_is_montecarlo, frame_is_noise
+from icecube import dataclasses, dataio
+from graphnet.data.extractors.icecube import I3Extractor
+from graphnet.utilities.imports import has_icecube_package
+
+if has_icecube_package() or TYPE_CHECKING:
+    from icecube import (  # noqa: F401
+        dataclasses,
+        icetray,
+        phys_services,
+        dataio,
+        LeptonInjector,
+    )  # pyright: reportMissingImports=false
 
 
 # =======================
@@ -112,7 +126,472 @@ def install_logging_filters() -> None:
 
 
 # =======================
-# 4) Detector: PONE robust scaling (paper Eq. 2.1)
+# 4) Truth extractor: I3TruthExtractorPONE
+# =======================
+
+class I3TruthExtractorPONE(I3Extractor):
+    """Truth-level extractor for PONE simulations."""
+
+    def __init__(
+        self,
+        name: str = "truth",
+        mctree: Optional[str] = "I3MCTree",
+        extend_boundary: Optional[float] = 0.0,
+        string_proximity_threshold: float = 100.0,
+        exclude: list = [None],
+    ):
+        """Construct I3TruthExtractorPONE.
+
+        Args:
+            name: Name of the I3Extractor instance.
+            mctree: Name of the MC tree to use for truth values.
+            extend_boundary: Distance in metres to extend the convex hull of
+                the detector when defining starting events. Defaults to 0.
+            string_proximity_threshold: Maximum XY distance in metres from a
+                point to the nearest string for it to be considered
+                "near a string". Used for is_starting_near_string and
+                *_stopped_near_string columns. Defaults to 100.
+            exclude: List of keys to exclude from the extracted data.
+        """
+        super().__init__(name, exclude=exclude)
+
+        self._borders = None
+        self._extend_boundary = extend_boundary
+        self._string_proximity_threshold = string_proximity_threshold
+        self._mctree = mctree
+
+    def set_gcd(self, i3_file: str, gcd_file: Optional[str] = None) -> None:
+        """Load GCD file and derive detector geometry."""
+        super().set_gcd(i3_file=i3_file, gcd_file=gcd_file)
+
+        coordinates = np.array([
+            [g.position.x, g.position.y, g.position.z]
+            for g in self._gcd_dict.values()
+        ])
+
+        if self._extend_boundary != 0.0:
+            center = np.mean(coordinates, axis=0)
+            d = coordinates - center
+            norms = np.linalg.norm(d, axis=1, keepdims=True)
+            dn = d / norms
+            coordinates = coordinates + dn * self._extend_boundary
+
+        hull = ConvexHull(coordinates)
+        self.hull = hull
+        self.delaunay = Delaunay(coordinates[hull.vertices])
+
+        xy = coordinates[:, :2]
+        hull_2d = ConvexHull(xy)
+        border_xy = xy[hull_2d.vertices]
+        border_z = np.array([coordinates[:, 2].min(), coordinates[:, 2].max()])
+        self._borders = [border_xy, border_z]
+
+        xy_rounded = np.round(xy, 0)
+        self._string_xy = np.unique(xy_rounded, axis=0)
+
+    def __call__(
+        self, frame: "icetray.I3Frame", padding_value: Any = -1
+    ) -> Dict[str, Any]:
+        """Extract truth-level information from a physics frame."""
+        is_mc = frame_is_montecarlo(frame, self._mctree)
+        is_noise = frame_is_noise(frame, self._mctree)
+        sim_type = self._find_data_type(is_mc, self._i3_file, frame)
+
+        output = {
+            "energy": padding_value,
+            "position_x": padding_value,
+            "position_y": padding_value,
+            "position_z": padding_value,
+            "azimuth": padding_value,
+            "zenith": padding_value,
+            "pid": padding_value,
+            "event_time": frame["I3EventHeader"].start_time.utc_daq_time,
+            "sim_type": sim_type,
+            "interaction_type": padding_value,
+            "elasticity": padding_value,
+            "RunID": frame["I3EventHeader"].run_id,
+            "SubrunID": frame["I3EventHeader"].sub_run_id,
+            "EventID": frame["I3EventHeader"].event_id,
+            "SubEventID": frame["I3EventHeader"].sub_event_id,
+            "dbang_decay_length": padding_value,
+            "numu_muon_track_length": padding_value,
+            "numu_muon_stopped_convex_hull": padding_value,
+            "numu_muon_final_x": padding_value,
+            "numu_muon_final_y": padding_value,
+            "numu_muon_final_z": padding_value,
+            "atmo_muon_track_length": padding_value,
+            "atmo_muon_stopped_convex_hull": padding_value,
+            "atmo_muon_final_x": padding_value,
+            "atmo_muon_final_y": padding_value,
+            "atmo_muon_final_z": padding_value,
+            "energy_track": padding_value,
+            "energy_cascade": padding_value,
+            "inelasticity": padding_value,
+            "is_starting_convex_hull": padding_value,
+            "is_starting_near_string": padding_value,
+            "numu_muon_stopped_near_string": padding_value,
+            "atmo_muon_stopped_near_string": padding_value,
+            "tau_decay_length": padding_value,
+            "tau_decay_muon_track_length": padding_value,
+            "tau_decay_muon_stopped_convex_hull": padding_value,
+            "tau_decay_muon_stopped_near_string": padding_value,
+            "tau_decay_muon_final_x": padding_value,
+            "tau_decay_muon_final_y": padding_value,
+            "tau_decay_muon_final_z": padding_value,
+        }
+
+        if is_mc and (not is_noise):
+            (
+                MCTree,
+                interaction_type,
+                elasticity,
+            ) = self._get_primary_particle_interaction_type_and_elasticity(
+                frame, sim_type
+            )
+
+            try:
+                (
+                    energy_track,
+                    energy_cascade,
+                    inelasticity,
+                ) = self._get_primary_track_energy_and_inelasticity(
+                    frame, sim_type
+                )
+            except RuntimeError:
+                energy_track, energy_cascade, inelasticity = (
+                    padding_value,
+                    padding_value,
+                    padding_value,
+                )
+
+            output.update(
+                {
+                    "energy": MCTree.energy,
+                    "position_x": MCTree.pos.x,
+                    "position_y": MCTree.pos.y,
+                    "position_z": MCTree.pos.z,
+                    "azimuth": MCTree.dir.azimuth,
+                    "zenith": MCTree.dir.zenith,
+                    "pid": MCTree.pdg_encoding,
+                    "interaction_type": interaction_type,
+                    "elasticity": elasticity,
+                    "dbang_decay_length": self._extract_dbang_decay_length(
+                        frame, padding_value
+                    ),
+                    "energy_track": energy_track,
+                    "energy_cascade": energy_cascade,
+                    "inelasticity": inelasticity,
+                }
+            )
+
+            pid = output["pid"]
+            if abs(pid) == 13:
+                muon_truth = {
+                    "position_x": MCTree.pos.x,
+                    "position_y": MCTree.pos.y,
+                    "position_z": MCTree.pos.z,
+                    "azimuth": MCTree.dir.azimuth,
+                    "zenith": MCTree.dir.zenith,
+                    "track_length": MCTree.length,
+                }
+                muon_final = self._muon_stopped(muon_truth, self._borders)
+                output.update(
+                    {
+                        "atmo_muon_track_length": MCTree.length,
+                        "atmo_muon_stopped_convex_hull": muon_final["stopped"],
+                        "atmo_muon_final_x": muon_final["x"],
+                        "atmo_muon_final_y": muon_final["y"],
+                        "atmo_muon_final_z": muon_final["z"],
+                    }
+                )
+
+            elif abs(pid) == 14:
+                mc_tree = frame[self._mctree]
+                daughters = mc_tree.get_daughters(mc_tree.primaries[0])
+                numu_muon = next(
+                    (d for d in daughters if abs(d.pdg_encoding) == 13), None
+                )
+                if numu_muon is not None:
+                    muon_truth = {
+                        "position_x": numu_muon.pos.x,
+                        "position_y": numu_muon.pos.y,
+                        "position_z": numu_muon.pos.z,
+                        "azimuth": numu_muon.dir.azimuth,
+                        "zenith": numu_muon.dir.zenith,
+                        "track_length": numu_muon.length,
+                    }
+                    muon_final = self._muon_stopped(muon_truth, self._borders)
+                    output.update(
+                        {
+                            "numu_muon_track_length": numu_muon.length,
+                            "numu_muon_stopped_convex_hull": muon_final["stopped"],
+                            "numu_muon_final_x": muon_final["x"],
+                            "numu_muon_final_y": muon_final["y"],
+                            "numu_muon_final_z": muon_final["z"],
+                        }
+                    )
+
+            elif abs(pid) == 16:
+                mc_tree = frame[self._mctree]
+                primary = mc_tree.primaries[0]
+                tau_particle = next(
+                    (d for d in mc_tree.get_daughters(primary)
+                     if abs(d.pdg_encoding) == 15),
+                    None,
+                )
+                if tau_particle is not None:
+                    tau_len = tau_particle.length
+                    output["tau_decay_length"] = (
+                        float(tau_len)
+                        if (tau_len == tau_len and tau_len > 0)
+                        else padding_value
+                    )
+
+                    tau_muon = next(
+                        (d for d in mc_tree.get_daughters(tau_particle)
+                         if abs(d.pdg_encoding) == 13),
+                        None,
+                    )
+                    if tau_muon is not None:
+                        muon_truth = {
+                            "position_x": tau_muon.pos.x,
+                            "position_y": tau_muon.pos.y,
+                            "position_z": tau_muon.pos.z,
+                            "azimuth": tau_muon.dir.azimuth,
+                            "zenith": tau_muon.dir.zenith,
+                            "track_length": tau_muon.length,
+                        }
+                        muon_final = self._muon_stopped(muon_truth, self._borders)
+                        output.update(
+                            {
+                                "tau_decay_muon_track_length": tau_muon.length,
+                                "tau_decay_muon_stopped_convex_hull": muon_final["stopped"],
+                                "tau_decay_muon_final_x": muon_final["x"],
+                                "tau_decay_muon_final_y": muon_final["y"],
+                                "tau_decay_muon_final_z": muon_final["z"],
+                            }
+                        )
+                    else:
+                        if output["tau_decay_length"] != padding_value:
+                            output["dbang_decay_length"] = output["tau_decay_length"]
+
+            output.update({"is_starting_convex_hull": self._contained_vertex(output)})
+
+            output.update({
+                "is_starting_near_string": self._near_string(
+                    output["position_x"], output["position_y"], output["position_z"]
+                ),
+                "numu_muon_stopped_near_string": self._near_string(
+                    output["numu_muon_final_x"], output["numu_muon_final_y"],
+                    output["numu_muon_final_z"]
+                ) if output["numu_muon_final_x"] != -1 else padding_value,
+                "atmo_muon_stopped_near_string": self._near_string(
+                    output["atmo_muon_final_x"], output["atmo_muon_final_y"],
+                    output["atmo_muon_final_z"]
+                ) if output["atmo_muon_final_x"] != -1 else padding_value,
+                "tau_decay_muon_stopped_near_string": self._near_string(
+                    output["tau_decay_muon_final_x"], output["tau_decay_muon_final_y"],
+                    output["tau_decay_muon_final_z"]
+                ) if output["tau_decay_muon_final_x"] != -1 else padding_value,
+            })
+
+        return output
+
+    def _extract_dbang_decay_length(
+        self, frame: "icetray.I3Frame", padding_value: float = -1
+    ) -> float:
+        """Extract the distance between the two cascades in double-bang events."""
+        mctree = frame[self._mctree]
+        try:
+            primary = mctree.primaries[0]
+            daughters = mctree.get_daughters(primary)
+
+            if len(daughters) != 2:
+                return padding_value
+
+            casc_0 = next(
+                (d for d in daughters
+                 if d.type == dataclasses.I3Particle.Hadrons),
+                None,
+            )
+            secondary = next(
+                (d for d in daughters
+                 if d.type != dataclasses.I3Particle.Hadrons),
+                None,
+            )
+            if casc_0 is None or secondary is None:
+                return padding_value
+
+            sec_daughters = mctree.get_daughters(secondary)
+            casc_1 = next(
+                (d for d in sec_daughters
+                 if d.type == dataclasses.I3Particle.Hadrons),
+                None,
+            )
+            if casc_1 is None:
+                return padding_value
+
+            return (
+                phys_services.I3Calculator.distance(casc_0, casc_1)
+                / icetray.I3Units.m
+            )
+        except:  # noqa: E722
+            return padding_value
+
+    def _muon_stopped(
+        self,
+        truth: Dict[str, Any],
+        borders: List[np.ndarray],
+        shrink_horizontally: float = 100.0,
+        shrink_vertically: float = 100.0,
+    ) -> Dict[str, Any]:
+        """Compute the muon's final position and whether it stopped inside
+        the fiducial volume."""
+        border = mpath.Path(borders[0])
+
+        start_pos = np.array(
+            [truth["position_x"], truth["position_y"], truth["position_z"]]
+        )
+
+        travel_vec = -1 * np.array(
+            [
+                truth["track_length"]
+                * np.cos(truth["azimuth"])
+                * np.sin(truth["zenith"]),
+                truth["track_length"]
+                * np.sin(truth["azimuth"])
+                * np.sin(truth["zenith"]),
+                truth["track_length"] * np.cos(truth["zenith"]),
+            ]
+        )
+
+        end_pos = start_pos + travel_vec
+
+        stopped_xy = border.contains_point(
+            (end_pos[0], end_pos[1]), radius=-shrink_horizontally
+        )
+        stopped_z = (end_pos[2] > borders[1][0] + shrink_vertically) * (
+            end_pos[2] < borders[1][1] - shrink_vertically
+        )
+
+        return {
+            "x": end_pos[0],
+            "y": end_pos[1],
+            "z": end_pos[2],
+            "stopped": (stopped_xy * stopped_z),
+        }
+
+    def _get_primary_particle_interaction_type_and_elasticity(
+        self,
+        frame: "icetray.I3Frame",
+        sim_type: str,
+        padding_value: float = -1.0,
+    ) -> Tuple[Any, int, float]:
+        """Return the primary MC particle, interaction type, and elasticity."""
+        if sim_type != "noise":
+            MCTree = frame[self._mctree][0]
+            if MCTree.energy != MCTree.energy:
+                MCTree = frame[self._mctree][1]
+        else:
+            MCTree = None
+
+        if sim_type == "LeptonInjector":
+            event_properties = frame["EventProperties"]
+            final_state_1 = event_properties.finalType1
+            if final_state_1 in [
+                dataclasses.I3Particle.NuE,
+                dataclasses.I3Particle.NuMu,
+                dataclasses.I3Particle.NuTau,
+                dataclasses.I3Particle.NuEBar,
+                dataclasses.I3Particle.NuMuBar,
+                dataclasses.I3Particle.NuTauBar,
+            ]:
+                interaction_type = 2  # NC
+            else:
+                interaction_type = 1  # CC
+
+            elasticity = 1 - event_properties.finalStateY
+
+        else:
+            try:
+                interaction_type = frame["I3MCWeightDict"]["InteractionType"]
+            except KeyError:
+                interaction_type = int(padding_value)
+
+            try:
+                elasticity = 1 - frame["I3MCWeightDict"]["BjorkenY"]
+            except KeyError:
+                elasticity = padding_value
+
+        return MCTree, interaction_type, elasticity
+
+    def _get_primary_track_energy_and_inelasticity(
+        self,
+        frame: "icetray.I3Frame",
+        sim_type: str,
+    ) -> Tuple[float, float, float]:
+        """Compute track energy, cascade energy, and inelasticity."""
+        if sim_type == "LeptonInjector":
+            ep = frame["EventProperties"]
+            y = ep.finalStateY
+            e_total = ep.totalEnergy
+
+            energy_track   = e_total * (1.0 - y)
+            energy_cascade = e_total * y
+            inelasticity   = y
+
+            return energy_track, energy_cascade, inelasticity
+
+        mc_tree = frame[self._mctree]
+        primary = mc_tree.primaries[0]
+        daughters = mc_tree.get_daughters(primary)
+
+        tracks = [
+            d for d in daughters
+            if str(d.shape) in ("StartingTrack", "Dark")
+        ]
+
+        energy_total   = primary.total_energy
+        energy_track   = sum(t.total_energy for t in tracks)
+        energy_cascade = energy_total - energy_track
+        inelasticity   = 1.0 - energy_track / energy_total
+
+        return energy_track, energy_cascade, inelasticity
+
+    def _find_data_type(
+        self, mc: bool, input_file: str, frame: "icetray.I3Frame"
+    ) -> str:
+        """Determine the simulation or data type from the file path and frame."""
+        if not mc:
+            sim_type = "data"
+        elif frame.Has("EventProperties") or frame.Has(
+            "LeptonInjectorProperties"
+        ):
+            sim_type = "LeptonInjector"
+        else:
+            raise NotImplementedError("Could not determine data type.")
+        return sim_type
+
+    def _near_string(self, x: float, y: float, z: float) -> bool:
+        """Check whether a point (x, y, z) is within the instrumented volume."""
+        dists = np.sqrt(
+            (self._string_xy[:, 0] - x) ** 2
+            + (self._string_xy[:, 1] - y) ** 2
+        )
+        near_xy = dists.min() <= self._string_proximity_threshold
+        in_z    = (self._borders[1][0] <= z <= self._borders[1][1])
+        return bool(near_xy and in_z)
+
+    def _contained_vertex(self, truth: Dict[str, Any]) -> bool:
+        """Check whether an interaction vertex lies inside the detector volume."""
+        vertex = np.array(
+            [truth["position_x"], truth["position_y"], truth["position_z"]]
+        )
+        return self.delaunay.find_simplex(vertex) >= 0
+
+
+# =======================
+# 5) Detector: PONE robust scaling (paper Eq. 2.1)
 # =======================
 
 class PONE(Detector):
@@ -209,12 +688,11 @@ class PONE(Detector):
         return self._robust_scale(x, "pmt_z")
 
 # =======================
-# 5) Callbacks: metrics.csv, epoch_time.csv
+# 6) Callbacks: metrics.csv, epoch_time.csv
 # =======================
 
 def _read_rss_gb() -> float:
     """Return current process RSS memory in GB."""
-    # Prefer /proc (Linux). Fallback to resource if needed.
     try:
         with open("/proc/self/status", "r") as f:
             for line in f:
@@ -227,7 +705,6 @@ def _read_rss_gb() -> float:
     try:
         import resource
         kb = float(resource.getrusage(resource.RUSAGE_SELF).ru_maxrss)
-        # On Linux, ru_maxrss is in KB
         return kb / 1024.0 / 1024.0
     except Exception:
         return float("nan")
@@ -273,10 +750,6 @@ def _gpu_snapshot() -> Dict[str, float]:
           - gpu_mem_used_gb
           - gpu_mem_total_gb
           - gpu_mem_util_pct
-
-    Notes:
-      - If CUDA_VISIBLE_DEVICES is set, we target the first listed entry.
-      - If nvidia-smi is unavailable, returns NaNs.
     """
     out = {
         "gpu_util_pct": float("nan"),
@@ -658,7 +1131,7 @@ class EpochCSVLogger(Callback):
 
 
 # =======================
-# 6) Energy task (log10 target + LogCosh)
+# 7) Energy task (log10 target + LogCosh)
 # =======================
 
 def logarithm(E: torch.Tensor) -> torch.Tensor:
@@ -678,7 +1151,7 @@ class DepositedEnergyLog10Task(StandardLearnedTask):
 
 
 # =======================
-# 7) Helpers
+# 8) Helpers
 # =======================
 
 
@@ -718,7 +1191,7 @@ def _circular_abs_diff(a: torch.Tensor, b: torch.Tensor, period: float = 2 * mat
 
 
 # =======================
-# 8) Config (paper-like)
+# 9) Config (paper-like)
 # =======================
 
 @dataclass
@@ -813,7 +1286,7 @@ class Cfg:
 
 
 # =======================
-# 9) Build data once (shared across tasks)
+# 10) Build data once (shared across tasks)
 # =======================
 
 def build_data(cfg: Cfg):
@@ -898,7 +1371,7 @@ def build_data(cfg: Cfg):
 
 
 # =======================
-# 10) Build model per target
+# 11) Build model per target
 # =======================
 
 def build_model(cfg: Cfg, data_representation, steps_per_epoch_optimizer: int, target: str):
@@ -959,7 +1432,7 @@ def build_model(cfg: Cfg, data_representation, steps_per_epoch_optimizer: int, t
 
 
 # =======================
-# 11) Test writers (single-write for speed)
+# 12) Test writers (single-write for speed)
 # =======================
 
 def run_test(cfg: Cfg, target: str, model: pl.LightningModule, test_loader, out_dir: str) -> None:
@@ -1151,7 +1624,7 @@ def run_test(cfg: Cfg, target: str, model: pl.LightningModule, test_loader, out_
 
 
 # =======================
-# 12) Run one target
+# 13) Run one target
 # =======================
 
 def run_one(cfg: Cfg, target: str, data_representation, train_loader, val_loader, test_loader):
@@ -1227,7 +1700,7 @@ def run_one(cfg: Cfg, target: str, data_representation, train_loader, val_loader
 
 
 # =======================
-# 13) Main: run zenith -> azimuth -> energy
+# 14) Main: run zenith -> azimuth -> energy
 # =======================
 
 if __name__ == "__main__":
