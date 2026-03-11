@@ -1,16 +1,32 @@
 from __future__ import annotations
 
+"""PONE I3 -> Parquet conversion script with custom reader and extractors."""
+
 # ============================================================
-# Imports
+# Standard library imports
 # ============================================================
 
 import glob
 import json
 import os
+import random
 import re
 import shutil
 import sys
 from pathlib import Path
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Union, OrderedDict
+
+# ============================================================
+# Third-party imports
+# ============================================================
+
+import matplotlib.path as mpath
+import numpy as np
+from scipy.spatial import ConvexHull, Delaunay
+
+# ============================================================
+# GraphNeT / IceCube availability check
+# ============================================================
 
 from graphnet.utilities.imports import has_icecube_package
 
@@ -19,74 +35,38 @@ if has_icecube_package():
 else:
     raise RuntimeError("IceCube/IceTray environment not available.")
 
-
-# Filters
-from graphnet.data.extractors.icecube.utilities.i3_filters import (  # noqa: E402
-    I3Filter,
-    NullSplitI3Filter,
-)
-
-# DataConverter + Writer
-from graphnet.data.dataconverter import DataConverter  # noqa: E402
-from graphnet.data.writers import ParquetWriter  # noqa: E402
-
-"""I3TruthExtractorPONE: truth-level extractor for PONE simulations."""
-
-import numpy as np
-import matplotlib.path as mpath
-from scipy.spatial import ConvexHull, Delaunay
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
-
-from graphnet.data.extractors.icecube.utilities.frames import frame_is_montecarlo, frame_is_noise
-from icecube import dataclasses, dataio
-from graphnet.data.extractors.icecube import I3Extractor
-from graphnet.utilities.imports import has_icecube_package
-
 if has_icecube_package() or TYPE_CHECKING:
     from icecube import (  # noqa: F401
         dataclasses,
+        dataio,
         icetray,
         phys_services,
-        dataio,
         LeptonInjector,
     )  # pyright: reportMissingImports=false
 
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+# ============================================================
+# GraphNeT imports
+# ============================================================
 
-import numpy as np
-
-from graphnet.data.extractors.icecube.i3extractor import I3Extractor
+from graphnet.data.dataclasses import I3FileSet
+from graphnet.data.dataconverter import DataConverter
+from graphnet.data.extractors.icecube import I3Extractor
 from graphnet.data.extractors.icecube.utilities.frames import (
+    frame_is_montecarlo,
+    frame_is_noise,
     get_om_keys_and_pulseseries,
 )
-from graphnet.utilities.imports import has_icecube_package
-
-if has_icecube_package() or TYPE_CHECKING:
-    from icecube import icetray, dataclasses, dataio  # pyright: reportMissingImports=false
-
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union, OrderedDict 
-from graphnet.utilities.imports import has_icecube_package
-
-if has_icecube_package() or TYPE_CHECKING:
-    from icecube import icetray, dataclasses, dataio  # pyright: reportMissingImports=false
-
-from graphnet.data.readers import (
-    GraphNeTFileReader,
-    I3Reader
-)
-
 from graphnet.data.extractors.icecube.utilities.i3_filters import (
     I3Filter,
     NullSplitI3Filter,
 )
-
-from graphnet.data.extractors.icecube import I3Extractor
-from graphnet.data.dataclasses import I3FileSet
+from graphnet.data.readers import I3Reader
+from graphnet.data.writers import ParquetWriter
 from graphnet.utilities.filesys import find_i3_files
 
-if has_icecube_package():
-    from icecube import icetray, dataio  # pyright: reportMissingImports=false
-
+# ============================================================
+# Reader
+# ============================================================
 
 class PONE_Reader(I3Reader):
     """A class for reading .i3 files for P_ONE (LeptonInjector Simulation).
@@ -102,13 +82,13 @@ class PONE_Reader(I3Reader):
         i3_filters: Optional[Union[I3Filter, List[I3Filter]]] = None,
         pulsemap: str = "EventPulseSeries",
         skip_empty_pulses: bool = True,
-):
+    ):
         """Initialize `PONE_Reader`.
 
         Args:
             gcd_rescue: Path to a GCD file that will be used if no GCD file is
                         found in subfolder. `PONE_Reader` will recursively search
-                        the input directory for I3-GCD file pairs. By convention, 
+                        the input directory for I3-GCD file pairs. By convention,
                         a folder containing i3 files will have an
                         accompanying GCD file. However, in some cases, this
                         convention is broken. In cases where a folder contains
@@ -117,9 +97,6 @@ class PONE_Reader(I3Reader):
             i3_filters: Instances of `I3Filter` to filter PFrames. Defaults to
                         `NullSplitI3Filter`.
         """
-
-
-
         super().__init__(gcd_rescue=gcd_rescue, i3_filters=i3_filters)
         self._pulsemap = pulsemap
         self._skip_empty_pulses = skip_empty_pulses
@@ -127,7 +104,7 @@ class PONE_Reader(I3Reader):
     @property
     def extractor_names(self) -> list[str]:
         return self.extracor_names
-        
+
     def __call__(
         self, file_path: I3FileSet
     ) -> List[OrderedDict]:  # noqa: E501  # type: ignore
@@ -152,20 +129,20 @@ class PONE_Reader(I3Reader):
         while i3_file_io.more():
             try:
                 frame = i3_file_io.pop_daq()
-            except Exception as e:
+            except Exception:
                 continue
+
             # check if frame should be skipped
             if self._skip_frame(frame):
                 continue
 
             # Try to extract data from I3Frame
             results = [extractor(frame) for extractor in self._extractors]
-
             data_dict = OrderedDict(zip(self.extractor_names, results))
-
             data.append(data_dict)
+
         return data
-    
+
     def _skip_frame(self, frame: "icetray.I3Frame") -> bool:
         """Skip frame if base filters fail OR if pulsemap missing/empty."""
         # 1) base class filters (NullSplitI3Filter etc.)
@@ -193,6 +170,11 @@ class PONE_Reader(I3Reader):
                     pass
 
         return False
+
+
+# ============================================================
+# Feature extractor
+# ============================================================
 
 class I3FeatureExtractorPONE(I3Extractor):
     """Class for extracting reconstructed features for P-ONE events created with LeptonInjector."""
@@ -440,6 +422,10 @@ class I3FeatureExtractorPONE(I3Extractor):
         return pulse.width < (fadc_min_width_ns * icetray.I3Units.ns)
 
 
+# ============================================================
+# Truth extractor
+# ============================================================
+
 class I3TruthExtractorPONE(I3Extractor):
     """Truth-level extractor for PONE simulations.
 
@@ -622,7 +608,7 @@ class I3TruthExtractorPONE(I3Extractor):
                     energy_cascade,
                     inelasticity,
                 ) = self._get_primary_track_energy_and_inelasticity(
-                    frame, sim_type  # sim_type added to route to EventProperties path
+                    frame, sim_type
                 )
             except RuntimeError:
                 # Track energy calculation fails for some northern tracks where
@@ -730,7 +716,7 @@ class I3TruthExtractorPONE(I3Extractor):
                     tau_len = tau_particle.length
                     output["tau_decay_length"] = (
                         float(tau_len)
-                        if (tau_len == tau_len and tau_len > 0)  # NaN and zero guard
+                        if (tau_len == tau_len and tau_len > 0)
                         else padding_value
                     )
 
@@ -946,8 +932,6 @@ class I3TruthExtractorPONE(I3Extractor):
         if sim_type != "noise":
             MCTree = frame[self._mctree][0]
             if MCTree.energy != MCTree.energy:
-                # NaN check — occurs for some muons where the first MCTree
-                # entry has corrupted energy. The second entry is always valid.
                 MCTree = frame[self._mctree][1]
         else:
             MCTree = None
@@ -985,7 +969,7 @@ class I3TruthExtractorPONE(I3Extractor):
     def _get_primary_track_energy_and_inelasticity(
         self,
         frame: "icetray.I3Frame",
-        sim_type: str,  # added to route to EventProperties path
+        sim_type: str,
     ) -> Tuple[float, float, float]:
         """Compute track energy, cascade energy, and inelasticity.
 
@@ -1010,19 +994,16 @@ class I3TruthExtractorPONE(I3Extractor):
         """
         if sim_type == "LeptonInjector":
             ep = frame["EventProperties"]
-            y = ep.finalStateY        # Bjorken Y = inelasticity
-            e_total = ep.totalEnergy  # primary neutrino energy
+            y = ep.finalStateY
+            e_total = ep.totalEnergy
 
-            energy_track   = e_total * (1.0 - y)  # lepton  (μ / e / τ / ν_out)
-            energy_cascade = e_total * y           # hadrons
-            inelasticity   = y
+            energy_track = e_total * (1.0 - y)
+            energy_cascade = e_total * y
+            inelasticity = y
 
             return energy_track, energy_cascade, inelasticity
 
         # ── fallback: NuGen / other sim types ────────────────────────────
-        # NOTE: reliable only for νμ CC. For νe and ντ the StartingTrack /
-        # Dark shape filter may miss the outgoing lepton entirely, causing
-        # energy_track ≈ 0 and inelasticity ≈ 1.
         mc_tree = frame[self._mctree]
         primary = mc_tree.primaries[0]
         daughters = mc_tree.get_daughters(primary)
@@ -1032,10 +1013,10 @@ class I3TruthExtractorPONE(I3Extractor):
             if str(d.shape) in ("StartingTrack", "Dark")
         ]
 
-        energy_total   = primary.total_energy
-        energy_track   = sum(t.total_energy for t in tracks)
+        energy_total = primary.total_energy
+        energy_track = sum(t.total_energy for t in tracks)
         energy_cascade = energy_total - energy_track
-        inelasticity   = 1.0 - energy_track / energy_total
+        inelasticity = 1.0 - energy_track / energy_total
 
         return energy_track, energy_cascade, inelasticity
 
@@ -1090,7 +1071,7 @@ class I3TruthExtractorPONE(I3Extractor):
             + (self._string_xy[:, 1] - y) ** 2
         )
         near_xy = dists.min() <= self._string_proximity_threshold
-        in_z    = (self._borders[1][0] <= z <= self._borders[1][1])
+        in_z = (self._borders[1][0] <= z <= self._borders[1][1])
         return bool(near_xy and in_z)
 
     def _contained_vertex(self, truth: Dict[str, Any]) -> bool:
@@ -1109,7 +1090,6 @@ class I3TruthExtractorPONE(I3Extractor):
             [truth["position_x"], truth["position_y"], truth["position_z"]]
         )
         return self.delaunay.find_simplex(vertex) >= 0
-
 
 
 # ============================================================
@@ -1157,11 +1137,20 @@ class NonEmptyPulseSeriesI3Filter(I3Filter):
 # Paths / config
 # ============================================================
 
-INPUT_GLOB = "/scratch/kbas/102_string/Muon_PMT_Response/*.i3.gz"
-INPUT_ROOT = "/scratch/kbas/102_string/Muon_PMT_Response/"
-OUTDIR = "/scratch/kbas/FinalParquetDatasets/102_string_muon_nonoise"
-GCD_RESCUE = "/scratch/kbas/102_string/GCD_102strings.i3.gz"
 
+
+geometry = os.environ["PONE_GEOMETRY"]
+flavor = os.environ["PONE_FLAVOR"]
+
+INPUT_GLOB = f"/scratch/kbas/{geometry}/{flavor}_PMT_Response/*.i3.gz"
+INPUT_ROOT = f"/scratch/kbas/{geometry}/{flavor}_PMT_Response/"
+OUTDIR = f"/scratch/kbas/FinalParquetDatasets/{geometry}_{flavor.lower()}_nonoise"
+GCD_RESCUE = f"/scratch/kbas/{geometry}/GCD_{geometry.replace('_string', 'strings')}.i3.gz"
+
+
+# ============================================================
+# Helper functions
+# ============================================================
 
 def batch_id_from_i3(path):
     m = re.search(r"muon_batch_(\d+)\.i3\.gz$", os.path.basename(path))
@@ -1179,6 +1168,40 @@ def batch_ids_in_outdir(outdir):
     return ids
 
 
+def link_or_copy(src: Path, dst: Path):
+    dst.parent.mkdir(parents=True, exist_ok=True)
+    if dst.exists():
+        return
+    try:
+        os.link(src, dst)  # hardlink preferred
+    except Exception:
+        try:
+            os.symlink(src, dst)  # fallback symlink
+        except Exception:
+            shutil.copy2(src, dst)  # fallback copy
+
+
+def reindex_split(old_split_dir: str, new_split_dir: str):
+    old = Path(old_split_dir)
+    new = Path(new_split_dir)
+    (new / "truth").mkdir(parents=True, exist_ok=True)
+    (new / "features").mkdir(parents=True, exist_ok=True)
+
+    rx = re.compile(r"_(\d+)\.parquet$")
+    ids = sorted(
+        int(rx.search(p.name).group(1))
+        for p in (old / "truth").glob("truth_*.parquet")
+    )
+
+    for new_id, old_id in enumerate(ids):
+        for table in ["truth", "features"]:
+            src = old / table / f"{table}_{old_id}.parquet"
+            dst = new / table / f"{table}_{new_id}.parquet"
+            if dst.exists():
+                dst.unlink()
+            dst.symlink_to(src)
+
+
 # ============================================================
 # Discover inputs / already-processed batches
 # ============================================================
@@ -1193,7 +1216,10 @@ done_ids = batch_ids_in_outdir(OUTDIR)
 
 reader = PONE_Reader(
     gcd_rescue=GCD_RESCUE,
-    i3_filters=[NullSplitI3Filter(), NonEmptyPulseSeriesI3Filter("EventPulseSeries_nonoise")],
+    i3_filters=[
+        NullSplitI3Filter(),
+        NonEmptyPulseSeriesI3Filter("EventPulseSeries_nonoise"),
+    ],
 )
 
 extractors = [
@@ -1217,19 +1243,7 @@ extractors = [
     I3TruthExtractorPONE(
         mctree="I3MCTree_postprop",
         name="truth",
-        exclude=[
-            "L7_oscNext_bool",
-            "L6_oscNext_bool",
-            "L5_oscNext_bool",
-            "L4_oscNext_bool",
-            "L3_oscNext_bool",
-            "OnlineL2Filter_17",
-            "MuonFilter_13",
-            "CascadeFilter_13",
-            "DeepCoreFilter_13",
-            "dbang_decay_length",
-            "inelasticity",
-        ],
+        exclude=[],
     ),
 ]
 
@@ -1301,7 +1315,6 @@ last_batch = max(batch_ids)
 main_batches = [b for b in batch_ids if b != last_batch]
 
 seed = 42
-import random  # keep local usage identical to original intent
 rng = random.Random(seed)
 rng.shuffle(main_batches)
 
@@ -1311,8 +1324,8 @@ n_val = int(0.1 * n)
 
 splits = {
     "train": main_batches[:n_train],
-    "val": main_batches[n_train : n_train + n_val],
-    "test": main_batches[n_train + n_val :] + [last_batch],
+    "val": main_batches[n_train: n_train + n_val],
+    "test": main_batches[n_train + n_val:] + [last_batch],
 }
 
 
@@ -1320,27 +1333,14 @@ splits = {
 # Materialize split directories (hardlink -> symlink -> copy)
 # ============================================================
 
-def link_or_copy(src: Path, dst: Path):
-    dst.parent.mkdir(parents=True, exist_ok=True)
-    if dst.exists():
-        return
-    try:
-        os.link(src, dst)  # hardlink preferred
-    except Exception:
-        try:
-            os.symlink(src, dst)  # fallback symlink
-        except Exception:
-            shutil.copy2(src, dst)  # fallback copy
-
-
 NEW_MERGED = MERGED_RAW.parent / "merged"
 tables = ["truth", "features"]
 
 for split_name, ids in splits.items():
     for table in tables:
         for bid in ids:
-            src = (MERGED_RAW / table / f"{table}_{bid}.parquet")
-            dst = (NEW_MERGED / split_name / table / src.name)
+            src = MERGED_RAW / table / f"{table}_{bid}.parquet"
+            dst = NEW_MERGED / split_name / table / src.name
             if src.exists():
                 link_or_copy(src, dst)
 
@@ -1362,27 +1362,6 @@ print({k: len(v) for k, v in splits.items()})
 # ============================================================
 # Reindex splits (create *_reindexed directories using symlinks)
 # ============================================================
-
-def reindex_split(old_split_dir: str, new_split_dir: str):
-    old = Path(old_split_dir)
-    new = Path(new_split_dir)
-    (new / "truth").mkdir(parents=True, exist_ok=True)
-    (new / "features").mkdir(parents=True, exist_ok=True)
-
-    rx = re.compile(r"_(\d+)\.parquet$")
-    ids = sorted(
-        int(rx.search(p.name).group(1))
-        for p in (old / "truth").glob("truth_*.parquet")
-    )
-
-    for new_id, old_id in enumerate(ids):
-        for table in ["truth", "features"]:
-            src = old / table / f"{table}_{old_id}.parquet"
-            dst = new / table / f"{table}_{new_id}.parquet"
-            if dst.exists():
-                dst.unlink()
-            dst.symlink_to(src)
-
 
 for split_name in ["train", "val", "test"]:
     reindex_split(
