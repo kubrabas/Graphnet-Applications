@@ -13,19 +13,22 @@ from icecube import dataio
 # 0) SETTINGS
 # ============================================================
 
-gcd_path = "/project/6008051/pone_simulation/GCD_Library/PONE_800mGrid.i3.gz"
+# old gcd:
+# gcd_path = "/project/6008051/pone_simulation/GCD_Library/PONE_800mGrid.i3.gz"
+# new gcd:
+gcd_path = "/project/6008051/pone_simulation/GCD_Library/PONE_800mGrid_40mSpacing_40OMstring.i3.gz"
+
+campaign_folder = "spring_2026_mc_campaign"
 
 # Which sub-geometry CSV to use
-geometry_name = "160_string"   # compact / default / expanded / large / modified / 102_string / 160_string
+geometry_name = "strings_102_40m"   
 
 # Read CSV from the same folder as this script
 script_dir = os.path.dirname(os.path.abspath(__file__))
-csv_file = os.path.join(script_dir, f"{geometry_name}.csv")
+csv_file = os.path.join(script_dir, campaign_folder, f"{geometry_name}.csv")
 
-# Outputs
-out_csv_all = os.path.join(script_dir, "340_strings_x_y.csv")
-out_png_all = os.path.join(script_dir, "340_strings_x_y.png")
-out_png_sub = os.path.join(script_dir, f"{geometry_name}.png")
+# Output
+out_png_sub = os.path.join(script_dir, campaign_folder, f"{geometry_name}.png")
 
 
 # ============================================================
@@ -76,8 +79,7 @@ def plot_strings(df, title, out_path, count_text=None):
     if df.empty:
         raise RuntimeError(f"No strings to plot for {out_path}")
 
-    fig = plt.figure(figsize=(14, 10))
-    ax = plt.gca()
+    fig, ax = plt.subplots(figsize=(14, 10))
 
     ax.scatter(
         df["x"],
@@ -146,6 +148,8 @@ while f.more():
         geo_frame = fr
         break
 
+f.close()
+
 if geo_frame is None:
     raise RuntimeError("Geometry frame not found in GCD file.")
 
@@ -186,26 +190,7 @@ print("Number of strings:", len(string_xy_df))
 
 
 # ============================================================
-# 5) SAVE FULL 340-STRING TABLE
-# ============================================================
-
-string_xy_df.to_csv(out_csv_all, index=False)
-print("Wrote:", out_csv_all)
-
-
-# ============================================================
-# 6) MAKE FULL 340-STRING PLOT
-# ============================================================
-
-plot_strings(
-    df=string_xy_df,
-    title="String Layout (all 340 strings)",
-    out_path=out_png_all,
-)
-
-
-# ============================================================
-# 7) READ SELECTED STRINGS FROM SUB-GEOMETRY CSV
+# 5) READ SELECTED STRINGS FROM SUB-GEOMETRY CSV
 # ============================================================
 
 selected_ids = read_string_ids(csv_file)
@@ -215,7 +200,7 @@ print("Number of selected strings:", len(selected_ids))
 
 
 # ============================================================
-# 8) FILTER SUB-GEOMETRY
+# 6) FILTER SUB-GEOMETRY
 # ============================================================
 
 plot_df = string_xy_df[string_xy_df["string"].isin(selected_ids)].copy()
@@ -230,7 +215,7 @@ if plot_df.empty:
 
 
 # ============================================================
-# 9) MAKE SUB-GEOMETRY PLOT
+# 7) MAKE SUB-GEOMETRY PLOT
 # ============================================================
 
 n_selected = len(plot_df)
