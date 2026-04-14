@@ -1,3 +1,4 @@
+import argparse
 import os
 from collections import defaultdict
 
@@ -21,7 +22,10 @@ gcd_path = "/project/6008051/pone_simulation/GCD_Library/PONE_800mGrid_40mSpacin
 campaign_folder = "spring_2026_mc_campaign"
 
 # Which sub-geometry CSV to use
-geometry_name = "strings_102_40m"   
+parser = argparse.ArgumentParser()
+parser.add_argument("geometry_name", help="e.g. strings_102_40m")
+args = parser.parse_args()
+geometry_name = args.geometry_name
 
 # Read CSV from the same folder as this script
 script_dir = os.path.dirname(os.path.abspath(__file__))
