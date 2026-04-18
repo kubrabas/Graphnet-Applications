@@ -424,7 +424,7 @@ def main(args):
                     if (done_files % args.progress_every == 0) or (done_files == total_files):
                         print(f"[{done_files}/{total_files}] processed | ok={n_ok} fail={n_fail}", flush=True)
 
-        print(f"{pretty} ... ({base_dir}) DONE", flush=True)
+        print(f"{pretty} ... ({base_dir}) DONE | section_files={len(files)} ok={sum(1 for r in rows if r['section']==section and r['status']=='ok')} fail={sum(1 for r in rows if r['section']==section and r['status']!='ok')}", flush=True)
 
     # Deterministic output order (especially for parallel runs)
     rows.sort(key=lambda r: (r.get("section", ""), r.get("file_path", "")))
