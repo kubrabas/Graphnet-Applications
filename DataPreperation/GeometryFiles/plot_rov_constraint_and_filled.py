@@ -176,12 +176,12 @@ def make_plot(
     ax.scatter(
         baseline_df["x"], baseline_df["y"],
         color="#1f77b4", s=50, zorder=3,
-        label=f"{n_baseline} original  {csv1_stem}",
+        label=f"baseline {n_baseline} strings",
     )
     ax.scatter(
         fill_df["x"], fill_df["y"],
         color="#d62728", s=50, zorder=4,
-        label=f"{n_fill} ROV fill  {csv2_stem}, not in baseline",
+        label=f"fill {n_fill} strings",
     )
 
     for _, row in pd.concat([baseline_df, fill_df]).iterrows():
