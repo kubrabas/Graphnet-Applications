@@ -101,7 +101,7 @@ def main():
     if not os.path.exists(gcd_path):
         raise FileNotFoundError(f"GCD file not found: {gcd_path}")
 
-    out_dir = "/Users/kubilib/Desktop/Master Thesis/Graphnet-Applications/Metadata/GeometryFiles"
+    out_dir = "/project/def-nahee/kbas/Graphnet-Applications/Metadata/GeometryFiles"
     os.makedirs(out_dir, exist_ok=True)
 
     if args.name is not None:
