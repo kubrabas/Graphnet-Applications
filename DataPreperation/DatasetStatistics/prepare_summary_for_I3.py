@@ -371,9 +371,6 @@ def main(args):
     print("=" * 90, flush=True)
 
     rows: List[Dict] = []
-    n_ok = 0
-    n_fail = 0
-    done_files = 0
 
     for section, base_dir, files in sections:
         pretty = section_pretty(section)
@@ -382,49 +379,38 @@ def main(args):
         print(f"Files found: {len(files)}", flush=True)
 
         if not files:
-            print(f"{pretty} ... (no files) DONE", flush=True)
+            print(f"{pretty} DONE (no files)", flush=True)
             continue
 
-        # Serial mode
+        sec_done = 0
+        sec_ok = 0
+        sec_fail = 0
+
+        def _record(row):
+            nonlocal sec_done, sec_ok, sec_fail
+            rows.append(row)
+            sec_done += 1
+            if row["status"] == "ok":
+                sec_ok += 1
+            else:
+                sec_fail += 1
+            if sec_done % args.progress_every == 0 or sec_done == len(files):
+                print(f"  [{sec_done}/{len(files)}] ok={sec_ok} fail={sec_fail}", flush=True)
+
         if args.workers <= 1:
             for fp in files:
-                row = analyze_one_file(section, fp, args.photon_key, args.max_frames_per_file)
-
-                if row["status"] == "ok":
-                    n_ok += 1
-                else:
-                    n_fail += 1
-
-                rows.append(row)
-                done_files += 1
-
-                if (done_files % args.progress_every == 0) or (done_files == total_files):
-                    print(f"[{done_files}/{total_files}] processed | ok={n_ok} fail={n_fail}", flush=True)
-
-        # Parallel mode
+                _record(analyze_one_file(section, fp, args.photon_key, args.max_frames_per_file))
         else:
-            ctx = mp.get_context("spawn")  # safer with IceTray in multiprocess
+            ctx = mp.get_context("spawn")
             with ProcessPoolExecutor(max_workers=args.workers, mp_context=ctx) as ex:
                 futures = {
                     ex.submit(analyze_one_file, section, fp, args.photon_key, args.max_frames_per_file): fp
                     for fp in files
                 }
-
                 for fut in as_completed(futures):
-                    row = fut.result()
+                    _record(fut.result())
 
-                    if row["status"] == "ok":
-                        n_ok += 1
-                    else:
-                        n_fail += 1
-
-                    rows.append(row)
-                    done_files += 1
-
-                    if (done_files % args.progress_every == 0) or (done_files == total_files):
-                        print(f"[{done_files}/{total_files}] processed | ok={n_ok} fail={n_fail}", flush=True)
-
-        print(f"{pretty} ... ({base_dir}) DONE | section_files={len(files)} ok={sum(1 for r in rows if r['section']==section and r['status']=='ok')} fail={sum(1 for r in rows if r['section']==section and r['status']!='ok')}", flush=True)
+        print(f"{pretty} DONE | files={len(files)} ok={sec_ok} fail={sec_fail}", flush=True)
 
     # Deterministic output order (especially for parallel runs)
     rows.sort(key=lambda r: (r.get("section", ""), r.get("file_path", "")))
