@@ -281,16 +281,16 @@ if __name__ == "__main__":
 # ============================================================
 #
 # Spring 2026 MC sub-geometry:
-#   python3 plot_full_geometry_and_subsample_from_gcd.py \
+#   python3 /project/def-nahee/kbas/Graphnet-Applications/DataPreperation/GeometryFiles/plot_full_geometry_and_subsample_from_gcd.py \
 #       /project/def-nahee/kbas/Graphnet-Applications/Metadata/GeometryFiles/Spring2026MC/strings_102_40m
 #
 # 340 String MC sub-geometry with custom output name and DPI:
-#   python3 plot_full_geometry_and_subsample_from_gcd.py \
+#   python3 /project/def-nahee/kbas/Graphnet-Applications/DataPreperation/GeometryFiles/plot_full_geometry_and_subsample_from_gcd.py \
 #       /project/def-nahee/kbas/Graphnet-Applications/Metadata/GeometryFiles/340StringMC/strings_340 \
 #       -name my_output \
 #       -dpi 300
 #
 # Save to a different directory:
-#   python3 plot_full_geometry_and_subsample_from_gcd.py \
+#   python3 /project/def-nahee/kbas/Graphnet-Applications/DataPreperation/GeometryFiles/plot_full_geometry_and_subsample_from_gcd.py \
 #       /project/def-nahee/kbas/Graphnet-Applications/Metadata/GeometryFiles/Spring2026MC/strings_102_40m \
 #       -out /project/def-nahee/kbas/plots
