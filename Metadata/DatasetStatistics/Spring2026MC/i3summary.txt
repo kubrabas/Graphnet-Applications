@@ -1,0 +1,16 @@
+==========================================================================================
+I3Photons summary
+==========================================================================================
+CSV output: /project/def-nahee/kbas/Graphnet-Applications/Metadata/DatasetStatistics/Spring2026MC/i3summary.csv
+Scanned files (total): 0
+OK: 0
+FAIL: 0
+Elapsed seconds: 0.0
+
+Per-section totals (OK files only):
+section                                    n_files     sum_photons   sum_frames_with_key   sum_nonempty_frames  unique_strings_union
+------------------------------------------------------------------------------------------
+
+==========================================================================================
+Per-section UNIQUE string ID lists (UNION over all scanned files)
+==========================================================================================
