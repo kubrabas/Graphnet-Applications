@@ -135,13 +135,13 @@ if __name__ == "__main__":
 # Usage
 # =============================================================================
 # Basic (uses hardcoded GCD, saves as <gcd_basename>_full_geometry.png):
-#   python3 plot_full_geometry_from_gcd.py
+#   python3 /project/def-nahee/kbas/Graphnet-Applications/DataPreperation/GeometryFiles/plot_full_geometry_from_gcd.py
 #
-# Custom output name (saves as Metadata/GeometryFiles/340strings.png):
-#   python3 plot_full_geometry_from_gcd.py --name 340strings
+# Custom output name (saves as /project/def-nahee/kbas/Graphnet-Applications/Metadata/GeometryFiles/340strings.png):
+#   python3 /project/def-nahee/kbas/Graphnet-Applications/DataPreperation/GeometryFiles/plot_full_geometry_from_gcd.py --name 340strings
 #
 # Override GCD path:
-#   python3 plot_full_geometry_from_gcd.py --gcd /other/path/file.i3.gz --name myplot
+#   python3 /project/def-nahee/kbas/Graphnet-Applications/DataPreperation/GeometryFiles/plot_full_geometry_from_gcd.py --gcd /project/6008051/pone_simulation/GCD_Library/PONE_800mGrid.i3.gz --name 340_string_mc
 #
 # Custom DPI:
-#   python3 plot_full_geometry_from_gcd.py --name 340strings --dpi 300
+#   python3 /project/def-nahee/kbas/Graphnet-Applications/DataPreperation/GeometryFiles/plot_full_geometry_from_gcd.py --name 340strings --dpi 300
