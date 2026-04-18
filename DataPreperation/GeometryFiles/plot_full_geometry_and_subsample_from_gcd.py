@@ -208,14 +208,8 @@ def make_side_by_side_plot(full_df, sub_df, campaign_label, csv_stem, out_path, 
     )
     ax_right.scatter(
         selected["x"], selected["y"],
-        color="red", s=20, zorder=3, label=f"Sub-geometry ({len(selected)} strings)",
+        color="red", s=25, zorder=3, label=f"Sub-geometry ({len(selected)} strings)",
     )
-    for _, row in full_df.iterrows():
-        ax_right.text(
-            float(row["x"]), float(row["y"]),
-            str(int(row["string"])),
-            fontsize=4, ha="left", va="bottom",
-        )
     ax_right.set_title(f"Full Geometry with Sub-geometry Highlighted\n({campaign_label})")
     ax_right.set_xlabel("X (meters)")
     ax_right.set_ylabel("Y (meters)")
