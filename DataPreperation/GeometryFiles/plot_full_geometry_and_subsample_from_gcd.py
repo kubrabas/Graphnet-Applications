@@ -204,7 +204,7 @@ def make_side_by_side_plot(full_df, sub_df, campaign_label, csv_stem, out_path, 
 
     ax_right.scatter(
         not_selected["x"], not_selected["y"],
-        color="black", s=15, zorder=2, label="Full geometry",
+        color="#aaaaaa", s=15, zorder=2, label="Full geometry",
     )
     ax_right.scatter(
         selected["x"], selected["y"],
