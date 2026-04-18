@@ -225,8 +225,8 @@ def iter_section_jobs(mc_name: str, max_files_per_section: Optional[int] = None)
     for src in sources:
         section = src["section"]
         base_dir = src["dir"]
-        pattern = os.path.join(base_dir, src["pattern"])
-        files = sorted(glob.glob(pattern))
+        pattern = os.path.join(base_dir, "**", src["pattern"])
+        files = sorted(glob.glob(pattern, recursive=True))
         if max_files_per_section is not None:
             files = files[:max_files_per_section]
         out.append((section, base_dir, files))
