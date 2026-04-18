@@ -176,12 +176,12 @@ def make_plot(
     ax.scatter(
         baseline_df["x"], baseline_df["y"],
         color="#1f77b4", s=50, zorder=3,
-        label=f"{n_baseline} original  [{csv1_stem}]",
+        label=f"{n_baseline} original  {csv1_stem}",
     )
     ax.scatter(
         fill_df["x"], fill_df["y"],
         color="#d62728", s=50, zorder=4,
-        label=f"{n_fill} ROV fill  [{csv2_stem}, not in baseline]",
+        label=f"{n_fill} ROV fill  {csv2_stem}, not in baseline",
     )
 
     for _, row in pd.concat([baseline_df, fill_df]).iterrows():
@@ -301,8 +301,10 @@ if __name__ == "__main__":
 #       /project/def-nahee/kbas/.../Spring2026MC/strings_157_40m.csv
 #
 # Custom output name and DPI:
-#   python3 /project/def-nahee/kbas/Graphnet-Applications/DataPreperation/GeometryFiles/plot_rov_constraint_and_filled.py \
-#       .../strings_102_40m.csv \
-#       .../strings_157_40m.csv \
-#       -name my_layout \
-#       -dpi 300
+#    python3 /project/def-nahee/kbas/Graphnet-Applications/DataPreperation/GeometryFiles/plot_rov_constraint_and_filled.py  \ 
+#      /project/def-nahee/kbas/Graphnet-Applications/Metadata/GeometryFiles/340StringMC/102_string.csv  \   
+#      /project/def-nahee/kbas/Graphnet-Applications/Metadata/GeometryFiles/340StringMC/160_string.csv  \ 
+#      -name rov_comparison   \
+#      -dpi 300
+
+
