@@ -121,7 +121,7 @@ def main():
     gcd_basename = os.path.basename(gcd_path)
     plot_geometry(
         strings, xs, ys,
-        title=f"Full String Layout — {gcd_basename}",
+        title=f"Full String Layout - {gcd_basename}",
         out_path=out_path,
         dpi=args.dpi,
     )
