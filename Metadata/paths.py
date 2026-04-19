@@ -22,16 +22,16 @@ SPRING2026MC_I3 = {
         "NC":       {"path": "/project/6008051/pone_simulation/MC000011-nu_NC-2_6-LeptonInjector_PROPOSAL_clsim_NC-v17.1/Generator","format": "zst"},
     },
     "strings_102_40m": {
-        "Muon":     {"path": None, "format": None},
-        "Electron": {"path": None, "format": None},
-        "Tau":      {"path": None, "format": None},
-        "NC":       {"path": None, "format": None},
+        "Muon":     {"path": "/scratch/kbas/Spring2026MC/Strings_102_40m/Muon_I3Photons", "format": "gz"},
+        "Electron": {"path": "/scratch/kbas/Spring2026MC/Strings_102_40m/Electron_I3Photons", "format": "gz"},
+        "Tau":      {"path": "/scratch/kbas/Spring2026MC/Strings_102_40m/Tau_I3Photons", "format": "gz"},
+        "NC":       {"path": "/scratch/kbas/Spring2026MC/Strings_102_40m/NC_I3Photons", "format": "gz"},
     },
     "strings_102_80m": {
-        "Muon":     {"path": None, "format": None},
-        "Electron": {"path": None, "format": None},
-        "Tau":      {"path": None, "format": None},
-        "NC":       {"path": None, "format": None},
+        "Muon":     {"path": "/scratch/kbas/Spring2026MC/Strings_102_80m/Muon_I3Photons", "format": "gz"},
+        "Electron": {"path": "/scratch/kbas/Spring2026MC/Strings_102_80m/Electron_I3Photons", "format": "gz"},
+        "Tau":      {"path": "/scratch/kbas/Spring2026MC/Strings_102_80m/Tau_I3Photons", "format": "gz"},
+        "NC":       {"path": "/scratch/kbas/Spring2026MC/Strings_102_80m/NC_I3Photons", "format": "gz"},
     },
 }
 
