@@ -22,26 +22,24 @@
 
 ---
 
-# VS Code - Interactive Jupyter Notebook (IceTray kernel)
+# VS Code — Interactive Jupyter Notebook (IceTray Kernel)
 
-The scripts in `~/slurm_scripts/` automate steps 1–4 above and start a Jupyter server on the compute node.
+To use Jupyter notebook in VS Code with the IceTray environment set up above, follow these steps after completing the four setup steps given above.
 
-**Terminal 1** - start Jupyter:
-```bash
-bash ~/slurm_scripts/start_icetray_jupyter.sh
-```
-Wait until it prints the node name, port, and a URL with a token.
+1. Start a Jupyter server on the compute node:
+   ```bash
+   jupyter notebook --no-browser --ip=127.0.0.1 --port=8888
+   ```
 
-**Terminal 2** - open SSH tunnel (use the node/port printed by Terminal 1):
-```bash
-bash ~/slurm_scripts/tunnel_to_node.sh <node> <port>
-# e.g. bash ~/slurm_scripts/tunnel_to_node.sh fc11020 8888
-```
+2. Copy the token URL printed in the output, e.g.:
+   ```
+   http://127.0.0.1:8888/?token=2c893adc2ffaa631d643200174bcd35072402dff09a25fc0
+   ```
 
-**VS Code** - connect to the Jupyter server:
-1. Open a `.ipynb` file
-2. Click the kernel selector (top right) → **Select Kernel** → **Existing Jupyter Server**
-3. Paste the URL printed by Terminal 1 (includes the token)
-4. Choose the **Python 3 (ipykernel)** kernel — this is the IceTray environment
+3. In a **separate terminal**, open an SSH tunnel to the compute node (replace `fc11020` with your actual node name):
+   ```bash
+   ssh -N -L 8888:localhost:8888 fc11020
+   ```
+   > Nothing will appear in this terminal. that is expected.
 
-Press Ctrl+C in Terminal 1 to shut everything down.
+4. In VS Code, open a Jupyter notebook, click **Select Kernel** → **Existing Jupyter Server**, paste the URL from step 2, and give the server a name. Then select **Python 3 (ipykernel)**.
