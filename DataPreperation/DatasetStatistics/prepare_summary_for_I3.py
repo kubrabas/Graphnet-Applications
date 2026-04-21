@@ -27,6 +27,7 @@ _FORMAT_PATTERN = {
 
 MC_DATASETS = {
     "SPRING2026MC": _paths.SPRING2026MC_I3,
+    "STRING340MC":  _paths.STRING340MC_I3,
 }
 
 
@@ -428,7 +429,7 @@ def main(args):
 
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
-    ap.add_argument("--mc-name", default="SPRING2026MC", choices=list(MC_DATASETS), help="MC dataset to scan (default: SPRING2026MC)")
+    ap.add_argument("--mc-name", required=True, choices=list(MC_DATASETS), help=f"MC dataset to scan. Choices: {list(MC_DATASETS)}")
     ap.add_argument("--photon-key", default=PHOTON_KEY_DEFAULT, help="Frame key to analyze (default: I3Photons)")
     ap.add_argument("--out-csv", default="/project/def-nahee/kbas/Graphnet-Applications/Playground/Datasets/summary_i3.csv")
     ap.add_argument("--out-txt", default="/project/def-nahee/kbas/Graphnet-Applications/Playground/Datasets/summary_i3.txt")
