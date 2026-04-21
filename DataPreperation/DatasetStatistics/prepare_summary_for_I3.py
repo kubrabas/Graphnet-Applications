@@ -135,6 +135,9 @@ def analyze_file(path: str, photon_key: str, max_frames: Optional[int] = None) -
             if max_frames is not None and n_seen > max_frames:
                 break
 
+            if fr.Stop != icetray.I3Frame.DAQ:
+                continue
+
             if photon_key not in fr:
                 continue
 

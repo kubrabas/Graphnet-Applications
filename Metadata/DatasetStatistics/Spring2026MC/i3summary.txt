@@ -5,15 +5,15 @@ CSV output: /project/def-nahee/kbas/Graphnet-Applications/Metadata/DatasetStatis
 Scanned files (total): 549
 OK: 549
 FAIL: 0
-Elapsed seconds: 339.2
+Elapsed seconds: 380.3
 
 Per-section totals (OK files only):
 section                                    n_files     sum_photons   sum_frames_with_key   sum_nonempty_frames  unique_strings_union
 ------------------------------------------------------------------------------------------
-full_geometry/Electron                          21      1756226135                  4213                  4192                  1378
-full_geometry/Muon                              88      1145364393                  7532                  7444                  1378
-full_geometry/NC                                46      1910535109                  9120                  9074                  1378
-full_geometry/Tau                               28      1825105131                  5609                  5581                  1378
+full_geometry/Electron                          21      1756226135                  4192                  4192                  1378
+full_geometry/Muon                              88      1145364393                  7444                  7444                  1378
+full_geometry/NC                                46      1910535109                  9074                  9074                  1378
+full_geometry/Tau                               28      1825105131                  5581                  5581                  1378
 strings_102_40m/Electron                        21       166340794                  1123                  1123                   102
 strings_102_40m/Muon                            88        88181987                  1922                  1922                   102
 strings_102_40m/NC                              46       163471304                  2105                  2105                   102
