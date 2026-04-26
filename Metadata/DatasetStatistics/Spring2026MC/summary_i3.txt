@@ -5,7 +5,7 @@ CSV output: /project/def-nahee/kbas/Graphnet-Applications/Metadata/DatasetStatis
 Scanned files (total): 549
 OK: 549
 FAIL: 0
-Elapsed seconds: 341.7
+Elapsed seconds: 290.3
 
 Per-section totals (OK files only):
 section                                    n_files     sum_photons   sum_frames_with_key   sum_nonempty_frames  unique_strings_union
