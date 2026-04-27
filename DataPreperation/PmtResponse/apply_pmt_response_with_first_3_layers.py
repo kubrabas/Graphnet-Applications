@@ -191,7 +191,7 @@ def main() -> int:
                    input_map='Accepted_PulseMap_from_scratch',
                    output_map='PMT_Response',
                    random_service=randomService, min_time_sep=pulsesep, split_doms=True,
-                   use_dark=True, dark_map='Noise_Dark', use_k40=True, k40_map='Noise_K40')
+                   use_dark=True, dark_map='Noise_Dark_from_scratch', use_k40=True, k40_map='Noise_K40_from_scratch')
 
     tray.AddModule(HitCountCheck, "hitcheck", NHits=5)
 
