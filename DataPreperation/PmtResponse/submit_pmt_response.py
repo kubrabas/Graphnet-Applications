@@ -11,6 +11,7 @@ Input data comes from the _I3 datasets in paths.py.
 
 import argparse
 import importlib.util
+import shutil
 import subprocess
 from pathlib import Path
 
@@ -35,6 +36,11 @@ MC_TABLE = {
 MC_FOLDER = {
     "SPRING2026MC": "Spring2026MC",
     "STRING340MC":  "String340MC",
+}
+
+GCD_KEY = {
+    "SPRING2026MC": "Spring2026MC",
+    "STRING340MC":  "340StringMC",
 }
 
 FORMAT_PATTERN = {
@@ -69,7 +75,8 @@ def count_files(indir: str, fmt: str) -> int:
 
 
 def submit_one(*, mc: str, mc_folder: str, geometry: str, geo_folder: str,
-               flavor: str, indir: str, fmt: str, gcd: str, dry_run: bool) -> None:
+               flavor: str, indir: str, fmt: str, gcd: str,
+               with_first_3_layers: bool, dry_run: bool) -> None:
     pattern = FORMAT_PATTERN.get(fmt, f"*.i3.{fmt}")
     n = count_files(indir, fmt)
     if n == 0:
@@ -93,7 +100,8 @@ def submit_one(*, mc: str, mc_folder: str, geometry: str, geo_folder: str,
             f"PATTERN={pattern},"
             f"GCD={gcd},"
             f"OUTDIR={outdir},"
-            f"LOGDIR={logdir}"
+            f"LOGDIR={logdir},"
+            f"WITH_FIRST_3_LAYERS={'1' if with_first_3_layers else '0'}"
         ),
         str(WORKER_SH),
     ]
@@ -119,6 +127,8 @@ def main() -> int:
                     help="Geometry key in paths.py (e.g. strings_102_40m)")
     ap.add_argument("--flavor", required=True, nargs="+",
                     help=f"Particle flavor(s) or 'all'. Choices: {ALL_FLAVORS}")
+    ap.add_argument("--with-first-3-layers", required=True, action=argparse.BooleanOptionalAction,
+                    help="Use with_first_3_layers script (--with-first-3-layers) or without (--no-with-first-3-layers)")
     ap.add_argument("--dry-run", action="store_true",
                     help="Print sbatch commands without submitting")
     args = ap.parse_args()
@@ -133,7 +143,7 @@ def main() -> int:
     table     = getattr(paths, MC_TABLE[args.mc_name])
     mc_folder = MC_FOLDER[args.mc_name]
     geo_folder = to_folder_name(args.geometry)
-    gcd       = paths.GCD[mc_folder]
+    gcd       = paths.GCD[GCD_KEY[args.mc_name]]
 
     if args.geometry not in table:
         print(f"ERROR: geometry '{args.geometry}' not found in {MC_TABLE[args.mc_name]}")
@@ -157,6 +167,7 @@ def main() -> int:
                 indir=entry["path"],
                 fmt=entry["format"],
                 gcd=gcd,
+                with_first_3_layers=args.with_first_3_layers,
                 dry_run=args.dry_run,
             )
         except FileNotFoundError as e:

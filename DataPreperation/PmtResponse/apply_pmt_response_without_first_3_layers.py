@@ -6,6 +6,7 @@
 # =============================================================================
 # Standard library
 # =============================================================================
+import h5py  # must be imported before icecube to avoid HDF5 version conflict
 import argparse
 import glob
 import os
