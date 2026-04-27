@@ -9,6 +9,10 @@ GCD = {
     "340StringMC":  "/project/6008051/pone_simulation/GCD_Library/PONE_800mGrid.i3.gz",
 }
 
+GCD_SUB_Spring2026MC = {
+    "102_string": "/project/def-nahee/kbas/Graphnet-Applications/Metadata/GCD/340StringMC/102_string.i3.gz",
+}
+
 
 # ============================================================
 # Spring 2026 MC - I3 Folders
