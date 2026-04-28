@@ -147,7 +147,7 @@ def main() -> int:
     print("[CHECKPOINT 1] Job configuration resolved, log started successfully")
 
     # --- tray configuration ---
-    m = re.search(r"gen_(\d+)", infile.name)
+    m = re.search(r"gen_(\d+)", infile.name) or re.search(r"cls_(\d+)", infile.name)
     if not m:
         raise ValueError(f"Could not parse run number from filename: {infile.name}")
     runnumber = int(m.group(1))

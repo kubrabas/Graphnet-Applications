@@ -2,10 +2,10 @@
 Submit geometry-skimmer array jobs to SLURM.
 
 Usage:
-    python submit_skim.py --csv /path/to/strings_102_40m.csv --flavor Muon
-    python submit_skim.py --csv /path/to/strings_102_40m.csv --flavor Muon Electron Tau NC
-    python submit_skim.py --csv /path/to/strings_102_40m.csv --flavor all
-    python submit_skim.py --dry-run --csv /path/to/strings_102_40m.csv --flavor Muon
+    python3 submit_skim_I3.py --csv /path/to/strings_102_40m.csv --flavor Muon
+    python3 submit_skim_I3.py --csv /path/to/strings_102_40m.csv --flavor Muon Electron Tau NC
+    python3 submit_skim_I3.py --csv /path/to/strings_102_40m.csv --flavor all
+    python3 submit_skim_I3.py --dry-run --csv /path/to/strings_102_40m.csv --flavor Muon
 
 The MC set (Spring2026MC or 340StringMC) is inferred from the CSV path.
 Input data always comes from full_geometry in paths.py.
@@ -33,6 +33,11 @@ CONCURRENT  = 50
 MC_TABLE = {
     "Spring2026MC": "SPRING2026MC_I3",
     "340StringMC":  "STRING340MC_I3",
+}
+
+SCRATCH_DIR = {
+    "Spring2026MC": "Spring2026MC",
+    "340StringMC":  "String340MC",
 }
 
 ALL_FLAVORS = ["Muon", "Electron", "Tau", "NC"]
@@ -71,8 +76,9 @@ def submit_one(*, mc: str, geometry: str, flavor: str, indir: str, fmt: str,
         print(f"  [skip] no files found in: {indir}")
         return
 
-    outdir  = f"{SCRATCH_BASE}/{mc}/{geometry}/{flavor}_I3Photons"
-    logdir  = f"{SCRATCH_BASE}/{mc}/Logs/{flavor}_skim_{geometry}"
+    scratch = SCRATCH_DIR[mc]
+    outdir  = f"{SCRATCH_BASE}/{scratch}/{geometry}/{flavor}_I3Photons"
+    logdir  = f"{SCRATCH_BASE}/{scratch}/Logs/{flavor}_skim_{geometry}"
     job_name = f"skim_{mc}_{geometry}_{flavor}"
 
     cmd = [

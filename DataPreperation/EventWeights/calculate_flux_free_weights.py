@@ -6,6 +6,13 @@ Usage:
     python3 calculate_flux_free_weights_prepare_metadata.py --mc_name SPRING2026MC
     python3 calculate_flux_free_weights_prepare_metadata.py --mc_name STRING340MC
 
+Usage as a slurm job:
+sbatch --export=MC_NAME=STRING340MC  /home/kbas/SlurmScripts/DataPreperation/submit_flux_free_weights.sh
+sbatch --export=MC_NAME=SPRING2026MC /home/kbas/SlurmScripts/DataPreperation/submit_flux_free_weights.sh
+
+
+
+
 NOTE on cross sections:
     Although nubar-specific cross section files exist in the CrossSectionModels directory
     (sigma_nubar_CC_iso.fits, dsdxdy_nubar_CC_iso.fits, etc.), they are NOT used in this
@@ -389,9 +396,7 @@ if __name__ == '__main__':
 
 
 
-# slurm script:
-# apptainer shell /cvmfs/software.pacific-neutrino.org/containers/itray_v1.15.3
-# sonra 2 secioz. ama slurmda nasi olcak? apptainer/1.4.5 StdEnv/2023 mi deseydik once
-# source /usr/local/icetray/build/env-shell.sh
+
+
 # claude'a tekrar sor iki ayri channel icin. ne eksik de event weight dogru hesaplasin. density cancel oluyo mu olmuyo mu vsvs
 # makale sonuclari ile compare mi etsem?
