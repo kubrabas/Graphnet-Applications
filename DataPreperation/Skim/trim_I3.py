@@ -89,7 +89,7 @@ def process_one_file(FilterFrame, infile: Path, gcd: Path, allowed: List[int], o
     tray = icetray.I3Tray()
     tray.Add("I3Reader", FilenameList=[str(gcd), str(infile)])
     tray.Add(FilterFrame, AllowedStrings=allowed, OnlyDAQ=True)
-    tray.Add("I3Writer", Filename=str(outfile), Streams=[icetray.I3Frame.DAQ])
+    tray.Add("I3Writer", Filename=str(outfile), Streams=[icetray.I3Frame.TrayInfo, icetray.I3Frame.Simulation, icetray.I3Frame.DAQ])
     tray.Execute()
     tray.Finish()
 
