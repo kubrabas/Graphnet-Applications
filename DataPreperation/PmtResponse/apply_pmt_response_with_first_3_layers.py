@@ -71,6 +71,53 @@ class HitCountCheck(icetray.I3Module):
         self.PushFrame(frame)
 
 
+class FixTriggerMap(icetray.I3Module):
+    """
+    DOMSimulation writes triggerpulsemap with per-PMT keys and wrong pulse.width.
+    This module rebuilds it as per-DOM keys with pulse.width = PMT index,
+    which is what DOMTrigger expects.
+    """
+    def __init__(self, context):
+        super().__init__(context)
+        self.AddOutBox("OutBox")
+
+    def Configure(self):
+        pass
+
+    def DAQ(self, frame):
+        bad_map = frame["triggerpulsemap"]
+        dom_map = dataclasses.I3RecoPulseSeriesMap()
+
+        for omkey in bad_map.keys():
+            pmt     = omkey.pmt
+            dom_key = OMKey(omkey.string, omkey.om, 0)
+            if dom_key not in dom_map.keys():
+                dom_map[dom_key] = dataclasses.I3RecoPulseSeries()
+            for pulse in bad_map[omkey]:
+                new_pulse        = dataclasses.I3RecoPulse()
+                new_pulse.time   = pulse.time
+                new_pulse.charge = pulse.charge
+                new_pulse.width  = float(pmt)
+                dom_map[dom_key].append(new_pulse)
+
+        for dom_key in dom_map.keys():
+            pulses = sorted(dom_map[dom_key], key=lambda p: p.time)
+            series = dataclasses.I3RecoPulseSeries()
+            for p in pulses:
+                series.append(p)
+            dom_map[dom_key] = series
+
+        frame.Delete("triggerpulsemap")
+        frame["triggerpulsemap"] = dom_map
+        self.PushFrame(frame)
+
+
+def drop_stale_keys(frame):
+    for key in ["Accepted_PulseMap", "Noise_Dark", "Noise_K40"]:
+        if key in frame:
+            frame.Delete(key)
+
+
 # =============================================================================
 # Main
 # =============================================================================
@@ -170,36 +217,43 @@ def main() -> int:
     tray.context["I3RandomService"] = randomService
     tray.AddModule("I3Reader", "reader", FilenameList=[args.gcd, str(infile)])
 
-    print("[CHECKPOINT 3] Tray initialized, I3Reader added successfully")
+
+
+    tray.AddModule(drop_stale_keys,"DropStaleKeys", Streams=[icetray.I3Frame.DAQ],
+)
+
+    print("[CHECKPOINT 3] Tray initialized, I3Reader and DropStaleKeys added successfully")
 
     tray.AddModule(OMAcceptance, 'OMAcceptance',
-                   input_map= "I3Photons", output_map='Accepted_PulseMap_from_scratch',
+                   input_map= "I3Photons", output_map='Accepted_PulseMap',
                    random_service=randomService,
                    drop_empty=True)
 
     tray.AddModule(DarkNoise, 'AddDarkNoise',
-                   input_map='Accepted_PulseMap_from_scratch', output_map='Noise_Dark_from_scratch',
+                   input_map='Accepted_PulseMap', output_map='Noise_Dark',
                    random_service=randomService, gcd_file=args.gcd)
 
     tray.AddModule(K40Noise, 'AddK40Noise',
-                   input_map='Accepted_PulseMap_from_scratch', output_map='Noise_K40_from_scratch',
+                   input_map='Accepted_PulseMap', output_map='Noise_K40',
                    random_service=randomService, gcd_file=args.gcd)
 
-    print("[CHECKPOINT 4] DOMAcceptance, DarkNoise, K40Noise added successfully")
+    print("[CHECKPOINT 4] OMAcceptance, DarkNoise, K40Noise added successfully")
 
     tray.AddModule(DOMSimulation, 'DOMLauncher',
-                   input_map='Accepted_PulseMap_from_scratch',
+                   input_map='Accepted_PulseMap',
                    output_map='PMT_Response',
                    random_service=randomService, min_time_sep=pulsesep, split_doms=True,
-                   use_dark=True, dark_map='Noise_Dark_from_scratch', use_k40=True, k40_map='Noise_K40_from_scratch')
+                   use_dark=True, dark_map='Noise_Dark', use_k40=True, k40_map='Noise_K40')
 
     tray.AddModule(HitCountCheck, "hitcheck", NHits=5)
 
-    print("[CHECKPOINT 5] HitCountCheck filter added successfully")
+    print("[CHECKPOINT 5] DOMSimulation and HitCountCheck added successfully")
+
+    tray.AddModule(FixTriggerMap, "FixTriggerMap")
 
     tray.AddModule(DOMTrigger, "DOMTrigger", trigger_map="triggerpulsemap")
 
-    print("[CHECKPOINT 6] DOMTrigger added successfully")
+    print("[CHECKPOINT 6] FixTriggerMap and DOMTrigger added successfully")
 
 
     tray.AddModule(
@@ -208,7 +262,7 @@ def main() -> int:
         output="_3PMT_1DOM",
         OMPMTCoinc=3,
         FullDetectorCoincidenceN=nDOMs,
-        CutOnTrigger=False,
+        CutOnTrigger=True,
         EventLength=10000,
         TriggerTime=2000,
         PulseSeriesIn="PMT_Response",
@@ -233,7 +287,7 @@ def main() -> int:
        "I3Writer",
        "writer",
        Filename=str(outfile), 
-       Streams=[icetray.I3Frame.DAQ, icetray.I3Frame.Simulation, icetray.I3Frame.Physics],
+       Streams=[icetray.I3Frame.DAQ, icetray.I3Frame.Simulation],
        )
     
     print("[CHECKPOINT 8] Writer added successfully")

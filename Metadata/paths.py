@@ -58,7 +58,7 @@ SPRING2026MC_PMT = {
         "NC":       {"path": None, "format": None},
     },
     "strings_102_40m": {
-        "Muon":     {"path": None, "format": None},
+        "Muon":     {"path": "/home/kbas/scratch/Spring2026MC/Strings_102_40m/Muon_PMT_Response", "format": "gz"},
         "Electron": {"path": None, "format": None},
         "Tau":      {"path": None, "format": None},
         "NC":       {"path": None, "format": None},
@@ -84,10 +84,10 @@ STRING340MC_I3 = {
         "NC":       {"path": "/project/6008051/pone_simulation/MC000005-nu_NC-2_7-LeptonInjector_PROPOSAL_clsim_NC-v10/Generator", "format": "zst"},
     },
     "102_string": {
-        "Muon":     {"path": None, "format": None},
-        "Electron": {"path": None, "format": None},
-        "Tau":      {"path": None, "format": None},
-        "NC":       {"path": None, "format": None},
+        "Muon":     {"path": "/home/kbas/scratch/String340MC/102_string/Muon_I3Photons", "format": "gz"},
+        "Electron": {"path": "/home/kbas/scratch/String340MC/102_string/Electron_I3Photons", "format": "gz"},
+        "Tau":      {"path": "/home/kbas/scratch/String340MC/102_string/Tau_I3Photons", "format": "gz"},
+        "NC":       {"path": "/home/kbas/scratch/String340MC/102_string/NC_I3Photons", "format": "gz"},
     },
     "160_string": {
         "Muon":     {"path": None, "format": None},
@@ -134,10 +134,10 @@ STRING340MC_I3 = {
 
 STRING340MC_PMT = {
     "full_geometry": {
-        "Muon":     {"path": None, "format": None},
-        "Electron": {"path": None, "format": None},
-        "Tau":      {"path": None, "format": None},
-        "NC":       {"path": None, "format": None},
+        "Muon":     {"path": "/home/kbas/scratch/String340MC/Full_Geometry/Muon_PMT_Response", "format": "gz"},
+        "Electron": {"path": "/home/kbas/scratch/String340MC/Full_Geometry/Electron_PMT_Response", "format": "gz"},
+        "Tau":      {"path": "/home/kbas/scratch/String340MC/Full_Geometry/Tau_PMT_Response", "format": "gz"},
+        "NC":       {"path": "/home/kbas/scratch/String340MC/Full_Geometry/NC_PMT_Response", "format": "gz"},
     },
     "102_string": {
         "Muon":     {"path": None, "format": None},

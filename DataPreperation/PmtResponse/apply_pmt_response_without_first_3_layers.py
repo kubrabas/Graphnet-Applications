@@ -28,6 +28,10 @@ from icecube import phys_services, sim_services
 # P-ONE offline modules
 # =============================================================================
 from DOM.PONEDOMLauncher import DOMSimulation
+from DOM.OMAcceptance import OMAcceptance
+
+from NoiseGenerators.DarkNoise import DarkNoise
+from NoiseGenerators.K40Noise import K40Noise
 
 from Trigger.DOMTrigger import DOMTrigger
 from Trigger.DetectorTrigger import DetectorTrigger
@@ -64,6 +68,47 @@ class HitCountCheck(icetray.I3Module):
         unique_oms = set((k.string, k.om) for k in frame['PMT_Response'].keys())
         if len(unique_oms) < self.NHits:
             return False
+        self.PushFrame(frame)
+
+
+class FixTriggerMap(icetray.I3Module):
+    """
+    DOMSimulation writes triggerpulsemap with per-PMT keys and wrong pulse.width.
+    This module rebuilds it as per-DOM keys with pulse.width = PMT index,
+    which is what DOMTrigger expects.
+    """
+    def __init__(self, context):
+        super().__init__(context)
+        self.AddOutBox("OutBox")
+
+    def Configure(self):
+        pass
+
+    def DAQ(self, frame):
+        bad_map = frame["triggerpulsemap"]
+        dom_map = dataclasses.I3RecoPulseSeriesMap()
+
+        for omkey in bad_map.keys():
+            pmt     = omkey.pmt
+            dom_key = OMKey(omkey.string, omkey.om, 0)
+            if dom_key not in dom_map.keys():
+                dom_map[dom_key] = dataclasses.I3RecoPulseSeries()
+            for pulse in bad_map[omkey]:
+                new_pulse        = dataclasses.I3RecoPulse()
+                new_pulse.time   = pulse.time
+                new_pulse.charge = pulse.charge
+                new_pulse.width  = float(pmt)
+                dom_map[dom_key].append(new_pulse)
+
+        for dom_key in dom_map.keys():
+            pulses = sorted(dom_map[dom_key], key=lambda p: p.time)
+            series = dataclasses.I3RecoPulseSeries()
+            for p in pulses:
+                series.append(p)
+            dom_map[dom_key] = series
+
+        frame.Delete("triggerpulsemap")
+        frame["triggerpulsemap"] = dom_map
         self.PushFrame(frame)
 
 
@@ -152,8 +197,8 @@ def main() -> int:
         raise ValueError(f"Could not parse run number from filename: {infile.name}")
     runnumber = int(m.group(1))
 
-    pulsesep = 0.2
-    nDOMs    = 1
+    pulsesep     = 0.2
+    nDOMs        = 1
 
     randomService = phys_services.I3SPRNGRandomService(
         seed=1234567, nstreams=10000000, streamnum=runnumber
@@ -168,6 +213,8 @@ def main() -> int:
 
     print("[CHECKPOINT 3] Tray initialized, I3Reader added successfully")
 
+
+
     tray.AddModule(DOMSimulation, 'DOMLauncher',
                    input_map='Accepted_PulseMap',
                    output_map='PMT_Response',
@@ -176,11 +223,13 @@ def main() -> int:
 
     tray.AddModule(HitCountCheck, "hitcheck", NHits=5)
 
-    print("[CHECKPOINT 4] HitCountCheck filter added successfully")
+    print("[CHECKPOINT 5] HitCountCheck filter added successfully")
+
+    tray.AddModule(FixTriggerMap, "FixTriggerMap")
 
     tray.AddModule(DOMTrigger, "DOMTrigger", trigger_map="triggerpulsemap")
 
-    print("[CHECKPOINT 5] DOMTrigger added successfully")
+    print("[CHECKPOINT 6] DOMTrigger added successfully")
 
 
     tray.AddModule(
@@ -189,7 +238,7 @@ def main() -> int:
         output="_3PMT_1DOM",
         OMPMTCoinc=3,
         FullDetectorCoincidenceN=nDOMs,
-        CutOnTrigger=False,
+        CutOnTrigger=True,
         EventLength=10000,
         TriggerTime=2000,
         PulseSeriesIn="PMT_Response",
@@ -201,23 +250,23 @@ def main() -> int:
         output="_3PMT_1DOM_nonoise",
         OMPMTCoinc=3,
         FullDetectorCoincidenceN=nDOMs,
-        CutOnTrigger=False,
+        CutOnTrigger=True,
         EventLength=10000,
         TriggerTime=2000,
         PulseSeriesIn="PMT_Response_nonoise",
         PulseSeriesOut="EventPulseSeries_nonoise",)   
     
-    print("[CHECKPOINT 6] DetectorTriggers added successfully")
+    print("[CHECKPOINT 7] DetectorTriggers added successfully")
 
 
     tray.AddModule(
        "I3Writer",
        "writer",
        Filename=str(outfile), 
-       Streams=[icetray.I3Frame.DAQ, icetray.I3Frame.Simulation, icetray.I3Frame.Physics],
+       Streams=[icetray.I3Frame.DAQ, icetray.I3Frame.Simulation],
        )
     
-    print("[CHECKPOINT 7] Writer added successfully")
+    print("[CHECKPOINT 8] Writer added successfully")
 
     try:
         tray.Execute()
