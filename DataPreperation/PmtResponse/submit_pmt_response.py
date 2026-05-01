@@ -3,9 +3,9 @@ Submit PMT response array jobs to SLURM.
 
 Usage:
     python3 submit_pmt_response.py --mc-name SPRING2026MC --geometry strings_102_40m --flavor Muon --with-first-3-layers
-    python3 submit_pmt_response.py --mc-name STRING340MC --geometry strings_102_40m --flavor all --no-with-first-3-layers
+    python3 submit_pmt_response.py --mc-name STRING340MC --geometry full_geometry --flavor Tau --with-first-3-layers
     python3 submit_pmt_response.py --mc-name SPRING2026MC --geometry strings_102_40m --flavor Muon --with-first-3-layers --dry-run
-    python3 submit_pmt_response.py --mc-name SPRING2026MC --geometry full_geometry --flavor all --with-first-3-layers 
+    python3 submit_pmt_response.py --mc-name SPRING2026MC --geometry full_geometry --flavor all --no-with-first-3-layers 
 
 Workers:
     apply_pmt_response_with_first_3_layers.py    (--with-first-3-layers)
@@ -148,7 +148,9 @@ def main() -> int:
     table     = getattr(paths, MC_TABLE[args.mc_name])
     mc_folder = MC_FOLDER[args.mc_name]
     geo_folder = to_folder_name(args.geometry)
-    gcd       = paths.GCD[GCD_KEY[args.mc_name]]
+    gcd_key   = GCD_KEY[args.mc_name]
+    trimmed   = getattr(paths, "GCD_TRIMMED", {}).get(gcd_key, {})
+    gcd       = trimmed.get(args.geometry) or paths.GCD[gcd_key]
 
     if args.geometry not in table:
         print(f"ERROR: geometry '{args.geometry}' not found in {MC_TABLE[args.mc_name]}")
