@@ -21,6 +21,27 @@ GCD_TRIMMED = {
 
 
 # ============================================================
+# LIC Files
+# ============================================================
+
+
+LIC = {
+    "STRING340MC": {
+        "Muon":     {"path": "/project/6008051/pone_simulation/MC000002-nu_mu-2_7-LeptonInjector-PROPOSAL-clsim-v10/Generator",   "format": "lic"},
+        "Electron": {"path": "/project/6008051/pone_simulation/MC000003-nu_e-2_7-LeptonInjector_PROPOSAL_clsim-v10/Generator",   "format": "lic"},
+        "Tau":      {"path": "/project/6008051/pone_simulation/MC000004-nu_tau-2_7-LeptonInjector_PROPOSAL_clsim-v10/Generator",  "format": "lic"},
+        "NC":       {"path": "/project/6008051/pone_simulation/MC000005-nu_NC-2_7-LeptonInjector_PROPOSAL_clsim_NC-v10/Generator","format": "lic"},
+    },
+    "SPRING2026MC": {
+        "Muon":     {"path": None, "format": None},
+        "Electron": {"path": None, "format": None},
+        "Tau":      {"path": None, "format": None},
+        "NC":       {"path": None, "format": None},
+    }
+}
+
+
+# ============================================================
 # Spring 2026 MC - I3 Folders
 # ============================================================
 
