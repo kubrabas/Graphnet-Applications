@@ -4,7 +4,7 @@ Submit geometry-skimmer array jobs to SLURM.
 Usage:
     python3 submit_skim_I3.py --csv /path/to/strings_102_40m.csv --flavor Muon
     python3 submit_skim_I3.py --csv /path/to/strings_102_40m.csv --flavor Muon Electron Tau NC
-    python3 submit_skim_I3.py --csv /project/def-nahee/kbas/Graphnet-Applications/Metadata/GeometryFiles/Spring2026MC/strings_102_40m.csv --flavor all
+    python3 submit_skim_I3.py --csv /project/def-nahee/kbas/Graphnet-Applications/Metadata/GeometryFiles/Spring2026MC/strings_102_40m.csv --flavor Muon
     python3 submit_skim_I3.py --dry-run --csv /path/to/strings_102_40m.csv --flavor Muon
 
 The MC set (Spring2026MC or 340StringMC) is inferred from the CSV path.

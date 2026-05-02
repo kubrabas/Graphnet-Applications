@@ -4,7 +4,7 @@ Submit PMT response array jobs to SLURM.
 Usage:
     python3 submit_pmt_response.py --mc-name SPRING2026MC --geometry strings_102_40m --flavor Muon --with-first-3-layers
     python3 submit_pmt_response.py --mc-name STRING340MC --geometry full_geometry --flavor Tau --with-first-3-layers
-    python3 submit_pmt_response.py --mc-name SPRING2026MC --geometry strings_102_40m --flavor Muon --with-first-3-layers --dry-run
+    python3 submit_pmt_response.py --mc-name SPRING2026MC --geometry strings_102_40m --flavor Muon --no-with-first-3-layers --dry-run
     python3 submit_pmt_response.py --mc-name SPRING2026MC --geometry full_geometry --flavor all --no-with-first-3-layers 
 
 Workers:
