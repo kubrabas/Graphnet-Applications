@@ -40,12 +40,50 @@ icetray.I3Logger.global_logger = icetray.I3NullLogger()
 
 XS_PATH = "/project/6008051/pone_simulation/pone_offline/CrossSectionModels/csms_differential_v1.0/"
 
-PARTICLE_MAP = {
-    "muon":     {"primary": LW.NuMu,  "fs0": LW.MuMinus,  "fs1": LW.Hadrons},
-    "electron": {"primary": LW.NuE,   "fs0": LW.EMinus,   "fs1": LW.Hadrons},
-    "tau":      {"primary": LW.NuTau, "fs0": LW.TauMinus, "fs1": LW.Hadrons},
-    "nc":       {"primary": LW.NuMu,  "fs0": LW.NuMu,     "fs1": LW.Hadrons},
+VALID_FLAVORS = {"muon", "electron", "tau", "nc"}
+
+LW_PARTICLE_FROM_PDG = {
+    12: LW.NuE,
+    -12: LW.NuEBar,
+    14: LW.NuMu,
+    -14: LW.NuMuBar,
+    16: LW.NuTau,
+    -16: LW.NuTauBar,
+
+    11: LW.EMinus,
+    -11: LW.EPlus,
+    13: LW.MuMinus,
+    -13: LW.MuPlus,
+    15: LW.TauMinus,
+    -15: LW.TauPlus,
+
+    -2000001006: LW.Hadrons,
 }
+
+
+def to_lw_particle(particle_type):
+    """Convert EventProperties particle type / PDG code to LeptonWeighter particle type."""
+    particle_type = int(particle_type)
+
+    if particle_type not in LW_PARTICLE_FROM_PDG:
+        raise ValueError(f"Unsupported particle type for LeptonWeighter: {particle_type}")
+
+    return LW_PARTICLE_FROM_PDG[particle_type]
+
+
+def get_lw_particles_from_event_properties(props):
+    """
+    Get event-by-event LW particle types from EventProperties.
+
+    This is needed because the LIC contains both neutrino and antineutrino generators.
+    Therefore primary/final-state particles must not be hard-coded by flavor.
+    """
+    primary = to_lw_particle(props.initialType)
+    fs0 = to_lw_particle(props.finalType1)
+    fs1 = to_lw_particle(props.finalType2)
+
+    return primary, fs0, fs1
+
 
 # ---------------------------------------------------------------------------
 # File discovery
@@ -72,15 +110,19 @@ def build_id_map(directory: str, *patterns: str) -> Dict[str, Path]:
 
 def get_sorted_common(lic_dir: str, photon_dir: str, photon_pattern: str) -> List[str]:
     """Intersection of LIC batch IDs and photon batch IDs, sorted."""
-    lic_ids    = set(build_id_map(lic_dir, "*.lic"))
+    lic_ids = set(build_id_map(lic_dir, "*.lic"))
     photon_ids = set(build_id_map(photon_dir, photon_pattern))
     return sorted(lic_ids & photon_ids)
+
 
 # ---------------------------------------------------------------------------
 # Processing
 # ---------------------------------------------------------------------------
 
 def load_xs():
+    # NOTE:
+    # This intentionally uses neutrino cross-section files for both nu and nubar,
+    # matching the production convention of this dataset.
     return LW.CrossSectionFromSpline(
         XS_PATH + "dsdxdy_nu_CC_iso.fits",
         XS_PATH + "dsdxdy_nu_CC_iso.fits",
@@ -119,14 +161,14 @@ def process_batch(
 ) -> Tuple[Optional[List[dict]], Optional[str]]:
     """
     Returns (records, None) on success or (None, corrupt_file_path) on a completely
-    corrupt file.  Corrupt events within a photon file are silently skipped.
+    corrupt file. Corrupt events within a photon file are silently skipped.
     Records contain raw oneweight (no scaling).
     """
-    lic_map    = build_id_map(lic_dir, "*.lic")
+    lic_map = build_id_map(lic_dir, "*.lic")
     photon_map = build_id_map(photon_dir, photon_pattern)
-    gen_map    = build_id_map(lic_dir, "*.i3", "*.i3.gz", "*.i3.zst")
+    gen_map = build_id_map(lic_dir, "*.i3", "*.i3.gz", "*.i3.zst")
 
-    lic_f    = lic_map[batch_id]
+    lic_f = lic_map[batch_id]
     photon_f = photon_map[batch_id]
 
     if batch_id not in gen_map:
@@ -139,11 +181,10 @@ def process_batch(
 
     try:
         generators = LW.MakeGeneratorsFromLICFile(str(lic_f))
-        weighter   = LW.Weighter(LW.ConstantFlux(1.0), xs, generators)
+        weighter = LW.Weighter(LW.ConstantFlux(1.0), xs, generators)
     except Exception as e:
         return None, f"{lic_f}  ({e})"
 
-    ptypes  = PARTICLE_MAP[flavor.lower()]
     records = []
 
     try:
@@ -153,6 +194,7 @@ def process_batch(
                 frame = f.pop_frame()
             except RuntimeError:
                 continue  # corrupt event – skip silently
+
             if frame.Stop != icetray.I3Frame.DAQ:
                 continue
             if not frame.Has("I3EventHeader"):
@@ -160,44 +202,62 @@ def process_batch(
 
             hdr = frame["I3EventHeader"]
             eid = (hdr.run_id, hdr.sub_run_id, hdr.event_id, hdr.sub_event_id)
+
             if eid not in gen_props:
                 continue
 
             props = gen_props[eid]
 
+            try:
+                primary, fs0, fs1 = get_lw_particles_from_event_properties(props)
+            except ValueError as e:
+                print(f"[skip] RunID={hdr.run_id} EventID={hdr.event_id}: {e}")
+                continue
+
             event = LW.Event()
-            event.energy                 = props.totalEnergy
-            event.zenith                 = props.zenith
-            event.azimuth                = props.azimuth
-            event.interaction_x          = props.finalStateX
-            event.interaction_y          = props.finalStateY
-            event.final_state_particle_0 = ptypes["fs0"]
-            event.final_state_particle_1 = ptypes["fs1"]
-            event.primary_type           = ptypes["primary"]
-            event.radius                 = props.impactParameter
-            event.total_column_depth     = props.totalColumnDepth
-            event.x                      = props.x
-            event.y                      = props.y
-            event.z                      = props.z
+            event.energy = props.totalEnergy
+            event.zenith = props.zenith
+            event.azimuth = props.azimuth
+            event.interaction_x = props.finalStateX
+            event.interaction_y = props.finalStateY
+
+            event.primary_type = primary
+            event.final_state_particle_0 = fs0
+            event.final_state_particle_1 = fs1
+
+            event.radius = props.impactParameter
+            event.total_column_depth = props.totalColumnDepth
+            event.x = props.x
+            event.y = props.y
+            event.z = props.z
 
             records.append({
-                "RunID":       hdr.run_id,
-                "SubrunID":    hdr.sub_run_id,
-                "EventID":     hdr.event_id,
-                "SubEventID":  hdr.sub_event_id,
-                "energy":      props.totalEnergy,
-                "zenith":      props.zenith,
-                "azimuth":     props.azimuth,
+                "RunID": hdr.run_id,
+                "SubrunID": hdr.sub_run_id,
+                "EventID": hdr.event_id,
+                "SubEventID": hdr.sub_event_id,
+
+                "energy": props.totalEnergy,
+                "zenith": props.zenith,
+                "azimuth": props.azimuth,
                 "finalStateX": props.finalStateX,
                 "finalStateY": props.finalStateY,
                 "columnDepth": props.totalColumnDepth,
-                "oneweight":   weighter.get_oneweight(event),
+
+                "initialType": int(props.initialType),
+                "finalType1": int(props.finalType1),
+                "finalType2": int(props.finalType2),
+
+                "oneweight": weighter.get_oneweight(event),
             })
+
         f.close()
+
     except RuntimeError:
         return None, str(photon_f)
 
     return records, None
+
 
 # ---------------------------------------------------------------------------
 # Main
@@ -205,19 +265,19 @@ def process_batch(
 
 def main() -> int:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--mc",             required=True)
-    ap.add_argument("--flavor",         required=True)
-    ap.add_argument("--lic-dir",        required=True)
-    ap.add_argument("--photon-dir",     required=True)
+    ap.add_argument("--mc", required=True)
+    ap.add_argument("--flavor", required=True)
+    ap.add_argument("--lic-dir", required=True)
+    ap.add_argument("--photon-dir", required=True)
     ap.add_argument("--photon-pattern", required=True, help="e.g. '*.i3' or '*.i3.zst'")
-    ap.add_argument("--outdir",         required=True)
-    ap.add_argument("--logdir",         required=True)
-    ap.add_argument("--task-id",        type=int, default=None)
-    ap.add_argument("--overwrite",      action="store_true")
+    ap.add_argument("--outdir", required=True)
+    ap.add_argument("--logdir", required=True)
+    ap.add_argument("--task-id", type=int, default=None)
+    ap.add_argument("--overwrite", action="store_true")
     args = ap.parse_args()
 
-    if args.flavor.lower() not in PARTICLE_MAP:
-        print(f"ERROR: unknown flavor '{args.flavor}'. Choices: {list(PARTICLE_MAP)}")
+    if args.flavor.lower() not in VALID_FLAVORS:
+        print(f"ERROR: unknown flavor '{args.flavor}'. Choices: {sorted(VALID_FLAVORS)}")
         return 1
 
     outdir = Path(args.outdir)
@@ -225,9 +285,9 @@ def main() -> int:
     outdir.mkdir(parents=True, exist_ok=True)
     logdir.mkdir(parents=True, exist_ok=True)
 
-    array_job_id  = os.environ.get("SLURM_ARRAY_JOB_ID", "unknown")
+    array_job_id = os.environ.get("SLURM_ARRAY_JOB_ID", "unknown")
     array_task_id = os.environ.get("SLURM_ARRAY_TASK_ID", "unknown")
-    job_id        = os.environ.get("SLURM_JOB_ID", "unknown")
+    job_id = os.environ.get("SLURM_JOB_ID", "unknown")
 
     if args.task_id is not None:
         task_id = args.task_id
@@ -246,8 +306,8 @@ def main() -> int:
         return 4
 
     batch_id = common[task_id]
-    outfile  = outdir / f"{args.flavor}_{batch_id}.csv"
-    logfile  = logdir / f"{args.flavor}_{batch_id}.out"
+    outfile = outdir / f"{args.flavor}_{batch_id}.csv"
+    logfile = logdir / f"{args.flavor}_{batch_id}.out"
 
     if outfile.exists() and logfile.exists() and not args.overwrite:
         print(f"[skip] both exist: {outfile.name}, {logfile.name}")
