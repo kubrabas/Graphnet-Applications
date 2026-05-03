@@ -17,6 +17,10 @@
    source /usr/local/icetray/build/env-shell.sh
    ```
 
+   for LeptonWeighter:
+   export PYTHONPATH=/usr/local/LeptonWeighter/lib:$PYTHONPATH
+   export LD_LIBRARY_PATH=/usr/local/LeptonWeighter/lib:/usr/local/lib:$LD_LIBRARY_PATH
+
 **Note:** Haven't tested this with pone-offline. Also haven't checked the contents of `env-shell.sh`.
 
 
@@ -38,7 +42,7 @@ To use Jupyter notebook in VS Code with the IceTray environment set up above, fo
 
 3. In a **separate terminal**, open an SSH tunnel to the compute node (replace `fc11020` with your actual node name):
    ```bash
-   ssh -N -L 8888:localhost:8888 fc10909
+   ssh -N -L 8888:localhost:8888 fc11005
    ```
    > Nothing will appear in this terminal. that is expected.
 
