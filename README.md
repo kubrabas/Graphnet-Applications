@@ -10,7 +10,7 @@
    ```
 3. Enter the IceTray container:
    ```bash
-   apptainer shell --nv /cvmfs/software.pacific-neutrino.org/containers/itray_v1.17.1
+   apptainer shell --nv -B /cvmfs/software.pacific-neutrino.org/ /cvmfs/software.pacific-neutrino.org/containers/itray_v1.17.1
    ```
 4. Set up the IceTray environment inside the container:
    ```bash
@@ -18,10 +18,18 @@
    ```
 
    for LeptonWeighter:
+   ```bash
    export PYTHONPATH=/usr/local/LeptonWeighter/lib:$PYTHONPATH
    export LD_LIBRARY_PATH=/usr/local/LeptonWeighter/lib:/usr/local/lib:$LD_LIBRARY_PATH
+   ```
 
-**Note:** Haven't tested this with pone-offline. Also haven't checked the contents of `env-shell.sh`.
+   for pone_offline (e.g. PMT response notebooks):
+   ```bash
+   export PYTHONPATH=/cvmfs/software.pacific-neutrino.org/pone_offline/v2.0:$PYTHONPATH
+   export PONESRCDIR=/project/6008051/pone_simulation/pone_offline
+   ```
+
+**Note:** Haven't checked the contents of `env-shell.sh`.
 
 
 ---
@@ -42,7 +50,7 @@ To use Jupyter notebook in VS Code with the IceTray environment set up above, fo
 
 3. In a **separate terminal**, open an SSH tunnel to the compute node (replace `fc11020` with your actual node name):
    ```bash
-   ssh -N -L 8888:localhost:8888 fc11005
+   ssh -N -L 8888:localhost:8888 fc11020
    ```
    > Nothing will appear in this terminal. that is expected.
 
