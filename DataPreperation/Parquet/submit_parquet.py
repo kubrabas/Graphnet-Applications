@@ -16,6 +16,14 @@ For each flavor:
 Output parquet files go to the same parent as the PMT-response directory,
 with _PMT_Response replaced by _Parquet.
 Logs go to: /home/kbas/scratch/<mc_scratch>/Logs/<flavor>_<geometry>_Parquet/
+
+Skip / overwrite behaviour (per convert_parquet.py task):
+  --overwrite not set (default):
+      A task is skipped only if BOTH the output parquet (truth table) AND the
+      per-task log file already exist. If either one is missing the task re-runs
+      and overwrites whatever is there.
+  --overwrite set:
+      Every task re-runs unconditionally, overwriting existing parquet and log.
 """
 
 import argparse

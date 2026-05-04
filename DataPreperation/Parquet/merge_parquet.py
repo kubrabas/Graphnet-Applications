@@ -125,6 +125,52 @@ def build_splits(merged_raw: Path, merged_dir: Path, seed: int = 42) -> Dict[str
     return splits
 
 
+def summarize_conversion_logs(logdir: Path, flavor: str, geometry: str) -> None:
+    """Scan per-task log files, print aggregated conversion statistics,
+    and write a separate corrupt_files.log listing files that could not be opened."""
+    import re
+    summary_pattern = re.compile(
+        r"\[.+?\]\s+kept=(\d+)\s+noise_only=(\d+)\s+absent_pulsemap=(\d+)\s+corrupt_frames=(\d+)"
+    )
+    file_error_pattern = re.compile(r"\[FILE ERROR\] Could not open: (.+?)\s+error=")
+    merge_log_name = f"merge_{flavor}_{geometry}.out"
+
+    total_kept = total_noise = total_absent = total_corrupt = 0
+    files_parsed = 0
+    corrupt_files: List[str] = []
+
+    for log_file in sorted(logdir.glob("*.out")):
+        if log_file.name == merge_log_name:
+            continue
+        for line in log_file.read_text(errors="replace").splitlines():
+            m = summary_pattern.search(line)
+            if m:
+                total_kept    += int(m.group(1))
+                total_noise   += int(m.group(2))
+                total_absent  += int(m.group(3))
+                total_corrupt += int(m.group(4))
+                files_parsed  += 1
+            fe = file_error_pattern.search(line)
+            if fe:
+                corrupt_files.append(fe.group(1))
+
+    print(f"=== CONVERSION SUMMARY: FILE LEVEL ({files_parsed} tasks) ===")
+    print(f"  corrupt_files   : {len(corrupt_files)}  (files that could not be opened at all)")
+
+    corrupt_log = logdir / "corrupt_files.log"
+    if corrupt_files:
+        corrupt_log.write_text("\n".join(corrupt_files) + "\n")
+        print(f"  corrupt file list -> {corrupt_log}")
+    else:
+        corrupt_log.write_text("")
+
+    print(f"=== CONVERSION SUMMARY: EVENT LEVEL ===")
+    print(f"  kept            : {total_kept}")
+    print(f"  noise_only      : {total_noise}")
+    print(f"  absent_pulsemap : {total_absent}")
+    print(f"  corrupt_frames  : {total_corrupt}  (frames that could not be read)")
+
+
 def save_triggered_event_list(merged_raw: Path, mc: str, geometry: str, flavor: str) -> None:
     truth_files = sorted((merged_raw / "truth").glob("truth_*.parquet"))
     if not truth_files:
@@ -220,6 +266,12 @@ def main() -> int:
     try:
         merged_dir     = outdir / "merged"
         merged_raw_dir = outdir / "merged_raw"
+
+        # ----------------------------------------------------------------
+        # 0. Summarize per-task conversion logs
+        # ----------------------------------------------------------------
+        summarize_conversion_logs(logdir, args.flavor, args.geometry)
+        log_fh.flush()
 
         # ----------------------------------------------------------------
         # 1. Merge per-batch files into shuffled batches

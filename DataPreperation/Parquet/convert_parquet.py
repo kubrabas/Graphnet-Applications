@@ -27,6 +27,8 @@ import argparse
 import os
 import sys
 import time
+from datetime import datetime
+from zoneinfo import ZoneInfo
 from glob import glob
 from pathlib import Path
 from typing import List
@@ -86,7 +88,13 @@ def main() -> int:
     ap.add_argument("--task-id",   type=int, default=None,
                     help="Override SLURM_ARRAY_TASK_ID (for local testing)")
     ap.add_argument("--overwrite", action="store_true",
-                    help="Re-process even if output already exists")
+                    help=(
+                        "Overwrite behaviour: "
+                        "if --overwrite is NOT set, a task is skipped only when BOTH "
+                        "the output parquet (truth table) AND the log file already exist. "
+                        "If only one of them exists, the task re-runs and overwrites it. "
+                        "If --overwrite IS set, the task always re-runs regardless."
+                    ))
     args = ap.parse_args()
 
     if args.flavor not in VALID_FLAVORS:
@@ -123,8 +131,8 @@ def main() -> int:
     logfile = logdir / f"{args.flavor}_{args.geometry}_{stem}.out"
 
     truth_out = outdir / "truth" / f"{stem}_truth.parquet"
-    if truth_out.exists() and not args.overwrite:
-        print(f"[skip] already exists: {truth_out}")
+    if not args.overwrite and truth_out.exists() and logfile.exists():
+        print(f"[skip] parquet and log both exist: {stem}")
         return 0
 
     log_fh = open(logfile, "w")
@@ -186,10 +194,14 @@ def main() -> int:
     except Exception as e:
         elapsed = time.time() - t_start
         print(f"=== FAILED  elapsed={elapsed:.1f}s  error={e} ===")
+        _berlin = datetime.now(ZoneInfo("Europe/Berlin"))
+        print(f"@ {_berlin.strftime('%Y-%m-%d %H:%M:%S')} (Berlin)")
         log_fh.flush()
         log_fh.close()
         return 1
 
+    _berlin = datetime.now(ZoneInfo("Europe/Berlin"))
+    print(f"@ {_berlin.strftime('%Y-%m-%d %H:%M:%S')} (Berlin)")
     log_fh.flush()
     log_fh.close()
     return 0
