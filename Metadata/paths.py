@@ -93,6 +93,61 @@ SPRING2026MC_PMT = {
 }
 
 
+
+
+
+# ============================================================
+# Spring 2026 MC - Parquet (per flavor)
+# ============================================================
+
+SPRING2026MC_PARQUET = {
+    "strings_102_40m": {
+        "Muon":     {"train": None, "val": None, "test": None, "percentiles_csv": None},
+        "Electron": {"train": None, "val": None, "test": None, "percentiles_csv": None},
+        "Tau":      {"train": None, "val": None, "test": None, "percentiles_csv": None},
+        "NC":       {"train": None, "val": None, "test": None, "percentiles_csv": None},
+    },
+    "strings_102_80m": {
+        "Muon":     {"train": None, "val": None, "test": None, "percentiles_csv": None},
+        "Electron": {"train": None, "val": None, "test": None, "percentiles_csv": None},
+        "Tau":      {"train": None, "val": None, "test": None, "percentiles_csv": None},
+        "NC":       {"train": None, "val": None, "test": None, "percentiles_csv": None},
+    },
+    "full_geometry": {
+        "Muon":     {"train": None, "val": None, "test": None, "percentiles_csv": None},
+        "Electron": {"train": None, "val": None, "test": None, "percentiles_csv": None},
+        "Tau":      {"train": None, "val": None, "test": None, "percentiles_csv": None},
+        "NC":       {"train": None, "val": None, "test": None, "percentiles_csv": None},
+    },
+}
+
+
+# ============================================================
+# Spring 2026 MC - Parquet (mixed / multi-flavor)
+# ============================================================
+
+SPRING2026MC_PARQUET_MIXED = {
+    "strings_102_40m": {
+        "train": None, "val": None, "test": None, "percentiles_csv": None,
+        "flavors": ["Muon", "Electron", "Tau", "NC"],
+    },
+    "strings_102_80m": {
+        "train": None, "val": None, "test": None, "percentiles_csv": None,
+        "flavors": ["Muon", "Electron", "Tau", "NC"],
+    },
+    "full_geometry": {
+        "train": None, "val": None, "test": None, "percentiles_csv": None,
+        "flavors": ["Muon", "Electron", "Tau", "NC"],
+    },
+}
+
+
+
+
+
+
+
+
 # ============================================================
 # 340 String MC - I3 Folders
 # ============================================================
@@ -201,6 +256,56 @@ STRING340MC_PMT = {
         "Electron": {"path": None, "format": None},
         "Tau":      {"path": None, "format": None},
         "NC":       {"path": None, "format": None},
+    },
+}
+
+
+# ============================================================
+# 340 String MC - Parquet (per flavor)
+# ============================================================
+# Each entry: train/val/test -> path to merged/*_reindexed dir
+#             percentiles_csv -> RobustScaler percentiles CSV
+
+STRING340MC_PARQUET = {
+    "102_string": {
+        "Muon":     {"train": None, "val": None, "test": None, "percentiles_csv": None},
+        "Electron": {"train": None, "val": None, "test": None, "percentiles_csv": None},
+        "Tau":      {"train": None, "val": None, "test": None, "percentiles_csv": None},
+        "NC":       {"train": None, "val": None, "test": None, "percentiles_csv": None},
+    },
+    "160_string": {
+        "Muon":     {"train": None, "val": None, "test": None, "percentiles_csv": None},
+        "Electron": {"train": None, "val": None, "test": None, "percentiles_csv": None},
+        "Tau":      {"train": None, "val": None, "test": None, "percentiles_csv": None},
+        "NC":       {"train": None, "val": None, "test": None, "percentiles_csv": None},
+    },
+    "full_geometry": {
+        "Muon":     {"train": None, "val": None, "test": None, "percentiles_csv": None},
+        "Electron": {"train": None, "val": None, "test": None, "percentiles_csv": None},
+        "Tau":      {"train": None, "val": None, "test": None, "percentiles_csv": None},
+        "NC":       {"train": None, "val": None, "test": None, "percentiles_csv": None},
+    },
+}
+
+
+# ============================================================
+# 340 String MC - Parquet (mixed / multi-flavor)
+# ============================================================
+# Use when events from multiple flavors are merged into one dataset.
+# "flavors" field documents which flavors were combined.
+
+STRING340MC_PARQUET_MIXED = {
+    "102_string": {
+        "train": None, "val": None, "test": None, "percentiles_csv": None,
+        "flavors": ["Muon", "Electron", "Tau", "NC"],
+    },
+    "160_string": {
+        "train": None, "val": None, "test": None, "percentiles_csv": None,
+        "flavors": ["Muon", "Electron", "Tau", "NC"],
+    },
+    "full_geometry": {
+        "train": None, "val": None, "test": None, "percentiles_csv": None,
+        "flavors": ["Muon", "Electron", "Tau", "NC"],
     },
 }
 

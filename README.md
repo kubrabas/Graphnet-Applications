@@ -55,3 +55,55 @@ To use Jupyter notebook in VS Code with the IceTray environment set up above, fo
    > Nothing will appear in this terminal. that is expected.
 
 4. In VS Code, open a Jupyter notebook, click **Select Kernel** → **Existing Jupyter Server**, paste the URL from step 2, and give the server a name. Then select **Python 3 (ipykernel)**.
+
+---
+
+# Monitoring Slurm Jobs
+
+To check the status of your submitted jobs on the cluster:
+
+```bash
+squeue -u kbas --format="%.18i %.12P %.50j %.8u %.8T %.10M %.10l %.6D %R"
+```
+
+This lists all jobs for user `kbas` with the following columns:
+
+| Column | Description |
+|--------|-------------|
+| `JOBID` | Unique job ID assigned by Slurm |
+| `PARTITION` | The partition (queue) the job was submitted to |
+| `NAME` | Job name (up to 50 characters) |
+| `USER` | Username who submitted the job |
+| `STATE` | Current job state (e.g. `PENDING`, `RUNNING`, `COMPLETED`) |
+| `TIME` | How long the job has been running |
+| `TIME_LIMIT` | Maximum allowed runtime |
+| `NODES` | Number of nodes allocated |
+| `NODELIST(REASON)` | Node(s) the job runs on, or the reason it is still pending |
+
+## Checking Job Success via Log Files
+
+To summarize how many jobs completed successfully vs. failed, by checking the log files:
+
+```bash
+BASE="/home/kbas/scratch/String340MC/Logs"
+LINE=21
+
+for FLAVOR in Electron Muon Tau NC; do
+    DIR="${BASE}/${FLAVOR}_pmt_response_102_String"
+    if [ -d "$DIR" ]; then
+        TOTAL=$(ls "$DIR" | wc -l)
+        SUCCESS=$(for f in "$DIR"/*; do sed -n "${LINE}p" "$f"; done | grep -c "SUCCESS")
+        echo "${FLAVOR}: Total=$TOTAL | SUCCESS=$SUCCESS | FAILED=$((TOTAL - SUCCESS))"
+    else
+        echo "${FLAVOR}: directory not found ($DIR)"
+    fi
+done
+```
+
+For each neutrino flavor (`Electron`, `Muon`, `Tau`, `NC`), this script:
+1. Looks for the corresponding log directory under `BASE`
+2. Counts the total number of log files
+3. Reads line `LINE` (default: 21) of every log file and counts how many contain the word `SUCCESS`
+4. Prints a summary: total jobs, successful jobs, and failed jobs (= total − success)
+
+Change `LINE` if the success/failure status is written on a different line in your log files.
