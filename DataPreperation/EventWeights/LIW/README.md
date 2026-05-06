@@ -5,17 +5,18 @@
 
 This section summarizes my current interpretation of the LIW weights produced
 with LeptonWeighter. The interpretation is based on the LeptonWeighter source
-code and on the *LeptonWeighter Design and Specifications* document that is quoted below under Section 2.
+code and on the *LeptonWeighter Design and Specifications* document quoted below
+in Section 2.
 
-In particular, in section 2, it is stated that the flux used by the weighter as an
-input is the neutrino flux **arriving** at the detector. In this analysis, I use a
-constant flux, so this means that I am analyzing a flux that is constant **at the detector**,
-both in energy and in direction. If necessary, a physical atmospheric or
-astrophysical flux model can also be used. Question: as far as I understand, a
-unit flux model should be used in effective-area studies. Is that correct?
+In particular, Section 2 states that the flux used by the weighter as an input is
+the neutrino flux **arriving** at the detector. In this analysis, I use a constant
+flux. Therefore, I interpret the result as an analysis under a flux that is
+constant at the detector, both in energy and in direction. If needed, a physical
+atmospheric or astrophysical flux model can also be used instead. My current
+question is: for effective-area studies, is using a unit flux model the correct
+choice?
 
-
-A useful way to read the sum(LIW) plots is:
+A useful way to read the `sum(LIW)` plots is:
 
 ```text
 sum(LIW) is an expected interaction-contribution distribution, not a flux distribution.
@@ -30,24 +31,37 @@ generation geometry, and the event's `totalColumnDepth`.
 Figure: The unweighted `cos(zenith)` distribution is approximately flat, as
 expected from uniform direction generation. The LIW-weighted distribution is not
 a flux histogram; it shows the expected interaction contribution under a unit
-neutrino flux arriving at the detector. the plot on the right is weird for me and so I suspect if I calculated LIW correctly.
+neutrino flux arriving at the detector. The plot on the right is surprising to
+me, so I want to check carefully whether I am interpreting and calculating LIW
+correctly.
 
-As we can see, the expected interaction contribution is highly dependent on zenith. I think this may be due to the total column depth that the neutrino travels through the Earth. To update/check this interpretation, I also plotted zenith versus total column depth below.
+As shown in the figure, the expected interaction contribution depends strongly on
+zenith. I think this may be related to the total column depth that the neutrino
+travels through the Earth. To check this interpretation, I also plotted
+`cos(zenith)` versus `totalColumnDepth` below.
 
-Why the zenith dependence of LIW feels weird to me:
+Why the zenith dependence of LIW feels confusing to me:
 
-If the flux model used in LeptonWeighter were the flux outside the Earth, rather than the flux at the P-ONE detector, this would make more intuitive sense to me. But according to the LeptonWeighter specification, this is not the case. The flux is the neutrino flux arriving at the detector. This raises the following question for me:
+If the flux model used in LeptonWeighter were the flux outside the Earth, rather
+than the flux arriving at the P-ONE detector, this zenith dependence would feel
+more intuitive. However, according to the LeptonWeighter specification, this is
+not the convention: the flux is the neutrino flux arriving at the detector. This
+raises the following question for me.
 
-In LeptonInjector, aren’t we already assuming that the neutrino has passed through the Earth and arrived near the detector? The whole LeptonInjector model seems to be built around this idea. It forces/generates the neutrino interaction. If that is the case, why should the amount of column depth traveled affect the final weight? The probability for a neutrino to interact is not something that simply accumulates as “the more material it crosses, the more likely it is to interact”... or is it? :D
+In LeptonInjector, are we not already assuming that the neutrino has passed
+through the Earth and arrived near the detector? The LeptonInjector model seems
+to generate neutrino interactions in the vicinity of the detector. If that is the
+case, why should the amount of column depth traveled affect the final weight? Is
+the probability for a neutrino to interact really something that accumulates as
+"the more material it crosses, the more likely it is to interact"?
 
-I checked the source codes. The formula is the following:
-
+I checked the LeptonWeighter source code. The relevant schematic formula is:
 
 ```text
 P_interact = 1 - exp(-sigma_total * N_A * X)
 ```
 
-X is the total column depth. 
+Here, `X` is the total column depth.
 
 This comes from the LeptonWeighter generator-probability source code:
 
@@ -70,17 +84,20 @@ For small interaction probability, this becomes approximately:
 P_interact ~= sigma_total * N_A * X
 ```
 
+According to this formula, LIW clearly depends on `X`. As mentioned above, I do
+not yet understand this intuitively. Either I am misunderstanding the overall
+logic of LeptonWeighter, or I am only misunderstanding the meaning of this
+specific formula and how the column-depth dependence enters the weight.
 
-According to this formula, obviously LIW depends on X. So as I mentioned above, I dont understand this intuitively. Either I am misunderstanding the overall logic of LeptonWeighter, or I am only misunderstanding the meaning of this specific formula and how the column-depth dependence enters the weight.
-
-
-The second plot is the effective area plot:
+The second plot is the effective-area plot:
 
 ![Muon effective area by local zenith band](figures/muon_effective_area_by_local_zenith_band.png)
 
 Figure: Muon generation-level effective area as a function of energy, split by
 local `cos(zenith)` band. This includes all generated events, not only triggered
-or selected events. When I compare effective area of different layouts (70 string base, 102 string ROV constraied etc), I will simply include only the events that are triggered by a specific layout.
+or selected events. When I compare effective areas for different layouts, such as
+the 70-string baseline or the 102-string ROV-constrained layout, I plan to keep
+only the events triggered by each specific layout.
 
 For an energy bin and a local zenith band, the effective area is computed as:
 
@@ -120,6 +137,35 @@ Similarly, `sum(LIW)` versus zenith answers:
 If a unit neutrino flux arrived from each direction, how much interaction contribution would each zenith bin produce?
 ```
 
+### My Plan (Please correct me if this does not make sense)
+
+The goal is to compare different detector layouts. I calculated event weights
+using all available events. Ideally, I think the correct pipeline is:
+
+1. Calculate event weights from the available data and store them in a table such
+   as:
+
+```text
+EventID, LIW
+1, 3
+2, 8
+...
+```
+
+2. For a given detector layout, take the subset of events triggered by that
+   layout. In other words, select the corresponding events from the table from the first step.
+   Then use those selected events and their LIW values to compute the effective
+   area using the formula above. Repeat this for each geometry.
+
+3. To understand whether the comparison is statistically meaningful, also compute
+   `sigma(A_eff)` for each effective-area curve. Then draw the effective-area
+   curves for the compared geometries on the same plot. My current interpretation
+   is that if the curves differ by more than the statistical uncertainty bands,
+   then the difference in effective area is statistically meaningful.
+
+4. I may also use Maria's figure of merit from MSU as an additional comparison
+   metric.
+
 ### Some Other Helper Plots
 
 ![P-ONE zenith convention](figures/PONE.png)
@@ -132,10 +178,6 @@ P-ONE local coordinate convention.
 Figure: The event `totalColumnDepth` depends strongly on local zenith. This helps
 explain why the LIW-weighted zenith distribution is not flat under a unit
 arriving flux.
-
-
-
-
 
 ## LeptonWeighter Specification
 
