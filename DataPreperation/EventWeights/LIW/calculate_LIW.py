@@ -1,24 +1,22 @@
 """
-Calculate LeptonInjector one-weights for ONE batch ID per Slurm array task.
+Calculate LeptonInjector one-weights for ALL batch IDs in a single Slurm job.
 
-Each task:
-  1. Scans lic_dir for *.lic files and photon_dir for photon i3 files.
-  2. Intersects batch IDs (LIC ∩ photon), sorts, picks entry at SLURM_ARRAY_TASK_ID.
-  3. Finds gen i3 file by batch_id in lic_dir.
-  4. Reads gen EventProperties, builds LW.Weighter, iterates photon events.
-  5. Writes partial CSV (raw oneweight, no scaling):  <outdir>/<Flavor>_<batch_id>.csv
-  6. Logs to:                                         <logdir>/<Flavor>_<batch_id>.out
+Processes files in parallel using multiprocessing. Outputs:
+  <outdir>/<Flavor>_LIW.csv           — final per-event weights
+  <logdir>/<Flavor>_file_stats.csv    — per-file processing stats
+  <logdir>/<Flavor>_compute.out       — run log
 
-Run merge_LIW.py after all tasks finish to merge CSVs and compute final LIW.
+LIW = oneweight / n_accessible_events  (total events successfully processed)
 
-Usage (local test):
-    python3 calculate_LIW.py --mc 340StringMC --flavor Muon \
-        --lic-dir /path/to/Generator --photon-dir /path/to/Photon \
-        --photon-pattern '*.i3' --outdir /tmp/out --logdir /tmp/log \
-        --task-id 0
+Usage:
+    python3 calculate_LIW.py --mc 340StringMC --flavor Muon \\
+        --lic-dir /path/to/Generator --photon-dir /path/to/Photon \\
+        --photon-pattern '*.i3' --outdir /tmp/out --logdir /tmp/log \\
+        [--workers 8] [--overwrite]
 """
 
 import argparse
+import multiprocessing
 import os
 import re
 import sys
@@ -49,48 +47,38 @@ LW_PARTICLE_FROM_PDG = {
     -14: LW.NuMuBar,
     16: LW.NuTau,
     -16: LW.NuTauBar,
-
     11: LW.EMinus,
     -11: LW.EPlus,
     13: LW.MuMinus,
     -13: LW.MuPlus,
     15: LW.TauMinus,
     -15: LW.TauPlus,
-
     -2000001006: LW.Hadrons,
 }
 
+# Per-worker cross-section object; initialised once per worker process.
+_xs = None
+
+
+# ---------------------------------------------------------------------------
+# Shared helpers
+# ---------------------------------------------------------------------------
 
 def to_lw_particle(particle_type):
-    """Convert EventProperties particle type / PDG code to LeptonWeighter particle type."""
     particle_type = int(particle_type)
-
     if particle_type not in LW_PARTICLE_FROM_PDG:
         raise ValueError(f"Unsupported particle type for LeptonWeighter: {particle_type}")
-
     return LW_PARTICLE_FROM_PDG[particle_type]
 
 
 def get_lw_particles_from_event_properties(props):
-    """
-    Get event-by-event LW particle types from EventProperties.
-
-    This is needed because the LIC contains both neutrino and antineutrino generators.
-    Therefore primary/final-state particles must not be hard-coded by flavor.
-    """
     primary = to_lw_particle(props.initialType)
     fs0 = to_lw_particle(props.finalType1)
     fs1 = to_lw_particle(props.finalType2)
-
     return primary, fs0, fs1
 
 
-# ---------------------------------------------------------------------------
-# File discovery
-# ---------------------------------------------------------------------------
-
 def extract_batch_id(filepath: Path) -> Optional[str]:
-    """Return the numeric string immediately before the extension(s), preserving leading zeros."""
     m = re.search(r'(\d+)(?:\.[^.]+)+$', filepath.name)
     return m.group(1) if m else None
 
@@ -108,20 +96,8 @@ def build_id_map(directory: str, *patterns: str) -> Dict[str, Path]:
     return result
 
 
-def get_sorted_common(lic_dir: str, photon_dir: str, photon_pattern: str) -> List[str]:
-    """Intersection of LIC batch IDs and photon batch IDs, sorted."""
-    lic_ids = set(build_id_map(lic_dir, "*.lic"))
-    photon_ids = set(build_id_map(photon_dir, photon_pattern))
-    return sorted(lic_ids & photon_ids)
-
-
-# ---------------------------------------------------------------------------
-# Processing
-# ---------------------------------------------------------------------------
-
 def load_xs():
-    # NOTE:
-    # This intentionally uses neutrino cross-section files for both nu and nubar,
+    # NOTE: intentionally uses neutrino XS files for both nu and nubar,
     # matching the production convention of this dataset.
     return LW.CrossSectionFromSpline(
         XS_PATH + "dsdxdy_nu_CC_iso.fits",
@@ -132,7 +108,6 @@ def load_xs():
 
 
 def read_gen_props(gen_file: Path) -> Optional[Dict]:
-    """Read EventProperties from generator i3. Returns None if file is completely corrupt."""
     props = {}
     try:
         f = dataio.I3File(str(gen_file))
@@ -151,67 +126,83 @@ def read_gen_props(gen_file: Path) -> Optional[Dict]:
     return props
 
 
-def process_batch(
-    batch_id: str,
-    lic_dir: str,
-    photon_dir: str,
-    photon_pattern: str,
-    flavor: str,
-    xs,
-) -> Tuple[Optional[List[dict]], Optional[str]]:
-    """
-    Returns (records, None) on success or (None, corrupt_file_path) on a completely
-    corrupt file. Corrupt events within a photon file are silently skipped.
-    Records contain raw oneweight (no scaling).
-    """
-    lic_map = build_id_map(lic_dir, "*.lic")
-    photon_map = build_id_map(photon_dir, photon_pattern)
-    gen_map = build_id_map(lic_dir, "*.i3", "*.i3.gz", "*.i3.zst")
+# ---------------------------------------------------------------------------
+# Worker
+# ---------------------------------------------------------------------------
 
-    lic_f = lic_map[batch_id]
-    photon_f = photon_map[batch_id]
+def _worker_init():
+    global _xs
+    _xs = load_xs()
 
-    if batch_id not in gen_map:
-        return None, f"gen file missing for batch_id={batch_id} in {lic_dir}"
-    gen_f = gen_map[batch_id]
 
-    gen_props = read_gen_props(gen_f)
+def _process_one(args: tuple) -> tuple:
+    """Process one batch. Returns (batch_id, records, stat_dict)."""
+    batch_id, lic_path, photon_path, gen_path = args
+    t0 = time.time()
+
+    stat = {
+        "batch_id": batch_id,
+        "i3_file": photon_path,
+        "lic_file": lic_path,
+        "gen_file": gen_path,
+        "status": "",
+        "file_opened_ok": False,
+        "n_events_total": 0,
+        "n_events_ok": 0,
+        "n_events_skipped": 0,
+        "n_frames_corrupt": 0,
+        "duration_s": 0.0,
+    }
+
+    gen_props = read_gen_props(Path(gen_path))
     if gen_props is None:
-        return None, str(gen_f)
+        stat["status"] = "corrupt_gen"
+        stat["duration_s"] = time.time() - t0
+        return batch_id, [], stat
 
     try:
-        generators = LW.MakeGeneratorsFromLICFile(str(lic_f))
-        weighter = LW.Weighter(LW.ConstantFlux(1.0), xs, generators)
+        generators = LW.MakeGeneratorsFromLICFile(lic_path)
+        weighter = LW.Weighter(LW.ConstantFlux(1.0), _xs, generators)
     except Exception as e:
-        return None, f"{lic_f}  ({e})"
+        stat["status"] = f"lic_error: {e}"
+        stat["duration_s"] = time.time() - t0
+        return batch_id, [], stat
 
     records = []
+    n_total = 0
+    n_ok = 0
+    n_skipped = 0
+    n_corrupt = 0
 
     try:
-        f = dataio.I3File(str(photon_f))
+        f = dataio.I3File(photon_path)
+        stat["file_opened_ok"] = True
         while f.more():
             try:
                 frame = f.pop_frame()
             except RuntimeError:
-                continue  # corrupt event – skip silently
+                n_corrupt += 1
+                continue
 
             if frame.Stop != icetray.I3Frame.DAQ:
                 continue
             if not frame.Has("I3EventHeader"):
                 continue
 
+            n_total += 1
             hdr = frame["I3EventHeader"]
             eid = (hdr.run_id, hdr.sub_run_id, hdr.event_id, hdr.sub_event_id)
 
             if eid not in gen_props:
+                n_skipped += 1
                 continue
 
             props = gen_props[eid]
 
             try:
                 primary, fs0, fs1 = get_lw_particles_from_event_properties(props)
-            except ValueError as e:
-                print(f"[skip] RunID={hdr.run_id} EventID={hdr.event_id}: {e}")
+            except ValueError:
+                n_skipped += 1
                 continue
 
             event = LW.Event()
@@ -220,11 +211,9 @@ def process_batch(
             event.azimuth = props.azimuth
             event.interaction_x = props.finalStateX
             event.interaction_y = props.finalStateY
-
             event.primary_type = primary
             event.final_state_particle_0 = fs0
             event.final_state_particle_1 = fs1
-
             event.radius = props.impactParameter
             event.total_column_depth = props.totalColumnDepth
             event.x = props.x
@@ -236,27 +225,31 @@ def process_batch(
                 "SubrunID": hdr.sub_run_id,
                 "EventID": hdr.event_id,
                 "SubEventID": hdr.sub_event_id,
-
                 "energy": props.totalEnergy,
                 "zenith": props.zenith,
                 "azimuth": props.azimuth,
                 "finalStateX": props.finalStateX,
                 "finalStateY": props.finalStateY,
                 "columnDepth": props.totalColumnDepth,
-
                 "initialType": int(props.initialType),
                 "finalType1": int(props.finalType1),
                 "finalType2": int(props.finalType2),
-
                 "oneweight": weighter.get_oneweight(event),
             })
+            n_ok += 1
 
         f.close()
+        stat["status"] = "ok"
 
     except RuntimeError:
-        return None, str(photon_f)
+        stat["status"] = "corrupt_i3"
 
-    return records, None
+    stat["n_events_total"] = n_total
+    stat["n_events_ok"] = n_ok
+    stat["n_events_skipped"] = n_skipped
+    stat["n_frames_corrupt"] = n_corrupt
+    stat["duration_s"] = time.time() - t0
+    return batch_id, records, stat
 
 
 # ---------------------------------------------------------------------------
@@ -272,7 +265,8 @@ def main() -> int:
     ap.add_argument("--photon-pattern", required=True, help="e.g. '*.i3' or '*.i3.zst'")
     ap.add_argument("--outdir", required=True)
     ap.add_argument("--logdir", required=True)
-    ap.add_argument("--task-id", type=int, default=None)
+    ap.add_argument("--workers", type=int, default=None,
+                    help="parallel workers (default: all available CPUs)")
     ap.add_argument("--overwrite", action="store_true")
     args = ap.parse_args()
 
@@ -280,91 +274,156 @@ def main() -> int:
         print(f"ERROR: unknown flavor '{args.flavor}'. Choices: {sorted(VALID_FLAVORS)}")
         return 1
 
-    outdir = Path(args.outdir)
-    logdir = Path(args.logdir)
+    outdir  = Path(args.outdir)
+    logdir  = Path(args.logdir)
     outdir.mkdir(parents=True, exist_ok=True)
     logdir.mkdir(parents=True, exist_ok=True)
 
-    array_job_id = os.environ.get("SLURM_ARRAY_JOB_ID", "unknown")
-    array_task_id = os.environ.get("SLURM_ARRAY_TASK_ID", "unknown")
-    job_id = os.environ.get("SLURM_JOB_ID", "unknown")
+    outfile   = outdir / f"{args.flavor}_LIW.csv"
+    statsfile = logdir / f"{args.flavor}_file_stats.csv"
+    logfile   = logdir / f"{args.flavor}_compute.out"
 
-    if args.task_id is not None:
-        task_id = args.task_id
-    else:
-        task_id = int(os.environ.get("SLURM_ARRAY_TASK_ID", "-1"))
-        if task_id < 0:
-            print("ERROR: SLURM_ARRAY_TASK_ID not set. Use --task-id for local testing.")
-            return 2
-
-    common = get_sorted_common(args.lic_dir, args.photon_dir, args.photon_pattern)
-    if not common:
-        print("ERROR: No matched batch IDs found.")
-        return 3
-    if not (0 <= task_id < len(common)):
-        print(f"ERROR: task_id={task_id} out of range (0..{len(common) - 1})")
-        return 4
-
-    batch_id = common[task_id]
-    outfile = outdir / f"{args.flavor}_{batch_id}.csv"
-    logfile = logdir / f"{args.flavor}_{batch_id}.out"
-
-    if outfile.exists() and logfile.exists() and not args.overwrite:
-        print(f"[skip] both exist: {outfile.name}, {logfile.name}")
+    if outfile.exists() and not args.overwrite:
+        print(f"[skip] output already exists: {outfile}  (use --overwrite to reprocess)")
         return 0
 
+    workers = args.workers or os.cpu_count() or 1
+
     log_fh = open(logfile, "w")
-    sys.stdout = log_fh
-    sys.stderr = log_fh
 
-    t_start = time.time()
-    print("=== LIW JOB STARTED ===")
-    print(f"array_job_id  : {array_job_id}")
-    print(f"array_task_id : {array_task_id}")
-    print(f"job_id        : {job_id}")
-    print(f"mc            : {args.mc}")
-    print(f"flavor        : {args.flavor}")
-    print(f"batch_id      : {batch_id}")
-    print(f"task_id       : {task_id} / {len(common) - 1}")
-    print(f"outfile       : {outfile}")
-    print(f"logfile       : {logfile}")
-    log_fh.flush()
+    def log(msg: str) -> None:
+        print(msg, file=log_fh, flush=True)
+        print(msg, flush=True)
 
+    t_job_start = time.time()
+    log("=== LIW JOB STARTED ===")
+    log(f"job_id    : {os.environ.get('SLURM_JOB_ID', 'unknown')}")
+    log(f"host      : {os.uname().nodename}")
+    log(f"mc        : {args.mc}")
+    log(f"flavor    : {args.flavor}")
+    log(f"workers   : {workers}")
+    log(f"lic_dir   : {args.lic_dir}")
+    log(f"photon_dir: {args.photon_dir}")
+    log(f"pattern   : {args.photon_pattern}")
+    log(f"outfile   : {outfile}")
+    log(f"statsfile : {statsfile}")
+    log(f"logfile   : {logfile}")
+
+    # ------------------------------------------------------------------
+    # Build file maps once in the main process
+    # ------------------------------------------------------------------
     try:
-        xs = load_xs()
-        records, corrupt = process_batch(
-            batch_id,
-            args.lic_dir,
-            args.photon_dir,
-            args.photon_pattern,
-            args.flavor,
-            xs,
-        )
-
-        if corrupt is not None:
-            print("\n=== Completely Corrupt Files ===")
-            print(f"  {corrupt}")
-            elapsed = time.time() - t_start
-            print(f"=== FAILED  elapsed={elapsed:.1f}s ===")
-            log_fh.flush()
-            log_fh.close()
-            return 1
-
-        df = pd.DataFrame(records)
-        df.to_csv(str(outfile), index=False)
-
-        elapsed = time.time() - t_start
-        print(f"events_written : {len(df)}")
-        print(f"=== SUCCESS  elapsed={elapsed:.1f}s ===")
-
-    except Exception as e:
-        elapsed = time.time() - t_start
-        print(f"=== FAILED  elapsed={elapsed:.1f}s  error={e} ===")
-        log_fh.flush()
+        lic_map    = build_id_map(args.lic_dir, "*.lic")
+        photon_map = build_id_map(args.photon_dir, args.photon_pattern)
+        gen_map    = build_id_map(args.lic_dir, "*.i3", "*.i3.gz", "*.i3.zst")
+    except FileNotFoundError as e:
+        log(f"ERROR: {e}")
         log_fh.close()
         return 1
 
-    log_fh.flush()
+    common = sorted(set(lic_map) & set(photon_map))
+    log(f"\nbatches   : {len(common)} (lic={len(lic_map)} photon={len(photon_map)} gen={len(gen_map)})")
+
+    # ------------------------------------------------------------------
+    # Build task list; record gen_missing batches immediately
+    # ------------------------------------------------------------------
+    tasks: List[tuple] = []
+    all_stats: List[dict] = []
+
+    for bid in common:
+        if bid not in gen_map:
+            all_stats.append({
+                "batch_id": bid,
+                "i3_file": str(photon_map[bid]),
+                "lic_file": str(lic_map[bid]),
+                "gen_file": "",
+                "status": "gen_missing",
+                "file_opened_ok": False,
+                "n_events_total": 0,
+                "n_events_ok": 0,
+                "n_events_skipped": 0,
+                "n_frames_corrupt": 0,
+                "duration_s": 0.0,
+            })
+        else:
+            tasks.append((bid, str(lic_map[bid]), str(photon_map[bid]), str(gen_map[bid])))
+
+    n_gen_missing = len(all_stats)
+    log(f"tasks     : {len(tasks)} to process  ({n_gen_missing} skipped: gen file missing)")
+
+    if not tasks:
+        log("ERROR: no tasks to process.")
+        log_fh.close()
+        return 1
+
+    # ------------------------------------------------------------------
+    # Process in parallel
+    # ------------------------------------------------------------------
+    all_records: List[dict] = []
+
+    with multiprocessing.Pool(workers, initializer=_worker_init) as pool:
+        for i, (batch_id, records, stat) in enumerate(
+            pool.imap_unordered(_process_one, tasks), 1
+        ):
+            all_records.extend(records)
+            all_stats.append(stat)
+            log(
+                f"[{i:>{len(str(len(tasks)))}}/{len(tasks)}] {batch_id}"
+                f"  {stat['status']:<20}"
+                f"  n_ok={stat['n_events_ok']}"
+                f"  n_skip={stat['n_events_skipped']}"
+                f"  n_corrupt_frames={stat['n_frames_corrupt']}"
+                f"  t={stat['duration_s']:.1f}s"
+            )
+
+    # ------------------------------------------------------------------
+    # Write file-level stats CSV
+    # ------------------------------------------------------------------
+    stats_df = pd.DataFrame(all_stats).sort_values("batch_id").reset_index(drop=True)
+    stats_df.to_csv(str(statsfile), index=False)
+
+    n_ok_files   = (stats_df["status"] == "ok").sum()
+    n_total_files = len(common)
+    log(f"\n--- Summary ---")
+    log(f"files ok          : {n_ok_files} / {n_total_files}")
+    log(f"files corrupt_i3 : {(stats_df['status'] == 'corrupt_i3').sum()}")
+    log(f"files corrupt_gen    : {(stats_df['status'] == 'corrupt_gen').sum()}")
+    log(f"files lic_error      : {stats_df['status'].str.startswith('lic_error').sum()}")
+    log(f"files gen_missing    : {(stats_df['status'] == 'gen_missing').sum()}")
+    log(f"stats CSV written : {statsfile}")
+
+    # ------------------------------------------------------------------
+    # Write final LIW CSV
+    # ------------------------------------------------------------------
+    if not all_records:
+        log("=== WARNING: no events processed successfully — output CSV not written ===")
+        elapsed = time.time() - t_job_start
+        log(f"=== FAILED  elapsed={elapsed:.1f}s ===")
+        log_fh.close()
+        return 1
+
+    N_GEN_PER_FILE = 100  # generated events per particle type per LIC file
+
+    df = pd.DataFrame(all_records)
+
+    nu_mask     = df["initialType"] > 0
+    antinu_mask = df["initialType"] < 0
+
+    n_accessible_nu     = nu_mask.sum()
+    n_accessible_antinu = antinu_mask.sum()
+
+    df.loc[nu_mask,     "LIW"] = df.loc[nu_mask,     "oneweight"] * N_GEN_PER_FILE / n_accessible_nu
+    df.loc[antinu_mask, "LIW"] = df.loc[antinu_mask, "oneweight"] * N_GEN_PER_FILE / n_accessible_antinu
+
+    log(f"accessible nu     : {n_accessible_nu}")
+    log(f"accessible antinu : {n_accessible_antinu}")
+
+    df.to_csv(str(outfile), index=False)
+
+    elapsed = time.time() - t_job_start
+    log(f"LIW CSV written   : {outfile}  ({len(df)} events)")
+    log(f"=== SUCCESS  elapsed={elapsed:.1f}s ===")
+
     log_fh.close()
     return 0
 

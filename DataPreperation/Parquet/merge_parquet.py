@@ -12,8 +12,8 @@ After all convert_parquet.py SLURM array tasks finish, this script:
 
 Usage:
     python3 merge_parquet.py --mc 340StringMC --flavor Electron --geometry 102_string \\
-        --outdir /home/kbas/scratch/String340MC/102_String/Electron_Parquet \\
-        --logdir /home/kbas/scratch/String340MC/Logs/Electron_102_String_Parquet
+        --outdir /home/kbas/scratch/String340MC/102_string/Electron_Parquet \\
+        --logdir /home/kbas/scratch/String340MC/Logs/Electron_102_string_Parquet
 """
 
 import argparse

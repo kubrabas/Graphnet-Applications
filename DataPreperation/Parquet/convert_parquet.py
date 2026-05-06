@@ -14,10 +14,10 @@ Run merge_parquet.py after this script finishes to merge batches and build split
 Usage (local test):
     python3 convert_parquet.py --mc 340StringMC --flavor Electron \\
         --geometry 102_string \\
-        --indir /home/kbas/scratch/String340MC/102_String/Electron_PMT_Response \\
+        --indir /home/kbas/scratch/String340MC/102_string/Electron_PMT_Response \\
         --gcd /path/to/gcd.i3.gz \\
-        --outdir /home/kbas/scratch/String340MC/102_String/Electron_Parquet \\
-        --logdir /home/kbas/scratch/String340MC/Logs/Electron_102_String_Parquet \\
+        --outdir /home/kbas/scratch/String340MC/102_string/Electron_Parquet \\
+        --logdir /home/kbas/scratch/String340MC/Logs/Electron_102_string_Parquet \\
         --nworkers 4
 
 Shell script note:
@@ -49,7 +49,6 @@ from graphnet.data.writers import ParquetWriter
 # ---------------------------------------------------------------------------
 
 VALID_FLAVORS = {"Muon", "Electron", "Tau", "NC"}
-FEATURE_EXCLUDE = []
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -90,17 +89,18 @@ def _process_one(infile: Path, outdir: Path, logdir: Path, cfg: dict) -> tuple:
     stem      = stem_from_i3(str(infile))
     logfile   = logdir / f"{cfg['flavor']}_{cfg['geometry']}_{stem}.out"
     truth_out = outdir / "truth" / f"{stem}_truth.parquet"
+    features_out = outdir / "features" / f"{stem}_features.parquet"
 
-    # Skip check: both outputs must exist AND logfile must confirm SUCCESS
-    if truth_out.exists() and logfile.exists():
+    # Skip check: expected outputs must exist AND logfile must confirm SUCCESS
+    if truth_out.exists() and features_out.exists() and logfile.exists():
         try:
             if "=== SUCCESS" in logfile.read_text(errors="replace"):
                 return ("skipped", infile.name)
         except OSError:
             pass
 
-    # Clean up any orphaned partial outputs before reprocessing
-    for p in (logfile, truth_out):
+    # Clean up old outputs/logs before reprocessing this file.
+    for p in (logfile, truth_out, features_out):
         try:
             if p.exists():
                 p.unlink()
@@ -139,11 +139,10 @@ def _process_one(infile: Path, outdir: Path, logdir: Path, cfg: dict) -> tuple:
             I3FeatureExtractorPONE(
                 pulsemap=cfg["pulsemap"],
                 name="features",
-                exclude=FEATURE_EXCLUDE,
+                exclude=[],
             ),
             I3TruthExtractorPONE(
                 name="truth",
-                mctree="I3MCTree",
                 exclude=[],
             ),
         ]
@@ -188,8 +187,8 @@ def _process_one(infile: Path, outdir: Path, logdir: Path, cfg: dict) -> tuple:
             pass
         log_fh = None  # prevent double-close in finally
 
-        # Remove partial outputs so only complete files remain
-        for p in (logfile, truth_out):
+        # Keep the failed log for diagnosis, but remove partial outputs.
+        for p in (truth_out, features_out):
             try:
                 if p.exists():
                     p.unlink()
@@ -253,9 +252,11 @@ def main() -> int:
     }
 
     def _is_done(f: Path) -> bool:
-        t = outdir / "truth" / f"{stem_from_i3(str(f))}_truth.parquet"
-        l = logdir / f"{args.flavor}_{args.geometry}_{stem_from_i3(str(f))}.out"
-        if not (t.exists() and l.exists()):
+        stem = stem_from_i3(str(f))
+        t = outdir / "truth" / f"{stem}_truth.parquet"
+        x = outdir / "features" / f"{stem}_features.parquet"
+        l = logdir / f"{args.flavor}_{args.geometry}_{stem}.out"
+        if not (t.exists() and x.exists() and l.exists()):
             return False
         try:
             return "=== SUCCESS" in l.read_text(errors="replace")
@@ -268,6 +269,7 @@ def main() -> int:
             stem = stem_from_i3(str(f))
             for p in [
                 outdir / "truth" / f"{stem}_truth.parquet",
+                outdir / "features" / f"{stem}_features.parquet",
                 logdir / f"{args.flavor}_{args.geometry}_{stem}.out",
             ]:
                 try:
