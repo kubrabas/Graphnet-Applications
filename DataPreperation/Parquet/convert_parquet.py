@@ -6,7 +6,7 @@ Processes all I3 files in indir in parallel using ProcessPoolExecutor:
   2. Runs DataConverter with PONE_Reader + PONE extractors + ParquetWriter
      for each file in a subprocess.
   3. Writes truth/ and features/ parquet files to a shared outdir.
-  4. Logs per-file results to logdir/<flavor>_<geometry>_<stem>.out
+  4. Logs per-file results to logdir/<stem>.out
   5. Writes a summary log to logdir/../job_<job_id>_<flavor>_<geometry>.log
 
 Run merge_parquet.py after this script finishes to merge batches and build splits.
@@ -29,6 +29,7 @@ import h5py  # must be imported before icecube/graphnet to avoid HDF5 version co
 
 import argparse
 import os
+import re
 import sys
 import time
 from concurrent.futures import ProcessPoolExecutor, as_completed
@@ -36,7 +37,7 @@ from datetime import datetime
 from zoneinfo import ZoneInfo
 from glob import glob
 from pathlib import Path
-from typing import List
+from typing import Dict, List, Optional
 
 from graphnet.data.dataconverter import DataConverter
 from graphnet.data.extractors.icecube import I3FeatureExtractorPONE, I3TruthExtractorPONE
@@ -49,6 +50,28 @@ from graphnet.data.writers import ParquetWriter
 # ---------------------------------------------------------------------------
 
 VALID_FLAVORS = {"Muon", "Electron", "Tau", "NC"}
+
+SUMMARY_RE = re.compile(
+    r"\[.+?\]\s+kept=(\d+)\s+noise_only=(\d+)\s+"
+    r"(?:absent_pulsemap|pulsemap_does_not_exist)=(\d+)"
+    r"(?:\s+corrupt_frames=\d+)?"
+)
+
+SUCCESS_CATEGORIES = {
+    "successfully_transferred_kept_events",
+    "completely_empty_file",
+    "only_noise_events",
+    "only_missing_pulsemap_events",
+    "only_filtered_events",
+}
+
+FAILED_CATEGORIES = {
+    "failed_to_open_file",
+    "failed_at_first_event",
+    "failed_after_partial_progress",
+    "failed_after_only_filtered_events",
+    "failed_missing_parquet_outputs_after_success",
+}
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -74,6 +97,95 @@ def stem_from_i3(path: str) -> str:
     return name.replace(".i3", "")
 
 
+def normalize_log_terms(logfile: Path) -> None:
+    """Use project-preferred names for counters emitted by upstream readers."""
+    try:
+        text = logfile.read_text(errors="replace")
+        text = text.replace("absent_pulsemap", "pulsemap_does_not_exist")
+        logfile.write_text(text)
+    except OSError:
+        pass
+
+
+def read_conversion_summary(logfile: Path) -> Optional[Dict[str, int]]:
+    """Read the final per-file reader summary from a conversion log."""
+    try:
+        text = logfile.read_text(errors="replace")
+    except OSError:
+        return None
+
+    matches = list(SUMMARY_RE.finditer(text))
+    if not matches:
+        return None
+
+    m = matches[-1]
+    return {
+        "kept": int(m.group(1)),
+        "noise_only": int(m.group(2)),
+        "pulsemap_does_not_exist": int(m.group(3)),
+    }
+
+
+def log_has_file_error(logfile: Path) -> bool:
+    try:
+        return "[FILE ERROR]" in logfile.read_text(errors="replace")
+    except OSError:
+        return False
+
+
+def classify_conversion(
+    *, logfile: Path, truth_out: Path, features_out: Path, failed: bool
+) -> str:
+    """Assign exactly one long category name to a per-file conversion."""
+    if log_has_file_error(logfile):
+        return "failed_to_open_file"
+
+    summary = read_conversion_summary(logfile)
+    if summary is None:
+        return "failed_at_first_event" if failed else "completely_empty_file"
+
+    kept = summary["kept"]
+    noise_only = summary["noise_only"]
+    missing_pulsemap = summary["pulsemap_does_not_exist"]
+    filtered = noise_only + missing_pulsemap
+
+    if failed:
+        if kept > 0:
+            return "failed_after_partial_progress"
+        if filtered > 0:
+            return "failed_after_only_filtered_events"
+        return "failed_at_first_event"
+
+    if kept > 0:
+        if truth_out.exists() and features_out.exists():
+            return "successfully_transferred_kept_events"
+        return "failed_missing_parquet_outputs_after_success"
+
+    if noise_only == 0 and missing_pulsemap == 0:
+        return "completely_empty_file"
+    if noise_only > 0 and missing_pulsemap == 0:
+        return "only_noise_events"
+    if noise_only == 0 and missing_pulsemap > 0:
+        return "only_missing_pulsemap_events"
+    return "only_filtered_events"
+
+
+def format_summary_for_log(logfile: Path) -> str:
+    summary = read_conversion_summary(logfile)
+    if summary is None:
+        return "kept=NA noise_only=NA pulsemap_does_not_exist=NA"
+    return (
+        f"kept={summary['kept']} "
+        f"noise_only={summary['noise_only']} "
+        f"pulsemap_does_not_exist={summary['pulsemap_does_not_exist']}"
+    )
+
+
+def per_file_log_path(logdir: Path, stem: str) -> Path:
+    """Per-file logs live in a flavor/geometry-specific directory, so keep names short."""
+    return logdir / f"{stem}.out"
+
+
 # ---------------------------------------------------------------------------
 # Per-file worker (runs in a subprocess via ProcessPoolExecutor)
 # ---------------------------------------------------------------------------
@@ -83,11 +195,10 @@ def _process_one(infile: Path, outdir: Path, logdir: Path, cfg: dict) -> tuple:
 
     Returns:
         ("skipped", filename)
-        ("success", filename, elapsed)
-        ("failed",  filename, error_message, elapsed)
+        (category, filename, elapsed, error_message)
     """
     stem      = stem_from_i3(str(infile))
-    logfile   = logdir / f"{cfg['flavor']}_{cfg['geometry']}_{stem}.out"
+    logfile   = per_file_log_path(logdir, stem)
     truth_out = outdir / "truth" / f"{stem}_truth.parquet"
     features_out = outdir / "features" / f"{stem}_features.parquet"
 
@@ -162,10 +273,42 @@ def _process_one(infile: Path, outdir: Path, logdir: Path, cfg: dict) -> tuple:
 
         elapsed = time.time() - t_start
         _berlin = datetime.now(ZoneInfo("Europe/Berlin"))
+        log_fh.flush()
+        category = classify_conversion(
+            logfile=logfile,
+            truth_out=truth_out,
+            features_out=features_out,
+            failed=False,
+        )
+        if category in FAILED_CATEGORIES:
+            print(f"=== FAILED  elapsed={elapsed:.1f}s ===")
+            print(f"category : {category}")
+            print(f"@ {_berlin.strftime('%Y-%m-%d %H:%M:%S')} (Berlin)")
+            log_fh.flush()
+            log_fh.close()
+            log_fh = None
+            normalize_log_terms(logfile)
+            for p in (truth_out, features_out):
+                try:
+                    if p.exists():
+                        p.unlink()
+                except OSError:
+                    pass
+            error_message = (
+                "file could not be opened"
+                if category == "failed_to_open_file"
+                else "missing expected parquet output"
+            )
+            return (category, infile.name, elapsed, error_message)
+
         print(f"=== SUCCESS  elapsed={elapsed:.1f}s ===")
+        print(f"category : {category}")
         print(f"@ {_berlin.strftime('%Y-%m-%d %H:%M:%S')} (Berlin)")
         log_fh.flush()
-        return ("success", infile.name, elapsed)
+        log_fh.close()
+        log_fh = None
+        normalize_log_terms(logfile)
+        return (category, infile.name, elapsed, "")
 
     except Exception as e:
         import traceback as _tb
@@ -186,6 +329,7 @@ def _process_one(infile: Path, outdir: Path, logdir: Path, cfg: dict) -> tuple:
         except Exception:
             pass
         log_fh = None  # prevent double-close in finally
+        normalize_log_terms(logfile)
 
         # Keep the failed log for diagnosis, but remove partial outputs.
         for p in (truth_out, features_out):
@@ -195,7 +339,13 @@ def _process_one(infile: Path, outdir: Path, logdir: Path, cfg: dict) -> tuple:
             except OSError:
                 pass
 
-        return ("failed", infile.name, str(e), elapsed)
+        category = classify_conversion(
+            logfile=logfile,
+            truth_out=truth_out,
+            features_out=features_out,
+            failed=True,
+        )
+        return (category, infile.name, elapsed, str(e))
 
     finally:
         if log_fh is not None and not log_fh.closed:
@@ -255,13 +405,22 @@ def main() -> int:
         stem = stem_from_i3(str(f))
         t = outdir / "truth" / f"{stem}_truth.parquet"
         x = outdir / "features" / f"{stem}_features.parquet"
-        l = logdir / f"{args.flavor}_{args.geometry}_{stem}.out"
-        if not (t.exists() and x.exists() and l.exists()):
+        l = per_file_log_path(logdir, stem)
+        if not l.exists():
             return False
         try:
-            return "=== SUCCESS" in l.read_text(errors="replace")
+            if "=== SUCCESS" not in l.read_text(errors="replace"):
+                return False
         except OSError:
             return False
+
+        category = classify_conversion(
+            logfile=l,
+            truth_out=t,
+            features_out=x,
+            failed=False,
+        )
+        return category in SUCCESS_CATEGORIES
 
     # If --overwrite, pre-delete outputs so _process_one's skip check finds nothing
     if args.overwrite:
@@ -270,7 +429,7 @@ def main() -> int:
             for p in [
                 outdir / "truth" / f"{stem}_truth.parquet",
                 outdir / "features" / f"{stem}_features.parquet",
-                logdir / f"{args.flavor}_{args.geometry}_{stem}.out",
+                per_file_log_path(logdir, stem),
             ]:
                 try:
                     if p.exists():
@@ -294,10 +453,26 @@ def main() -> int:
     sys.stdout.flush()
 
     job_id           = os.environ.get("SLURM_JOB_ID", "local")
-    general_log_path = logdir.parent / f"job_{job_id}_{args.flavor}_{args.geometry}.log"
+    date_stamp       = datetime.now(ZoneInfo("Europe/Berlin")).strftime("%m_%d_%Y")
+    general_log_path = logdir / f"{date_stamp}_job_{job_id}.log"
     t_job_start      = time.time()
 
-    n_success = n_failed = n_skipped = 0
+    n_failed = n_skipped = 0
+    category_counts: Dict[str, int] = {
+        category: 0
+        for category in [
+            "successfully_transferred_kept_events",
+            "completely_empty_file",
+            "only_noise_events",
+            "only_missing_pulsemap_events",
+            "only_filtered_events",
+            "failed_to_open_file",
+            "failed_at_first_event",
+            "failed_after_partial_progress",
+            "failed_after_only_filtered_events",
+            "failed_missing_parquet_outputs_after_success",
+        ]
+    }
 
     with open(general_log_path, "w") as glog:
         def _glog(msg=""):
@@ -326,32 +501,69 @@ def main() -> int:
                 status = result[0]
                 fname  = result[1]
                 ts     = datetime.now(ZoneInfo("Europe/Berlin")).strftime("%H:%M:%S")
-                if status == "success":
-                    n_success += 1
-                    elapsed = result[2] if len(result) > 2 else 0.0
-                    print(f"[ok]     {fname}")
-                    _glog(f"[{ts}] [ok]     {fname}  ({elapsed:.1f}s)")
-                elif status == "skipped":
+                if status == "skipped":
                     n_skipped += 1
                     print(f"[skip]   {fname}")
                     _glog(f"[{ts}] [skip]   {fname}")
                 else:
-                    n_failed += 1
-                    err     = result[2] if len(result) > 2 else "unknown"
-                    elapsed = result[3] if len(result) > 3 else 0.0
-                    print(f"[failed] {fname}  ({err})")
-                    _glog(f"[{ts}] [failed] {fname}  ({elapsed:.1f}s) -- {err}")
+                    category = status
+                    category_counts.setdefault(category, 0)
+                    category_counts[category] += 1
+                    elapsed = result[2] if len(result) > 2 else 0.0
+                    err = result[3] if len(result) > 3 else ""
+                    stem = stem_from_i3(fname)
+                    per_file_log = per_file_log_path(logdir, stem)
+                    summary_text = format_summary_for_log(per_file_log)
+                    if category in FAILED_CATEGORIES:
+                        n_failed += 1
+                        print(f"[{category}] {fname}  {summary_text}  ({err})")
+                        _glog(
+                            f"[{ts}] [{category}] {fname}  {summary_text}  "
+                            f"({elapsed:.1f}s) -- {err}"
+                        )
+                    else:
+                        print(f"[{category}] {fname}  {summary_text}")
+                        _glog(
+                            f"[{ts}] [{category}] {fname}  {summary_text}  "
+                            f"({elapsed:.1f}s)"
+                        )
                 sys.stdout.flush()
 
         total_skipped = n_skipped + n_already_done
         total_elapsed = time.time() - t_job_start
-        print(f"\nDone.  success={n_success}  failed={n_failed}  skipped={total_skipped}")
+        category_total = sum(category_counts.values())
+        per_file_logs_found = len(
+            [
+                p for p in logdir.glob("*.out")
+                if not p.name.startswith("merge_")
+            ]
+        )
+        accounting_check = "PASS" if category_total + total_skipped == len(files) else "FAIL"
+        per_file_log_check = "PASS" if per_file_logs_found == len(files) else "FAIL"
+        print("\nDone.")
+        print("=== FINAL SUMMARY ===")
+        for category, count in category_counts.items():
+            print(f"{category} : {count}")
+        print(f"category_total : {category_total}")
+        print(f"failed_total : {n_failed}")
+        print(f"skipped_previously_done : {total_skipped}")
+        print(f"input_files_discovered : {len(files)}")
+        print(f"per_file_logs_found : {per_file_logs_found}")
+        print(f"accounting_check : {accounting_check}")
+        print(f"per_file_log_check : {per_file_log_check}")
+        print(f"elapsed : {total_elapsed:.1f}s")
         _glog()
         _glog("=== FINAL SUMMARY ===")
         _glog(f"finished : {datetime.now(ZoneInfo('Europe/Berlin')).strftime('%Y-%m-%d %H:%M:%S %Z')}")
-        _glog(f"success  : {n_success}")
-        _glog(f"failed   : {n_failed}")
-        _glog(f"skipped  : {total_skipped}")
+        for category, count in category_counts.items():
+            _glog(f"{category} : {count}")
+        _glog(f"category_total : {category_total}")
+        _glog(f"failed_total : {n_failed}")
+        _glog(f"skipped_previously_done : {total_skipped}")
+        _glog(f"input_files_discovered : {len(files)}")
+        _glog(f"per_file_logs_found : {per_file_logs_found}")
+        _glog(f"accounting_check : {accounting_check}")
+        _glog(f"per_file_log_check : {per_file_log_check}")
         _glog(f"elapsed  : {total_elapsed:.1f}s")
         _glog(f"log      : {general_log_path}")
 

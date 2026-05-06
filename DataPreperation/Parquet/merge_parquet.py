@@ -130,12 +130,14 @@ def summarize_conversion_logs(logdir: Path, flavor: str, geometry: str) -> None:
     and write a separate corrupt_files.log listing files that could not be opened."""
     import re
     summary_pattern = re.compile(
-        r"\[.+?\]\s+kept=(\d+)\s+noise_only=(\d+)\s+absent_pulsemap=(\d+)\s+corrupt_frames=(\d+)"
+        r"\[.+?\]\s+kept=(\d+)\s+noise_only=(\d+)\s+"
+        r"(?:absent_pulsemap|pulsemap_does_not_exist)=(\d+)"
+        r"(?:\s+corrupt_frames=\d+)?"
     )
     file_error_pattern = re.compile(r"\[FILE ERROR\] Could not open: (.+?)\s+error=")
     merge_log_name = f"merge_{flavor}_{geometry}.out"
 
-    total_kept = total_noise = total_absent = total_corrupt = 0
+    total_kept = total_noise = total_absent = 0
     files_parsed = 0
     corrupt_files: List[str] = []
 
@@ -148,7 +150,6 @@ def summarize_conversion_logs(logdir: Path, flavor: str, geometry: str) -> None:
                 total_kept    += int(m.group(1))
                 total_noise   += int(m.group(2))
                 total_absent  += int(m.group(3))
-                total_corrupt += int(m.group(4))
                 files_parsed  += 1
             fe = file_error_pattern.search(line)
             if fe:
@@ -167,8 +168,7 @@ def summarize_conversion_logs(logdir: Path, flavor: str, geometry: str) -> None:
     print(f"=== CONVERSION SUMMARY: EVENT LEVEL ===")
     print(f"  kept            : {total_kept}")
     print(f"  noise_only      : {total_noise}")
-    print(f"  absent_pulsemap : {total_absent}")
-    print(f"  corrupt_frames  : {total_corrupt}  (frames that could not be read)")
+    print(f"  pulsemap_does_not_exist : {total_absent}")
 
 
 def save_triggered_event_list(merged_raw: Path, mc: str, geometry: str, flavor: str) -> None:
