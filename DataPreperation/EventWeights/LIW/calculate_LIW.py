@@ -6,7 +6,7 @@ Processes files in parallel using multiprocessing. Outputs:
   <logdir>/<Flavor>_file_stats.csv    — per-file processing stats
   <logdir>/<Flavor>_compute.out       — run log
 
-LIW = oneweight / n_accessible_events  (total events successfully processed)
+The output keeps the raw LeptonWeighter oneweight and oneweight_x100 columns.
 
 Usage:
     python3 calculate_LIW.py --mc 340StringMC --flavor Muon \\
@@ -39,6 +39,8 @@ icetray.I3Logger.global_logger = icetray.I3NullLogger()
 XS_PATH = "/project/6008051/pone_simulation/pone_offline/CrossSectionModels/csms_differential_v1.0/"
 
 VALID_FLAVORS = {"muon", "electron", "tau", "nc"}
+N_GEN_PER_FILE = 100  # generated events per particle type per LIC file
+EXPECTED_EVENTS_PER_FILE = 2 * N_GEN_PER_FILE
 
 LW_PARTICLE_FROM_PDG = {
     12: LW.NuE,
@@ -106,12 +108,31 @@ def load_xs():
     )
 
 
-def read_gen_props(gen_file: Path) -> Optional[Dict]:
+def append_error(existing: str, new: str) -> str:
+    if not new:
+        return existing
+    if not existing:
+        return new
+    return f"{existing} | {new}"
+
+
+def read_event_properties(i3_file: Path) -> Tuple[Dict, str]:
     props = {}
+    error = ""
+    opened = False
     try:
-        f = dataio.I3File(str(gen_file))
+        f = dataio.I3File(str(i3_file))
+        opened = True
         while f.more():
-            frame = f.pop_frame()
+            try:
+                frame = f.pop_frame()
+            except RuntimeError as e:
+                error = (
+                    "i3 file problem: read error while reading EventProperties "
+                    f"at event {len(props) + 1}. {len(props)} EventProperties "
+                    f"entries were read before the problem. Error: {e}"
+                )
+                break
             if frame.Stop != icetray.I3Frame.DAQ:
                 continue
             if not frame.Has("EventProperties") or not frame.Has("I3EventHeader"):
@@ -119,10 +140,23 @@ def read_gen_props(gen_file: Path) -> Optional[Dict]:
             hdr = frame["I3EventHeader"]
             eid = (hdr.run_id, hdr.sub_run_id, hdr.event_id, hdr.sub_event_id)
             props[eid] = frame["EventProperties"]
-        f.close()
-    except RuntimeError:
-        return None
-    return props
+        try:
+            f.close()
+        except RuntimeError as e:
+            error = append_error(
+                error,
+                f"i3 file problem: error while closing EventProperties i3 file. Error: {e}",
+            )
+    except RuntimeError as e:
+        if opened:
+            error = (
+                "i3 file problem: stream error while reading EventProperties "
+                f"at event {len(props) + 1}. {len(props)} EventProperties "
+                f"entries were read before the problem. Error: {e}"
+            )
+        else:
+            error = f"i3 file problem: could not open EventProperties i3 file. Error: {e}"
+    return props, error
 
 
 # ---------------------------------------------------------------------------
@@ -136,72 +170,78 @@ def _worker_init():
 
 def _process_one(args: tuple) -> tuple:
     """Process one batch. Returns (batch_id, records, stat_dict)."""
-    batch_id, lic_path, photon_path, gen_path = args
+    batch_id, lic_path, i3_path = args
     t0 = time.time()
 
     stat = {
         "batch_id": batch_id,
-        "i3_file": photon_path,
         "lic_file": lic_path,
-        "gen_file": gen_path,
-        "status": "",
-        "file_opened_ok": False,
-        "n_events_total": 0,
-        "n_events_ok": 0,
-        "n_events_skipped": 0,
-        "n_frames_corrupt": 0,
+        "i3_file": i3_path,
+        "status": "not ok",
+        "error": "",
+        "i3_file_opened_ok": False,
+        "weights_calculated": 0,
         "duration_s": 0.0,
     }
 
-    gen_props = read_gen_props(Path(gen_path))
-    if gen_props is None:
-        stat["status"] = "corrupt_gen"
+    event_props, event_props_error = read_event_properties(Path(i3_path))
+    stat["error"] = event_props_error
+    if not event_props:
+        if not stat["error"]:
+            stat["error"] = (
+                "i3 file problem: no DAQ frames with EventProperties and "
+                "I3EventHeader were found in the EventProperties i3 file."
+            )
         stat["duration_s"] = time.time() - t0
         return batch_id, [], stat
 
     try:
         generators = LW.MakeGeneratorsFromLICFile(lic_path)
-        weighter = LW.Weighter(LW.ConstantFlux(1.0), _xs, generators)
+        weighter = LW.Weighter(_xs, generators)
     except Exception as e:
-        stat["status"] = f"lic_error: {e}"
+        stat["status"] = "not ok"
+        stat["error"] = append_error(
+            stat["error"],
+            f"LIC file problem: could not build LeptonWeighter generators from the LIC file. Error: {e}",
+        )
         stat["duration_s"] = time.time() - t0
         return batch_id, [], stat
 
     records = []
-    n_total = 0
-    n_ok = 0
-    n_skipped = 0
-    n_corrupt = 0
+    weight_calculated = 0
+
+    i3_error = ""
 
     try:
-        f = dataio.I3File(photon_path)
-        stat["file_opened_ok"] = True
+        f = dataio.I3File(i3_path)
+        stat["i3_file_opened_ok"] = True
         while f.more():
             try:
                 frame = f.pop_frame()
-            except RuntimeError:
-                n_corrupt += 1
-                continue
+            except RuntimeError as e:
+                problem_event = weight_calculated + 1
+                i3_error = (
+                    f"i3 file problem at event {problem_event}: read error. "
+                    f"{weight_calculated} event weights were calculated before the problem. Error: {e}"
+                )
+                break
 
             if frame.Stop != icetray.I3Frame.DAQ:
                 continue
             if not frame.Has("I3EventHeader"):
                 continue
 
-            n_total += 1
             hdr = frame["I3EventHeader"]
             eid = (hdr.run_id, hdr.sub_run_id, hdr.event_id, hdr.sub_event_id)
 
-            if eid not in gen_props:
-                n_skipped += 1
+            if eid not in event_props:
                 continue
 
-            props = gen_props[eid]
+            props = event_props[eid]
 
             try:
                 primary, fs0, fs1 = get_lw_particles_from_event_properties(props)
             except ValueError:
-                n_skipped += 1
                 continue
 
             event = LW.Event()
@@ -219,6 +259,16 @@ def _process_one(args: tuple) -> tuple:
             event.y = props.y
             event.z = props.z
 
+            try:
+                oneweight = weighter.get_oneweight(event)
+            except Exception as e:
+                problem_event = weight_calculated + 1
+                i3_error = (
+                    f"weighting problem at event {problem_event}: oneweight could not be computed. "
+                    f"{weight_calculated} event weights were calculated before the problem. Error: {e}"
+                )
+                break
+
             records.append({
                 "RunID": hdr.run_id,
                 "SubrunID": hdr.sub_run_id,
@@ -233,20 +283,36 @@ def _process_one(args: tuple) -> tuple:
                 "initialType": int(props.initialType),
                 "finalType1": int(props.finalType1),
                 "finalType2": int(props.finalType2),
-                "oneweight": weighter.get_oneweight(event),
+                "oneweight": oneweight,
             })
-            n_ok += 1
+            weight_calculated += 1
 
         f.close()
+
+    except RuntimeError as e:
+        if stat["i3_file_opened_ok"]:
+            i3_error = append_error(
+                i3_error,
+                f"i3 file problem after {weight_calculated} calculated event weights: stream error. Error: {e}",
+            )
+        else:
+            i3_error = f"i3 file problem: could not open i3 file. Error: {e}"
+
+    stat["error"] = append_error(stat["error"], i3_error)
+
+    if weight_calculated == EXPECTED_EVENTS_PER_FILE:
         stat["status"] = "ok"
+        stat["error"] = ""
+    elif weight_calculated > 0:
+        stat["status"] = "partially ok"
+        if not stat["error"]:
+            stat["error"] = "unknown"
+    else:
+        stat["status"] = "not ok"
+        if not stat["error"]:
+            stat["error"] = "unknown"
 
-    except RuntimeError:
-        stat["status"] = "corrupt_i3"
-
-    stat["n_events_total"] = n_total
-    stat["n_events_ok"] = n_ok
-    stat["n_events_skipped"] = n_skipped
-    stat["n_frames_corrupt"] = n_corrupt
+    stat["weights_calculated"] = weight_calculated
     stat["duration_s"] = time.time() - t0
     return batch_id, records, stat
 
@@ -312,43 +378,36 @@ def main() -> int:
     # Build file maps once in the main process
     # ------------------------------------------------------------------
     try:
-        lic_map    = build_id_map(args.lic_dir, "*.lic")
-        photon_map = build_id_map(args.photon_dir, args.photon_pattern)
-        gen_map    = build_id_map(args.lic_dir, "*.i3", "*.i3.gz", "*.i3.zst")
+        lic_map = build_id_map(args.lic_dir, "*.lic")
+        i3_map = build_id_map(args.photon_dir, args.photon_pattern)
     except FileNotFoundError as e:
         log(f"ERROR: {e}")
         log_fh.close()
         return 1
 
-    common = sorted(set(lic_map) & set(photon_map))
-    log(f"\nbatches   : {len(common)} (lic={len(lic_map)} photon={len(photon_map)} gen={len(gen_map)})")
+    common = sorted(set(lic_map) & set(i3_map))
+    log(f"\nbatches   : {len(common)} (lic={len(lic_map)} i3={len(i3_map)})")
+
+    i3_without_lic = sorted(set(i3_map) - set(lic_map))
+    if i3_without_lic:
+        preview = ", ".join(i3_without_lic[:10])
+        suffix = " ..." if len(i3_without_lic) > 10 else ""
+        log(
+            "WARNING: "
+            f"{len(i3_without_lic)} i3 files do not have a matching LIC file. "
+            f"They will not be processed. batch_id examples: {preview}{suffix}"
+        )
 
     # ------------------------------------------------------------------
-    # Build task list; record gen_missing batches immediately
+    # Build task list
     # ------------------------------------------------------------------
     tasks: List[tuple] = []
     all_stats: List[dict] = []
 
     for bid in common:
-        if bid not in gen_map:
-            all_stats.append({
-                "batch_id": bid,
-                "i3_file": str(photon_map[bid]),
-                "lic_file": str(lic_map[bid]),
-                "gen_file": "",
-                "status": "gen_missing",
-                "file_opened_ok": False,
-                "n_events_total": 0,
-                "n_events_ok": 0,
-                "n_events_skipped": 0,
-                "n_frames_corrupt": 0,
-                "duration_s": 0.0,
-            })
-        else:
-            tasks.append((bid, str(lic_map[bid]), str(photon_map[bid]), str(gen_map[bid])))
+        tasks.append((bid, str(lic_map[bid]), str(i3_map[bid])))
 
-    n_gen_missing = len(all_stats)
-    log(f"tasks     : {len(tasks)} to process  ({n_gen_missing} skipped: gen file missing)")
+    log(f"tasks     : {len(tasks)} to process")
 
     if not tasks:
         log("ERROR: no tasks to process.")
@@ -359,6 +418,7 @@ def main() -> int:
     # Process in parallel
     # ------------------------------------------------------------------
     all_records: List[dict] = []
+    progress_step = max(1, len(tasks) // 20)
 
     with multiprocessing.Pool(workers, initializer=_worker_init) as pool:
         for i, (batch_id, records, stat) in enumerate(
@@ -366,14 +426,8 @@ def main() -> int:
         ):
             all_records.extend(records)
             all_stats.append(stat)
-            log(
-                f"[{i:>{len(str(len(tasks)))}}/{len(tasks)}] {batch_id}"
-                f"  {stat['status']:<20}"
-                f"  n_ok={stat['n_events_ok']}"
-                f"  n_skip={stat['n_events_skipped']}"
-                f"  n_corrupt_frames={stat['n_frames_corrupt']}"
-                f"  t={stat['duration_s']:.1f}s"
-            )
+            if i % progress_step == 0 or i == len(tasks):
+                log(f"progress: {i} / {len(tasks)} tasks processed")
 
     # ------------------------------------------------------------------
     # Write file-level stats CSV
@@ -381,15 +435,18 @@ def main() -> int:
     stats_df = pd.DataFrame(all_stats).sort_values("batch_id").reset_index(drop=True)
     stats_df.to_csv(str(statsfile), index=False)
 
-    n_ok_files   = (stats_df["status"] == "ok").sum()
+    n_ok_files = (stats_df["status"] == "ok").sum()
+    n_partially_ok_files = (stats_df["status"] == "partially ok").sum()
+    n_not_ok_files = (stats_df["status"] == "not ok").sum()
     n_total_files = len(common)
+    n_weights_calculated = int(stats_df["weights_calculated"].sum())
     log(f"\n--- Summary ---")
-    log(f"files ok          : {n_ok_files} / {n_total_files}")
-    log(f"files corrupt_i3 : {(stats_df['status'] == 'corrupt_i3').sum()}")
-    log(f"files corrupt_gen    : {(stats_df['status'] == 'corrupt_gen').sum()}")
-    log(f"files lic_error      : {stats_df['status'].str.startswith('lic_error').sum()}")
-    log(f"files gen_missing    : {(stats_df['status'] == 'gen_missing').sum()}")
-    log(f"stats CSV written : {statsfile}")
+    log(f"files ok           : {n_ok_files} / {n_total_files}")
+    log(f"files partially ok : {n_partially_ok_files}")
+    log(f"files not ok       : {n_not_ok_files}")
+    log(f"weights calculated : {n_weights_calculated}")
+    log(f"stats CSV written  : {statsfile}")
+    log("per-file details   : see stats CSV")
 
     # ------------------------------------------------------------------
     # Write final LIW CSV
@@ -401,21 +458,8 @@ def main() -> int:
         log_fh.close()
         return 1
 
-    N_GEN_PER_FILE = 100  # generated events per particle type per LIC file
-
     df = pd.DataFrame(all_records)
-
-    nu_mask     = df["initialType"] > 0
-    antinu_mask = df["initialType"] < 0
-
-    n_accessible_nu     = nu_mask.sum()
-    n_accessible_antinu = antinu_mask.sum()
-
-    df.loc[nu_mask,     "LIW"] = df.loc[nu_mask,     "oneweight"] * N_GEN_PER_FILE / n_accessible_nu
-    df.loc[antinu_mask, "LIW"] = df.loc[antinu_mask, "oneweight"] * N_GEN_PER_FILE / n_accessible_antinu
-
-    log(f"accessible nu     : {n_accessible_nu}")
-    log(f"accessible antinu : {n_accessible_antinu}")
+    df["oneweight_x100"] = df["oneweight"] * N_GEN_PER_FILE
 
     df.to_csv(str(outfile), index=False)
 
