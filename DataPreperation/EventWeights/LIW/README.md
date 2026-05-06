@@ -151,7 +151,7 @@ apptainer exec \
   bash -lc 'less /usr/local/LeptonWeighter/resources/docs/specification'
 ```
 
-The beginning of the specification starts as:
+I just copy and paste it here:
 
 ```text
 Hi everyone,
