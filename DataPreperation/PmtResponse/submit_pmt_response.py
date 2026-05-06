@@ -1,22 +1,33 @@
 """
-Submit PMT response array jobs to SLURM.
+Submit PMT response jobs to SLURM — single node, parallel execution.
 
 Usage:
     python3 submit_pmt_response.py --mc-name SPRING2026MC --geometry strings_102_40m --flavor Muon --with-first-3-layers
     python3 submit_pmt_response.py --mc-name STRING340MC --geometry full_geometry --flavor Tau --with-first-3-layers
     python3 submit_pmt_response.py --mc-name SPRING2026MC --geometry strings_102_40m --flavor Muon --no-with-first-3-layers --dry-run
-    python3 submit_pmt_response.py --mc-name SPRING2026MC --geometry full_geometry --flavor all --no-with-first-3-layers 
+    python3 submit_pmt_response.py --mc-name SPRING2026MC --geometry full_geometry --flavor all --no-with-first-3-layers
 
 Workers:
     apply_pmt_response_with_first_3_layers.py    (--with-first-3-layers)
     apply_pmt_response_without_first_3_layers.py (--no-with-first-3-layers)
+
+Each job requests a single node with --nworkers CPUs and processes all files
+for that flavor in parallel inside one SLURM job.
+
+NOTE: WORKER_SH must call the Python worker WITHOUT --task-id and WITH
+      --nworkers $NWORKERS  (and no --array in sbatch).
+      The relevant line in the shell script should look like:
+          python3 /path/to/apply_pmt_response_*.py \\
+              --flavor $FLAVOR --geometry $GEOMETRY --mc $MC \\
+              --indir $INDIR --pattern $PATTERN --gcd $GCD \\
+              --outdir $OUTDIR --logdir $LOGDIR \\
+              --nworkers $NWORKERS
 
 Input data comes from the _I3 datasets in paths.py.
 """
 
 import argparse
 import importlib.util
-import shutil
 import subprocess
 from pathlib import Path
 
@@ -27,7 +38,7 @@ from pathlib import Path
 PATHS_PY     = "/project/def-nahee/kbas/Graphnet-Applications/Metadata/paths.py"
 WORKER_SH    = Path("/home/kbas/SlurmScripts/DataPreperation/submit_pmt_response.sh")
 SCRATCH_BASE = "/home/kbas/scratch"
-CONCURRENT   = 50
+NWORKERS     = 16   # CPUs per job (parallel files processed simultaneously)
 
 # ---------------------------------------------------------------------------
 # MC lookup table
@@ -81,7 +92,7 @@ def count_files(indir: str, fmt: str) -> int:
 
 def submit_one(*, mc: str, mc_folder: str, geometry: str, geo_folder: str,
                flavor: str, indir: str, fmt: str, gcd: str,
-               with_first_3_layers: bool, dry_run: bool) -> None:
+               with_first_3_layers: bool, nworkers: int, dry_run: bool) -> None:
     pattern = FORMAT_PATTERN.get(fmt, f"*.i3.{fmt}")
     n = count_files(indir, fmt)
     if n == 0:
@@ -95,7 +106,7 @@ def submit_one(*, mc: str, mc_folder: str, geometry: str, geo_folder: str,
     cmd = [
         "sbatch",
         f"--job-name={job_name}",
-        f"--array=0-{n - 1}%{CONCURRENT}",
+        f"--cpus-per-task={nworkers}",
         (
             "--export="
             f"FLAVOR={flavor},"
@@ -106,12 +117,13 @@ def submit_one(*, mc: str, mc_folder: str, geometry: str, geo_folder: str,
             f"GCD={gcd},"
             f"OUTDIR={outdir},"
             f"LOGDIR={logdir},"
-            f"WITH_FIRST_3_LAYERS={'1' if with_first_3_layers else '0'}"
+            f"WITH_FIRST_3_LAYERS={'1' if with_first_3_layers else '0'},"
+            f"NWORKERS={nworkers}"
         ),
         str(WORKER_SH),
     ]
 
-    print(f"  {'[DRY-RUN] ' if dry_run else ''}submitting: {job_name}  ({n} tasks)")
+    print(f"  {'[DRY-RUN] ' if dry_run else ''}submitting: {job_name}  ({n} files, {nworkers} workers)")
     if dry_run:
         print("  cmd:", " ".join(cmd))
         return
@@ -125,7 +137,7 @@ def submit_one(*, mc: str, mc_folder: str, geometry: str, geo_folder: str,
 # ---------------------------------------------------------------------------
 
 def main() -> int:
-    ap = argparse.ArgumentParser(description="Submit PONE PMT response array jobs")
+    ap = argparse.ArgumentParser(description="Submit PONE PMT response jobs (single node, parallel)")
     ap.add_argument("--mc-name", default="SPRING2026MC", choices=list(MC_TABLE),
                     help=f"MC dataset (default: SPRING2026MC). Choices: {list(MC_TABLE)}")
     ap.add_argument("--geometry", required=True,
@@ -134,6 +146,8 @@ def main() -> int:
                     help=f"Particle flavor(s) or 'all'. Choices: {ALL_FLAVORS}")
     ap.add_argument("--with-first-3-layers", required=True, action=argparse.BooleanOptionalAction,
                     help="Use with_first_3_layers script (--with-first-3-layers) or without (--no-with-first-3-layers)")
+    ap.add_argument("--nworkers", type=int, default=NWORKERS,
+                    help=f"CPUs per job / parallel workers (default: {NWORKERS})")
     ap.add_argument("--dry-run", action="store_true",
                     help="Print sbatch commands without submitting")
     args = ap.parse_args()
@@ -144,20 +158,20 @@ def main() -> int:
             print(f"ERROR: unknown flavor '{f}'. Choices: {ALL_FLAVORS}")
             return 1
 
-    paths     = load_paths()
-    table     = getattr(paths, MC_TABLE[args.mc_name])
-    mc_folder = MC_FOLDER[args.mc_name]
+    paths      = load_paths()
+    table      = getattr(paths, MC_TABLE[args.mc_name])
+    mc_folder  = MC_FOLDER[args.mc_name]
     geo_folder = to_folder_name(args.geometry)
-    gcd_key   = GCD_KEY[args.mc_name]
-    trimmed   = getattr(paths, "GCD_TRIMMED", {}).get(gcd_key, {})
-    gcd       = trimmed.get(args.geometry) or paths.GCD[gcd_key]
+    gcd_key    = GCD_KEY[args.mc_name]
+    trimmed    = getattr(paths, "GCD_TRIMMED", {}).get(gcd_key, {})
+    gcd        = trimmed.get(args.geometry) or paths.GCD[gcd_key]
 
     if args.geometry not in table:
         print(f"ERROR: geometry '{args.geometry}' not found in {MC_TABLE[args.mc_name]}")
         print(f"  Available: {list(table.keys())}")
         return 1
 
-    print(f"\n[{args.mc_name}] geometry={args.geometry}")
+    print(f"\n[{args.mc_name}] geometry={args.geometry}  nworkers={args.nworkers}")
 
     for flavor in flavors:
         entry = table[args.geometry][flavor]
@@ -175,6 +189,7 @@ def main() -> int:
                 fmt=entry["format"],
                 gcd=gcd,
                 with_first_3_layers=args.with_first_3_layers,
+                nworkers=args.nworkers,
                 dry_run=args.dry_run,
             )
         except FileNotFoundError as e:

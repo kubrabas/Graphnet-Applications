@@ -1,5 +1,5 @@
 """
-Submit Parquet conversion array jobs to SLURM, followed by an automatic merge job.
+Submit Parquet conversion jobs to SLURM — single node, parallel execution.
 
 Usage:
     python3 submit_parquet.py --mc 340StringMC --geometry 102_string --flavor Electron
@@ -9,21 +9,17 @@ Usage:
 
 For each flavor:
   1. Reads PMT-response path and GCD from paths.py.
-  2. Counts I3 files in the PMT-response directory.
-  3. Submits a SLURM array job (one task per file).
-  4. Chains a merge job (--dependency=afterany) that runs merge_parquet.py.
+  2. Submits a single SLURM job with --cpus-per-task=NWORKERS.
+     convert_parquet.py then processes all files in parallel inside that job.
+  3. Chains a merge job (--dependency=afterany) that runs merge_parquet.py.
+
+Shell script note:
+    submit_parquet.sh must call convert_parquet.py with --nworkers $NWORKERS
+    (no --array, no --task-id).
 
 Output parquet files go to the same parent as the PMT-response directory,
 with _PMT_Response replaced by _Parquet.
 Logs go to: /home/kbas/scratch/<mc_scratch>/Logs/<flavor>_<geometry>_Parquet/
-
-Skip / overwrite behaviour (per convert_parquet.py task):
-  --overwrite not set (default):
-      A task is skipped only if BOTH the output parquet (truth table) AND the
-      per-task log file already exist. If either one is missing the task re-runs
-      and overwrites whatever is there.
-  --overwrite set:
-      Every task re-runs unconditionally, overwriting existing parquet and log.
 """
 
 import argparse
@@ -43,7 +39,7 @@ PATHS_PY     = "/project/def-nahee/kbas/Graphnet-Applications/Metadata/paths.py"
 WORKER_SH    = Path("/home/kbas/SlurmScripts/DataPreperation/submit_parquet.sh")
 MERGE_SH     = Path("/home/kbas/SlurmScripts/DataPreperation/submit_parquet_merge.sh")
 SCRATCH_BASE = "/home/kbas/scratch"
-CONCURRENT   = 50
+NWORKERS     = 16   # CPUs per job (parallel files processed simultaneously)
 
 MC_TABLE = {
     "340StringMC":  {"pmt_attr": "STRING340MC_PMT",  "gcd_key": "340StringMC",  "scratch": "String340MC"},
@@ -79,7 +75,7 @@ def parse_job_id(sbatch_output: str) -> Optional[str]:
     return m.group(1) if m else None
 
 
-def submit_array(
+def submit_convert(
     *,
     mc: str,
     flavor: str,
@@ -90,12 +86,13 @@ def submit_array(
     logdir: str,
     n_files: int,
     pulsemap: str,
+    nworkers: int,
 ) -> Optional[str]:
     job_name = f"Parquet_{mc}_{geometry}_{flavor}"
     cmd = [
         "sbatch",
         f"--job-name={job_name}",
-        f"--array=0-{n_files - 1}%{CONCURRENT}",
+        f"--cpus-per-task={nworkers}",
         (
             "--export="
             f"MC={mc},"
@@ -105,13 +102,14 @@ def submit_array(
             f"GCD={gcd},"
             f"OUTDIR={outdir},"
             f"LOGDIR={logdir},"
-            f"PULSEMAP={pulsemap}"
+            f"PULSEMAP={pulsemap},"
+            f"NWORKERS={nworkers}"
         ),
         str(WORKER_SH),
     ]
     result = subprocess.run(cmd, capture_output=True, text=True, check=True)
     job_id = parse_job_id(result.stdout)
-    print(f"  submitted: {job_name}  ({n_files} tasks)  job_id={job_id}")
+    print(f"  submitted: {job_name}  ({n_files} files, {nworkers} workers)  job_id={job_id}")
     return job_id
 
 
@@ -122,13 +120,13 @@ def submit_merge(
     geometry: str,
     outdir: str,
     logdir: str,
-    array_job_id: str,
+    convert_job_id: str,
 ) -> None:
     job_name = f"merge_Parquet_{mc}_{geometry}_{flavor}"
     cmd = [
         "sbatch",
         f"--job-name={job_name}",
-        f"--dependency=afterany:{array_job_id}",
+        f"--dependency=afterany:{convert_job_id}",
         (
             "--export="
             f"MC={mc},"
@@ -141,7 +139,7 @@ def submit_merge(
     ]
     result = subprocess.run(cmd, capture_output=True, text=True, check=True)
     merge_job_id = parse_job_id(result.stdout)
-    print(f"  chained:   {job_name}  job_id={merge_job_id}  (runs after {array_job_id})")
+    print(f"  chained:   {job_name}  job_id={merge_job_id}  (runs after {convert_job_id})")
 
 
 # ---------------------------------------------------------------------------
@@ -149,12 +147,14 @@ def submit_merge(
 # ---------------------------------------------------------------------------
 
 def main() -> int:
-    ap = argparse.ArgumentParser(description="Submit Parquet array jobs + auto merge")
+    ap = argparse.ArgumentParser(description="Submit Parquet jobs (single node, parallel) + auto merge")
     ap.add_argument("--mc",       required=True, choices=list(MC_TABLE))
     ap.add_argument("--geometry", required=True, help="Sub-geometry key, e.g. 102_string")
     ap.add_argument("--flavor",   required=True, nargs="+",
                     help=f"Flavor(s) or 'all'. Choices: {ALL_FLAVORS}")
     ap.add_argument("--pulsemap",  default="EventPulseSeries_nonoise")
+    ap.add_argument("--nworkers", type=int, default=NWORKERS,
+                    help=f"CPUs per job / parallel workers (default: {NWORKERS})")
     ap.add_argument("--dry-run",  action="store_true")
     args = ap.parse_args()
 
@@ -177,10 +177,10 @@ def main() -> int:
             print(f"ERROR: No trimmed GCD found for mc={mc}, geometry={args.geometry} in paths.py")
             return 1
 
-    print(f"\n[{mc}]  geometry={args.geometry}")
+    print(f"\n[{mc}]  geometry={args.geometry}  nworkers={args.nworkers}")
 
     for flavor in flavors:
-        entry = pmt_table.get(args.geometry, {}).get(flavor, {})
+        entry    = pmt_table.get(args.geometry, {}).get(flavor, {})
         pmt_path = entry.get("path")
 
         if pmt_path is None:
@@ -201,7 +201,7 @@ def main() -> int:
             continue
 
         if args.dry_run:
-            print(f"  [DRY-RUN] {flavor}: {n_files} files")
+            print(f"  [DRY-RUN] {flavor}: {n_files} files, {args.nworkers} workers")
             print(f"    indir    = {pmt_path}")
             print(f"    outdir   = {outdir}")
             print(f"    gcd      = {gcd}")
@@ -209,19 +209,19 @@ def main() -> int:
             print(f"    pulsemap = {args.pulsemap}")
             continue
 
-        array_job_id = submit_array(
+        convert_job_id = submit_convert(
             mc=mc, flavor=flavor, geometry=args.geometry,
             indir=pmt_path, gcd=gcd, outdir=outdir, logdir=logdir,
-            n_files=n_files, pulsemap=args.pulsemap,
+            n_files=n_files, pulsemap=args.pulsemap, nworkers=args.nworkers,
         )
-        if array_job_id is None:
+        if convert_job_id is None:
             print(f"  [error] {flavor}: could not parse job ID from sbatch output")
             return 1
 
         submit_merge(
             mc=mc, flavor=flavor, geometry=args.geometry,
             outdir=outdir, logdir=logdir,
-            array_job_id=array_job_id,
+            convert_job_id=convert_job_id,
         )
 
     return 0
