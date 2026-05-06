@@ -12,16 +12,6 @@
    ```bash
    apptainer shell --nv -B /cvmfs/software.pacific-neutrino.org/ /cvmfs/software.pacific-neutrino.org/containers/itray_v1.17.1
    ```
-   For GraphNeT GPU notebooks/training, use the GraphNeT container instead:
-   ```bash
-   apptainer exec --nv --cleanenv \
-     --env PYTHONNOUSERSITE=1 \
-     --env PYTHONPATH=/project/def-nahee/kbas/graphnet/src:/project/def-nahee/kbas/graphnet/examples/08_pone \
-     --bind /project \
-     --bind /home/kbas/scratch \
-     docker://rorsoe/graphnet:graphnet-1.8.0-cu126-torch26-ubuntu-22.04 \
-     bash
-   ```
 4. Set up the IceTray environment inside the container:
    ```bash
    source /usr/local/icetray/build/env-shell.sh
@@ -37,11 +27,6 @@
    ```bash
    export PYTHONPATH=/cvmfs/software.pacific-neutrino.org/pone_offline/v2.0:$PYTHONPATH
    export PONESRCDIR=/project/6008051/pone_simulation/pone_offline
-   ```
-
-   for GraphNeT:
-   ```bash
-   export PYTHONPATH=/project/def-nahee/kbas/graphnet/src:$PYTHONPATH
    ```
 
 **Note:** Haven't checked the contents of `env-shell.sh`.
@@ -94,4 +79,3 @@ This lists all jobs for user `kbas` with the following columns:
 | `TIME_LIMIT` | Maximum allowed runtime |
 | `NODES` | Number of nodes allocated |
 | `NODELIST(REASON)` | Node(s) the job runs on, or the reason it is still pending |
-
