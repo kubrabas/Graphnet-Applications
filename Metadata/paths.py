@@ -216,10 +216,10 @@ STRING340MC_PMT = {
         "NC":       {"path": "/home/kbas/scratch/String340MC/Full_Geometry/NC_PMT_Response", "format": "gz"},
     },
     "102_string": {
-        "Muon":     {"path": "/home/kbas/scratch/String340MC/102_String/Muon_PMT_Response", "format": "gz"},
-        "Electron": {"path": "/home/kbas/scratch/String340MC/102_String/Electron_PMT_Response", "format": "gz"},
-        "Tau":      {"path": "/home/kbas/scratch/String340MC/102_String/Tau_PMT_Response", "format": "gz"},
-        "NC":       {"path": "/home/kbas/scratch/String340MC/102_String/NC_PMT_Response", "format": "gz"},
+        "Muon":     {"path": "/home/kbas/scratch/String340MC/102_string/Muon_PMT_Response", "format": "gz"},
+        "Electron": {"path": "/home/kbas/scratch/String340MC/102_string/Electron_PMT_Response", "format": "gz"},
+        "Tau":      {"path": "/home/kbas/scratch/String340MC/102_string/Tau_PMT_Response", "format": "gz"},
+        "NC":       {"path": "/home/kbas/scratch/String340MC/102_string/NC_PMT_Response", "format": "gz"},
     },
     "160_string": {
         "Muon":     {"path": None, "format": None},
@@ -308,4 +308,3 @@ STRING340MC_PARQUET_MIXED = {
         "flavors": ["Muon", "Electron", "Tau", "NC"],
     },
 }
-

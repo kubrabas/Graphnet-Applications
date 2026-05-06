@@ -71,7 +71,9 @@ ALL_FLAVORS = ["Muon", "Electron", "Tau", "NC"]
 # Helpers
 # ---------------------------------------------------------------------------
 
-def to_folder_name(geometry: str) -> str:
+def to_folder_name(mc: str, geometry: str) -> str:
+    if mc == "STRING340MC" and geometry != "full_geometry":
+        return geometry
     return "_".join(part.capitalize() for part in geometry.split("_"))
 
 
@@ -161,7 +163,7 @@ def main() -> int:
     paths      = load_paths()
     table      = getattr(paths, MC_TABLE[args.mc_name])
     mc_folder  = MC_FOLDER[args.mc_name]
-    geo_folder = to_folder_name(args.geometry)
+    geo_folder = to_folder_name(args.mc_name, args.geometry)
     gcd_key    = GCD_KEY[args.mc_name]
     trimmed    = getattr(paths, "GCD_TRIMMED", {}).get(gcd_key, {})
     gcd        = trimmed.get(args.geometry) or paths.GCD[gcd_key]

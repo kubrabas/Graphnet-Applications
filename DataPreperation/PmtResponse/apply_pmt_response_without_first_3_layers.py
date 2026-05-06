@@ -49,24 +49,6 @@ print("[CHECKPOINT 0] Libraries imported successfully")
 
 MODE = "without_first_3_layers"
 
-_FRAME_ERRORS: list = []
-_FRAMES_READ:  list = [0]
-
-
-class _FrameReadMarker(icetray.I3Module):
-    """Increments _FRAMES_READ on every DAQ frame — used for EOF detection."""
-    def __init__(self, ctx):
-        super().__init__(ctx)
-        self.AddOutBox("OutBox")
-
-    def Configure(self):
-        pass
-
-    def DAQ(self, frame):
-        _FRAMES_READ[0] += 1
-        self.PushFrame(frame)
-
-
 # =============================================================================
 # Custom modules
 # =============================================================================
@@ -135,19 +117,11 @@ def _process_one(infile: Path, outfile: Path, logfile: Path, cfg: dict) -> tuple
     """Process a single I3 file.
 
     Returns:
-        ("skipped",  filename)
         ("success",  filename)
         ("failed",   filename, error_message)
     """
 
-    # --- skip check: outfile + logfile must exist AND logfile must confirm SUCCESS ---
-    if outfile.exists() and logfile.exists():
-        try:
-            if "=== SUCCESS" in logfile.read_text(errors="replace"):
-                return ("skipped", infile.name)
-        except OSError:
-            pass
-    # Clean up any orphaned partial outputs before reprocessing
+    # Clean up old outputs before processing.
     for p in (logfile, outfile):
         try:
             if p.exists():
@@ -155,14 +129,11 @@ def _process_one(infile: Path, outfile: Path, logfile: Path, cfg: dict) -> tuple
         except OSError:
             pass
 
-    global _FRAME_ERRORS, _FRAMES_READ
-    _FRAME_ERRORS = []
-    _FRAMES_READ  = [0]
-
     orig_stdout = sys.stdout
     orig_stderr = sys.stderr
     log_fh = None
     t_start = time.time()
+    frame_counts = {"daq": 0, "simulation": 0}
 
     try:
         log_fh = open(logfile, "w")
@@ -199,7 +170,6 @@ def _process_one(infile: Path, outfile: Path, logfile: Path, cfg: dict) -> tuple
         tray = I3Tray()
         tray.context["I3RandomService"] = randomService
         tray.AddModule("I3Reader", "reader", FilenameList=[cfg['gcd'], str(infile)])
-        tray.AddModule(_FrameReadMarker, "_FrameReadMarker")
 
         print("[CHECKPOINT 3] Tray initialized, I3Reader added successfully")
 
@@ -235,7 +205,7 @@ def _process_one(infile: Path, outfile: Path, logfile: Path, cfg: dict) -> tuple
             output="_3PMT_1DOM_nonoise",
             OMPMTCoinc=3,
             FullDetectorCoincidenceN=nDOMs,
-            CutOnTrigger=True,
+            CutOnTrigger=False,
             EventLength=10000,
             TriggerTime=2000,
             PulseSeriesIn="PMT_Response_nonoise",
@@ -243,6 +213,18 @@ def _process_one(infile: Path, outfile: Path, logfile: Path, cfg: dict) -> tuple
         )
 
         print("[CHECKPOINT 7] DetectorTriggers added successfully")
+
+        def count_output_frames(frame):
+            if frame.Stop == icetray.I3Frame.DAQ:
+                frame_counts["daq"] += 1
+            elif frame.Stop == icetray.I3Frame.Simulation:
+                frame_counts["simulation"] += 1
+            return True
+
+        tray.AddModule(
+            count_output_frames, "OutputFrameCounter",
+            Streams=[icetray.I3Frame.DAQ, icetray.I3Frame.Simulation],
+        )
 
         tray.AddModule(
             "I3Writer", "writer",
@@ -252,30 +234,16 @@ def _process_one(infile: Path, outfile: Path, logfile: Path, cfg: dict) -> tuple
 
         print("[CHECKPOINT 8] Writer added successfully")
 
-        while True:
-            _before = _FRAMES_READ[0]
-            try:
-                tray.Execute(1)
-            except Exception as _fe:
-                import traceback as _tb
-                _FRAME_ERRORS.append(
-                    f"DAQ frame #{_FRAMES_READ[0]}: {type(_fe).__name__}: {_fe}\n"
-                    + _tb.format_exc().strip()
-                )
-            if _FRAMES_READ[0] == _before:
-                break
+        tray.Execute()
         tray.Finish()
 
         elapsed = time.time() - t_start
-        if _FRAME_ERRORS:
-            print(f"\n[FRAME ERRORS] {len(_FRAME_ERRORS)} frame(s) dropped due to errors:")
-            for err in _FRAME_ERRORS:
-                print(f"  {err}")
         print(f"=== SUCCESS  elapsed={elapsed:.1f}s ===")
+        print(f"frames_to_writer : DAQ={frame_counts['daq']}  Simulation={frame_counts['simulation']}")
         print(f"outfile : {outfile}")
         log_fh.flush()
 
-        return ("success", infile.name, time.time() - t_start)
+        return ("success", infile.name, time.time() - t_start, frame_counts["daq"], frame_counts["simulation"])
 
     except Exception as e:
         import traceback as _tb
@@ -284,6 +252,7 @@ def _process_one(infile: Path, outfile: Path, logfile: Path, cfg: dict) -> tuple
             try:
                 print(f"=== FAILED  elapsed={elapsed:.1f}s ===")
                 print(f"ERROR: {e}")
+                print(f"frames_to_writer_before_failure : DAQ={frame_counts['daq']}  Simulation={frame_counts['simulation']}")
                 _tb.print_exc()
                 log_fh.flush()
             except Exception:
@@ -296,15 +265,15 @@ def _process_one(infile: Path, outfile: Path, logfile: Path, cfg: dict) -> tuple
             pass
         log_fh = None  # prevent double-close in finally
 
-        # Remove any partial outputs so only complete files remain
-        for p in (logfile, outfile):
+        # Keep the failed log for diagnosis, but remove the failed output.
+        for p in (outfile,):
             try:
                 if p.exists():
                     p.unlink()
             except Exception:
                 pass
 
-        return ("failed", infile.name, str(e), elapsed)
+        return ("failed", infile.name, str(e), elapsed, frame_counts["daq"], frame_counts["simulation"])
 
     finally:
         if log_fh is not None and not log_fh.closed:
@@ -361,20 +330,9 @@ def main() -> int:
         logfile  = logdir / f"{flavor_l}_{stem}.out"
         tasks.append((infile, outfile, logfile))
 
-    def _is_done(outf, logf):
-        if not (outf.exists() and logf.exists()):
-            return False
-        try:
-            return "=== SUCCESS" in logf.read_text(errors="replace")
-        except OSError:
-            return False
-
-    to_process     = [(inf, outf, logf) for inf, outf, logf in tasks
-                      if not _is_done(outf, logf)]
-    n_already_done = len(tasks) - len(to_process)
+    to_process = tasks
 
     print(f"Total files        : {len(tasks)}")
-    print(f"Already done (skip): {n_already_done}")
     print(f"To process         : {len(to_process)}")
 
     if not to_process:
@@ -393,7 +351,7 @@ def main() -> int:
     t_job_start      = time.time()
 
     cfg = vars(args)
-    n_success = n_failed = n_skipped = 0
+    n_success = n_failed = 0
 
     with open(general_log_path, "w") as glog:
         def _glog(msg=""):
@@ -409,7 +367,7 @@ def main() -> int:
         _glog(f"mode     : {MODE}")
         _glog(f"outdir   : {outdir}")
         _glog(f"logdir   : {logdir}")
-        _glog(f"total    : {len(tasks)}  (already_done={n_already_done}, to_process={len(to_process)})")
+        _glog(f"total    : {len(tasks)}")
         _glog(f"workers  : {nworkers}")
         _glog()
 
@@ -426,29 +384,27 @@ def main() -> int:
                 if status == "success":
                     n_success += 1
                     elapsed = result[2] if len(result) > 2 else 0.0
+                    daq = result[3] if len(result) > 3 else 0
+                    sim = result[4] if len(result) > 4 else 0
                     print(f"[ok]     {fname}")
-                    _glog(f"[{ts}] [ok]     {fname}  ({elapsed:.1f}s)")
-                elif status == "skipped":
-                    n_skipped += 1
-                    print(f"[skip]   {fname}")
-                    _glog(f"[{ts}] [skip]   {fname}")
+                    _glog(f"[{ts}] [ok]     {fname}  ({elapsed:.1f}s)  frames_to_writer: DAQ={daq} Simulation={sim}")
                 else:
                     n_failed += 1
                     err     = result[2] if len(result) > 2 else "unknown"
                     elapsed = result[3] if len(result) > 3 else 0.0
+                    daq = result[4] if len(result) > 4 else 0
+                    sim = result[5] if len(result) > 5 else 0
                     print(f"[failed] {fname}  ({err})")
-                    _glog(f"[{ts}] [failed] {fname}  ({elapsed:.1f}s) -- {err}")
+                    _glog(f"[{ts}] [failed] {fname}  ({elapsed:.1f}s)  frames_to_writer_before_failure: DAQ={daq} Simulation={sim} -- {err}")
                 sys.stdout.flush()
 
-        total_skipped = n_skipped + n_already_done
         total_elapsed = time.time() - t_job_start
-        print(f"\nDone.  success={n_success}  failed={n_failed}  skipped={total_skipped}")
+        print(f"\nDone.  success={n_success}  failed={n_failed}")
         _glog()
         _glog("=== FINAL SUMMARY ===")
         _glog(f"finished : {datetime.now(ZoneInfo('Europe/Berlin')).strftime('%Y-%m-%d %H:%M:%S %Z')}")
         _glog(f"success  : {n_success}")
         _glog(f"failed   : {n_failed}")
-        _glog(f"skipped  : {total_skipped}")
         _glog(f"elapsed  : {total_elapsed:.1f}s")
         _glog(f"log      : {general_log_path}")
 
