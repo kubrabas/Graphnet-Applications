@@ -97,13 +97,12 @@ def build_id_map(directory: str, *patterns: str) -> Dict[str, Path]:
 
 
 def load_xs():
-    # NOTE: intentionally uses neutrino XS files for both nu and nubar,
-    # matching the production convention of this dataset.
+    # Use physical nu/nubar cross sections for flux-free effective-area weights.
     return LW.CrossSectionFromSpline(
         XS_PATH + "dsdxdy_nu_CC_iso.fits",
-        XS_PATH + "dsdxdy_nu_CC_iso.fits",
+        XS_PATH + "dsdxdy_nubar_CC_iso.fits",
         XS_PATH + "dsdxdy_nu_NC_iso.fits",
-        XS_PATH + "dsdxdy_nu_NC_iso.fits",
+        XS_PATH + "dsdxdy_nubar_NC_iso.fits",
     )
 
 
