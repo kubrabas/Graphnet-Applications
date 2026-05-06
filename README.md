@@ -12,6 +12,16 @@
    ```bash
    apptainer shell --nv -B /cvmfs/software.pacific-neutrino.org/ /cvmfs/software.pacific-neutrino.org/containers/itray_v1.17.1
    ```
+   For GraphNeT GPU notebooks/training, use the GraphNeT container instead:
+   ```bash
+   apptainer exec --nv --cleanenv \
+     --env PYTHONNOUSERSITE=1 \
+     --env PYTHONPATH=/project/def-nahee/kbas/graphnet/src:/project/def-nahee/kbas/graphnet/examples/08_pone \
+     --bind /project \
+     --bind /home/kbas/scratch \
+     docker://rorsoe/graphnet:graphnet-1.8.0-cu126-torch26-ubuntu-22.04 \
+     bash
+   ```
 4. Set up the IceTray environment inside the container:
    ```bash
    source /usr/local/icetray/build/env-shell.sh
@@ -27,6 +37,11 @@
    ```bash
    export PYTHONPATH=/cvmfs/software.pacific-neutrino.org/pone_offline/v2.0:$PYTHONPATH
    export PONESRCDIR=/project/6008051/pone_simulation/pone_offline
+   ```
+
+   for GraphNeT:
+   ```bash
+   export PYTHONPATH=/project/def-nahee/kbas/graphnet/src:$PYTHONPATH
    ```
 
 **Note:** Haven't checked the contents of `env-shell.sh`.
@@ -80,30 +95,3 @@ This lists all jobs for user `kbas` with the following columns:
 | `NODES` | Number of nodes allocated |
 | `NODELIST(REASON)` | Node(s) the job runs on, or the reason it is still pending |
 
-## Checking Job Success via Log Files
-
-To summarize how many jobs completed successfully vs. failed, by checking the log files:
-
-```bash
-BASE="/home/kbas/scratch/String340MC/Logs"
-LINE=21
-
-for FLAVOR in Electron Muon Tau NC; do
-    DIR="${BASE}/${FLAVOR}_pmt_response_102_String"
-    if [ -d "$DIR" ]; then
-        TOTAL=$(ls "$DIR" | wc -l)
-        SUCCESS=$(for f in "$DIR"/*; do sed -n "${LINE}p" "$f"; done | grep -c "SUCCESS")
-        echo "${FLAVOR}: Total=$TOTAL | SUCCESS=$SUCCESS | FAILED=$((TOTAL - SUCCESS))"
-    else
-        echo "${FLAVOR}: directory not found ($DIR)"
-    fi
-done
-```
-
-For each neutrino flavor (`Electron`, `Muon`, `Tau`, `NC`), this script:
-1. Looks for the corresponding log directory under `BASE`
-2. Counts the total number of log files
-3. Reads line `LINE` (default: 21) of every log file and counts how many contain the word `SUCCESS`
-4. Prints a summary: total jobs, successful jobs, and failed jobs (= total − success)
-
-Change `LINE` if the success/failure status is written on a different line in your log files.
