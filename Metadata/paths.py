@@ -320,7 +320,7 @@ STRING340MC_PARQUET_MIXED = {
 BAD_I3_FILES = {
     "String340MC": {
         "Muon": {
-            "bad_after_frame": {},
+            "available_daq_counts": {},
             "no_daq_for_some_reason": {  
                 "/project/6008051/pone_simulation/MC000002-nu_mu-2_7-LeptonInjector-PROPOSAL-clsim-v10/Photon/cls_546.i3",
                 "/project/6008051/pone_simulation/MC000002-nu_mu-2_7-LeptonInjector-PROPOSAL-clsim-v10/Photon/cls_616.i3",
@@ -330,9 +330,36 @@ BAD_I3_FILES = {
             },
         },
         "Electron": {
-            "bad_after_frame": {
-                "/path/to/electron_file3.i3.zst": 1200,
-                "/path/to/electron_file4.i3.zst": 845,
+            "available_daq_counts": {
+                "/project/6008051/pone_simulation/MC000003-nu_e-2_7-LeptonInjector_PROPOSAL_clsim-v10/Generator/gen_1150.i3.zst": 165,
+                "/project/6008051/pone_simulation/MC000003-nu_e-2_7-LeptonInjector_PROPOSAL_clsim-v10/Generator/gen_1492.i3.zst": 122,
+                "/project/6008051/pone_simulation/MC000003-nu_e-2_7-LeptonInjector_PROPOSAL_clsim-v10/Generator/gen_2418.i3.zst": 117,
+                "/project/6008051/pone_simulation/MC000003-nu_e-2_7-LeptonInjector_PROPOSAL_clsim-v10/Generator/gen_2798.i3.zst": 122,
+                "/project/6008051/pone_simulation/MC000003-nu_e-2_7-LeptonInjector_PROPOSAL_clsim-v10/Generator/gen_2959.i3.zst": 158,
+                "/project/6008051/pone_simulation/MC000003-nu_e-2_7-LeptonInjector_PROPOSAL_clsim-v10/Generator/gen_3157.i3.zst": 30,
+                "/project/6008051/pone_simulation/MC000003-nu_e-2_7-LeptonInjector_PROPOSAL_clsim-v10/Generator/gen_3491.i3.zst": 169,
+                "/project/6008051/pone_simulation/MC000003-nu_e-2_7-LeptonInjector_PROPOSAL_clsim-v10/Generator/gen_3882.i3.zst": 174,
+                "/project/6008051/pone_simulation/MC000003-nu_e-2_7-LeptonInjector_PROPOSAL_clsim-v10/Generator/gen_3930.i3.zst": 140,
+                "/project/6008051/pone_simulation/MC000003-nu_e-2_7-LeptonInjector_PROPOSAL_clsim-v10/Generator/gen_4415.i3.zst": 139,
+                "/project/6008051/pone_simulation/MC000003-nu_e-2_7-LeptonInjector_PROPOSAL_clsim-v10/Generator/gen_5257.i3.zst": 127,
+                "/project/6008051/pone_simulation/MC000003-nu_e-2_7-LeptonInjector_PROPOSAL_clsim-v10/Generator/gen_590.i3.zst": 23,
+                "/project/6008051/pone_simulation/MC000003-nu_e-2_7-LeptonInjector_PROPOSAL_clsim-v10/Generator/gen_5971.i3.zst": 30,
+                "/project/6008051/pone_simulation/MC000003-nu_e-2_7-LeptonInjector_PROPOSAL_clsim-v10/Generator/gen_6044.i3.zst": 32,
+                "/project/6008051/pone_simulation/MC000003-nu_e-2_7-LeptonInjector_PROPOSAL_clsim-v10/Generator/gen_703.i3.zst": 8,
+                "/project/6008051/pone_simulation/MC000003-nu_e-2_7-LeptonInjector_PROPOSAL_clsim-v10/Generator/gen_7084.i3.zst": 16,
+                "/project/6008051/pone_simulation/MC000003-nu_e-2_7-LeptonInjector_PROPOSAL_clsim-v10/Generator/gen_7383.i3.zst": 55,
+                "/project/6008051/pone_simulation/MC000003-nu_e-2_7-LeptonInjector_PROPOSAL_clsim-v10/Generator/gen_7504.i3.zst": 76,
+                "/project/6008051/pone_simulation/MC000003-nu_e-2_7-LeptonInjector_PROPOSAL_clsim-v10/Generator/gen_7615.i3.zst": 121,
+                "/project/6008051/pone_simulation/MC000003-nu_e-2_7-LeptonInjector_PROPOSAL_clsim-v10/Generator/gen_771.i3.zst": 49,
+                "/project/6008051/pone_simulation/MC000003-nu_e-2_7-LeptonInjector_PROPOSAL_clsim-v10/Generator/gen_8150.i3.zst": 127,
+                "/project/6008051/pone_simulation/MC000003-nu_e-2_7-LeptonInjector_PROPOSAL_clsim-v10/Generator/gen_8164.i3.zst": 152,
+                "/project/6008051/pone_simulation/MC000003-nu_e-2_7-LeptonInjector_PROPOSAL_clsim-v10/Generator/gen_8222.i3.zst": 81,
+                "/project/6008051/pone_simulation/MC000003-nu_e-2_7-LeptonInjector_PROPOSAL_clsim-v10/Generator/gen_8779.i3.zst": 18,
+                "/project/6008051/pone_simulation/MC000003-nu_e-2_7-LeptonInjector_PROPOSAL_clsim-v10/Generator/gen_880.i3.zst": 119,
+                "/project/6008051/pone_simulation/MC000003-nu_e-2_7-LeptonInjector_PROPOSAL_clsim-v10/Generator/gen_9287.i3.zst": 115,
+                "/project/6008051/pone_simulation/MC000003-nu_e-2_7-LeptonInjector_PROPOSAL_clsim-v10/Generator/gen_9361.i3.zst": 96,
+                "/project/6008051/pone_simulation/MC000003-nu_e-2_7-LeptonInjector_PROPOSAL_clsim-v10/Generator/gen_976.i3.zst": 133,
+                "/project/6008051/pone_simulation/MC000003-nu_e-2_7-LeptonInjector_PROPOSAL_clsim-v10/Generator/gen_989.i3.zst": 17,
             },
 
             "no_daq_for_some_reason": { 
@@ -347,9 +374,8 @@ BAD_I3_FILES = {
             },
         },
         "Tau": {
-            "bad_after_frame": {
-                "/path/to/electron_file3.i3.zst": 1200,
-                "/path/to/electron_file4.i3.zst": 845,
+            "available_daq_counts": {
+
             },
             "no_daq_for_some_reason": {
                 "/project/6008051/pone_simulation/MC000004-nu_tau-2_7-LeptonInjector_PROPOSAL_clsim-v10/Generator/gen_3950.i3.zst"
@@ -360,7 +386,7 @@ BAD_I3_FILES = {
                 "/project/6008051/pone_simulation/MC000005-nu_NC-2_7-LeptonInjector_PROPOSAL_clsim_NC-v10/Generator/gen_2335.i3.zst",
                 "/project/6008051/pone_simulation/MC000005-nu_NC-2_7-LeptonInjector_PROPOSAL_clsim_NC-v10/Generator/gen_9055.i3.zst",
             },
-            "bad_after_frame": {},
+            "available_daq_counts": {},
         },
     }
 }
