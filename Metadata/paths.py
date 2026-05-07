@@ -308,3 +308,66 @@ STRING340MC_PARQUET_MIXED = {
         "flavors": ["Muon", "Electron", "Tau", "NC"],
     },
 }
+
+
+# ============================================================
+# Bad Frame List
+# ============================================================
+
+
+
+
+BAD_I3_FILES = {
+    "String340MC": {
+        "Muon": {
+            "bad_after_frame": {},
+            "no_daq_for_some_reason": {  
+                "/project/6008051/pone_simulation/MC000002-nu_mu-2_7-LeptonInjector-PROPOSAL-clsim-v10/Photon/cls_546.i3",
+                "/project/6008051/pone_simulation/MC000002-nu_mu-2_7-LeptonInjector-PROPOSAL-clsim-v10/Photon/cls_616.i3",
+                "/project/6008051/pone_simulation/MC000002-nu_mu-2_7-LeptonInjector-PROPOSAL-clsim-v10/Photon/cls_6282.i3",
+                "/project/6008051/pone_simulation/MC000002-nu_mu-2_7-LeptonInjector-PROPOSAL-clsim-v10/Photon/cls_706.i3",
+                "/project/6008051/pone_simulation/MC000002-nu_mu-2_7-LeptonInjector-PROPOSAL-clsim-v10/Photon/cls_7930.i3",
+            },
+        },
+        "Electron": {
+            "bad_after_frame": {
+                "/path/to/electron_file3.i3.zst": 1200,
+                "/path/to/electron_file4.i3.zst": 845,
+            },
+
+            "no_daq_for_some_reason": { 
+                "/project/6008051/pone_simulation/MC000003-nu_e-2_7-LeptonInjector_PROPOSAL_clsim-v10/Generator/gen_1080.i3.zst",
+                "/project/6008051/pone_simulation/MC000003-nu_e-2_7-LeptonInjector_PROPOSAL_clsim-v10/Generator/gen_1641.i3.zst",
+                "/project/6008051/pone_simulation/MC000003-nu_e-2_7-LeptonInjector_PROPOSAL_clsim-v10/Generator/gen_1687.i3.zst",
+                "/project/6008051/pone_simulation/MC000003-nu_e-2_7-LeptonInjector_PROPOSAL_clsim-v10/Generator/gen_354.i3.zst",
+                "/project/6008051/pone_simulation/MC000003-nu_e-2_7-LeptonInjector_PROPOSAL_clsim-v10/Generator/gen_5235.i3.zst",
+                "/project/6008051/pone_simulation/MC000003-nu_e-2_7-LeptonInjector_PROPOSAL_clsim-v10/Generator/gen_6428.i3.zst",
+                "/project/6008051/pone_simulation/MC000003-nu_e-2_7-LeptonInjector_PROPOSAL_clsim-v10/Generator/gen_6629.i3.zst",
+                "/project/6008051/pone_simulation/MC000003-nu_e-2_7-LeptonInjector_PROPOSAL_clsim-v10/Generator/gen_9619.i3.zst",
+            },
+        },
+        "Tau": {
+            "bad_after_frame": {
+                "/path/to/electron_file3.i3.zst": 1200,
+                "/path/to/electron_file4.i3.zst": 845,
+            },
+            "no_daq_for_some_reason": {
+                "/project/6008051/pone_simulation/MC000004-nu_tau-2_7-LeptonInjector_PROPOSAL_clsim-v10/Generator/gen_3950.i3.zst"
+            },
+        },
+        "NC": {
+            "no_daq_for_some_reason": {
+                "/project/6008051/pone_simulation/MC000005-nu_NC-2_7-LeptonInjector_PROPOSAL_clsim_NC-v10/Generator/gen_2335.i3.zst",
+                "/project/6008051/pone_simulation/MC000005-nu_NC-2_7-LeptonInjector_PROPOSAL_clsim_NC-v10/Generator/gen_9055.i3.zst",
+            },
+            "bad_after_frame": {},
+        },
+    }
+}
+
+
+
+# aga bu tau icinde event weight hesaplanamamis olanlar var :ooooo 
+# onlara bakmam gerek. gerekirse onlari da buraya almaliyim.
+# bu paths.py'yi duzenlemeliyim. her yerde duzenli yazsin 340str mi str340 mi vsvs
+# bi de belli bis asamadan sonra neden bazi frame'ler okunamiyo ona bakmak istiyom.s
