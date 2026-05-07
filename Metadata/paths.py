@@ -643,7 +643,20 @@ BAD_I3_FILES = {
                 "/project/6008051/pone_simulation/MC000005-nu_NC-2_7-LeptonInjector_PROPOSAL_clsim_NC-v10/Generator/gen_2335.i3.zst",
                 "/project/6008051/pone_simulation/MC000005-nu_NC-2_7-LeptonInjector_PROPOSAL_clsim_NC-v10/Generator/gen_9055.i3.zst",
             },
-            "available_daq_counts": {},
+            "available_daq_counts": {
+                "/project/6008051/pone_simulation/MC000005-nu_NC-2_7-LeptonInjector_PROPOSAL_clsim_NC-v10/Generator/gen_2136.i3.zst": 54,
+                "/project/6008051/pone_simulation/MC000005-nu_NC-2_7-LeptonInjector_PROPOSAL_clsim_NC-v10/Generator/gen_2761.i3.zst": 120,
+                "/project/6008051/pone_simulation/MC000005-nu_NC-2_7-LeptonInjector_PROPOSAL_clsim_NC-v10/Generator/gen_3952.i3.zst": 151,
+                "/project/6008051/pone_simulation/MC000005-nu_NC-2_7-LeptonInjector_PROPOSAL_clsim_NC-v10/Generator/gen_4193.i3.zst": 51,
+                "/project/6008051/pone_simulation/MC000005-nu_NC-2_7-LeptonInjector_PROPOSAL_clsim_NC-v10/Generator/gen_4613.i3.zst": 71,
+                "/project/6008051/pone_simulation/MC000005-nu_NC-2_7-LeptonInjector_PROPOSAL_clsim_NC-v10/Generator/gen_6835.i3.zst": 111,
+                "/project/6008051/pone_simulation/MC000005-nu_NC-2_7-LeptonInjector_PROPOSAL_clsim_NC-v10/Generator/gen_7077.i3.zst": 120,
+                "/project/6008051/pone_simulation/MC000005-nu_NC-2_7-LeptonInjector_PROPOSAL_clsim_NC-v10/Generator/gen_7183.i3.zst": 30,
+                "/project/6008051/pone_simulation/MC000005-nu_NC-2_7-LeptonInjector_PROPOSAL_clsim_NC-v10/Generator/gen_7966.i3.zst": 184,
+                "/project/6008051/pone_simulation/MC000005-nu_NC-2_7-LeptonInjector_PROPOSAL_clsim_NC-v10/Generator/gen_8410.i3.zst": 50,
+                "/project/6008051/pone_simulation/MC000005-nu_NC-2_7-LeptonInjector_PROPOSAL_clsim_NC-v10/Generator/gen_8750.i3.zst": 54,
+                "/project/6008051/pone_simulation/MC000005-nu_NC-2_7-LeptonInjector_PROPOSAL_clsim_NC-v10/Generator/gen_9656.i3.zst": 73,
+            },
         },
     }
 }
@@ -652,5 +665,4 @@ BAD_I3_FILES = {
 
 # aga bu tau icinde event weight hesaplanamamis olanlar var :ooooo 
 # onlara bakmam gerek. gerekirse onlari da buraya almaliyim.
-# bu paths.py'yi duzenlemeliyim. her yerde duzenli yazsin 340str mi str340 mi vsvs
-# bi de belli bis asamadan sonra neden bazi frame'ler okunamiyo ona bakmak istiyom.s
+
