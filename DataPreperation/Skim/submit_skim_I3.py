@@ -3,6 +3,7 @@ Submit geometry-skimmer array jobs to SLURM.
 
 Usage:
     python3 submit_skim_I3.py --csv /path/to/strings_102_40m.csv --flavor Muon
+    python3 submit_skim_I3.py --csv /path/to/strings_102_40m.csv --flavor Muon --exclude-oms 1,2,3
     python3 submit_skim_I3.py --csv /path/to/strings_102_40m.csv --flavor Muon Electron Tau NC
     python3 submit_skim_I3.py --csv /project/def-nahee/kbas/Graphnet-Applications/Metadata/GeometryFiles/Spring2026MC/strings_102_40m.csv --flavor Muon
     python3 submit_skim_I3.py --dry-run --csv /path/to/strings_102_40m.csv --flavor Muon
@@ -13,6 +14,7 @@ Input data always comes from full_geometry in paths.py.
 
 import argparse
 import importlib.util
+import re
 import subprocess
 from pathlib import Path
 
@@ -22,7 +24,7 @@ from pathlib import Path
 
 PATHS_PY    = "/project/def-nahee/kbas/Graphnet-Applications/Metadata/paths.py"
 WORKER_SH   = Path("/home/kbas/SlurmScripts/DataPreperation/submit_skim_I3.sh")
-FILTERFRAME = "/project/def-nahee/kbas/GeometrySkimmer/FilterFrame.py"
+FILTERFRAME = str(Path(__file__).resolve().parent / "FilterFrame.py")
 SCRATCH_BASE = "/home/kbas/scratch"
 CONCURRENT  = 50
 
@@ -68,8 +70,13 @@ def count_files(indir: str, fmt: str) -> int:
     return len(sorted(p.rglob(pattern)))
 
 
+def normalize_exclude_oms(exclude_oms: str) -> str:
+    """Use a Slurm --export-safe separator while preserving the same CLI UX."""
+    return ":".join(re.findall(r"\d+", exclude_oms))
+
+
 def submit_one(*, mc: str, geometry: str, flavor: str, indir: str, fmt: str,
-               gcd: str, csv: Path, dry_run: bool) -> None:
+               gcd: str, csv: Path, exclude_oms: str, dry_run: bool) -> None:
     pattern = "*.i3.zst" if fmt == "zst" else "*.i3"
     n = count_files(indir, fmt)
     if n == 0:
@@ -94,6 +101,7 @@ def submit_one(*, mc: str, geometry: str, flavor: str, indir: str, fmt: str,
             f"PATTERN={pattern},"
             f"GCD={gcd},"
             f"SELECTION={csv},"
+            f"EXCLUDE_OMS={exclude_oms},"
             f"FILTERFRAME={FILTERFRAME},"
             f"OUTDIR={outdir},"
             f"LOGDIR={logdir}"
@@ -119,8 +127,10 @@ def main() -> int:
     ap.add_argument("--csv", required=True, help="Path to selection CSV (e.g. strings_102_40m.csv)")
     ap.add_argument("--flavor", required=True, nargs="+",
                     help=f"Particle flavor(s) or 'all'. Choices: {ALL_FLAVORS}")
+    ap.add_argument("--exclude-oms", default="", help="Optional comma/space-separated OM IDs to drop within allowed strings")
     ap.add_argument("--dry-run", action="store_true", help="Print sbatch commands without submitting")
     args = ap.parse_args()
+    exclude_oms = normalize_exclude_oms(args.exclude_oms)
 
     csv = Path(args.csv).resolve()
     if not csv.exists():
@@ -166,6 +176,7 @@ def main() -> int:
                 fmt=entry["format"],
                 gcd=gcd,
                 csv=csv,
+                exclude_oms=exclude_oms,
                 dry_run=args.dry_run,
             )
         except FileNotFoundError as e:

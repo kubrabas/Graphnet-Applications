@@ -17,7 +17,8 @@ Usage example:
 Optional:
   --gcd-in      Override the auto-derived GCD input path
   --gcd-out     Override the auto-derived output path
-  --filterframe /project/def-nahee/kbas/GeometrySkimmer/FilterFrame.py
+  --filterframe /project/def-nahee/kbas/Graphnet-Applications/DataPreperation/Skim/FilterFrame.py
+  --exclude-oms 1,2,3
   --overwrite
 """
 
@@ -35,7 +36,7 @@ from icecube.icetray import I3LogLevel
 
 icetray.I3Logger.global_logger.set_level(I3LogLevel.LOG_INFO)
 
-DEFAULT_FILTERFRAME_PY = "/project/def-nahee/kbas/GeometrySkimmer/FilterFrame.py"
+DEFAULT_FILTERFRAME_PY = str(Path(__file__).resolve().parent / "FilterFrame.py")
 BASE_GCD_OUT = Path("/project/def-nahee/kbas/Graphnet-Applications/Metadata/GCD")
 
 
@@ -52,7 +53,12 @@ def import_filterframe(filterframe_py: str):
 def read_allowed_strings(selection_path: str) -> List[int]:
     """Extract all integers; keep unique in first-seen order."""
     txt = Path(selection_path).read_text()
-    nums = list(map(int, re.findall(r"\d+", txt)))
+    return parse_int_list(txt)
+
+
+def parse_int_list(text: str) -> List[int]:
+    """Extract all integers; keep unique in first-seen order."""
+    nums = list(map(int, re.findall(r"\d+", text)))
     seen = set()
     ordered: List[int] = []
     for n in nums:
@@ -80,6 +86,7 @@ def main() -> int:
     ap.add_argument("--gcd-in", default=None, help="Input (full) GCD file path (auto-derived from paths.GCD if omitted)")
     ap.add_argument("--gcd-out", default=None, help="Output (reduced) GCD file path (auto-derived from --selection if omitted)")
     ap.add_argument("--selection", required=True, help="Text file containing allowed string IDs")
+    ap.add_argument("--exclude-oms", default="", help="Optional comma/space-separated OM IDs to drop within allowed strings")
     ap.add_argument("--filterframe", default=DEFAULT_FILTERFRAME_PY, help="Absolute path to FilterFrame.py")
     ap.add_argument("--overwrite", action="store_true", help="Overwrite output if exists")
     args = ap.parse_args()
@@ -104,10 +111,12 @@ def main() -> int:
 
     FilterFrame = import_filterframe(args.filterframe)
     allowed = read_allowed_strings(str(selection))
+    excluded_oms = parse_int_list(args.exclude_oms)
 
     icetray.logging.log_info(f"gcd_in={gcd_in}")
     icetray.logging.log_info(f"gcd_out={gcd_out}")
     icetray.logging.log_info(f"AllowedStrings count={len(allowed)}")
+    icetray.logging.log_info(f"ExcludedOMs={excluded_oms}")
 
     tray = icetray.I3Tray()
 
@@ -118,6 +127,7 @@ def main() -> int:
     tray.Add(
         FilterFrame,
         AllowedStrings=allowed,
+        ExcludedOMs=excluded_oms,
         OnlyDAQ=False,
     )
 
