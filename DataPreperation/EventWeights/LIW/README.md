@@ -1,5 +1,17 @@
 # LeptonInjector Weights (LIW)
 
+## Bad I3 Files
+
+`calculate_LIW.py` checks `Metadata/paths.py` for known problematic input files:
+
+- files listed under `no_daq_for_some_reason` are skipped without adding events
+  to the LIW CSV.
+- files listed under `available_daq_counts` are processed only up to the recorded
+  number of safe DAQ frames.
+
+The per-file result is written to `<logdir>/<Flavor>_file_stats.csv`, including
+the applied bad-file rule and DAQ-frame limit.
+
 
 ## Section 1: My Understanding
 

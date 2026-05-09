@@ -2,7 +2,7 @@
 
 1. Allocate a GPU node:
    ```bash
-   salloc --time=2:30:00 --account=def-nahee --mem=24G --gpus-per-node=nvidia_h100_80gb_hbm3_1g.10gb:1
+   salloc --time=2:40:00 --account=def-nahee --mem=24G --gpus-per-node=nvidia_h100_80gb_hbm3_1g.10gb:1
    ```
 2. Load modules:
    ```bash
@@ -16,6 +16,7 @@
    ```bash
    source /usr/local/icetray/build/env-shell.sh
    ```
+(icetray environment has polars, pyarrow, pandas)
 
    for LeptonWeighter:
    ```bash
@@ -50,7 +51,7 @@ To use Jupyter notebook in VS Code with the IceTray environment set up above, fo
 
 3. In a **separate terminal**, open an SSH tunnel to the compute node (replace `fc11020` with your actual node name):
    ```bash
-   ssh -N -L 8888:localhost:8888 fc11020
+   ssh -N -L 8889:localhost:8889 fc11005
    ```
    > Nothing will appear in this terminal. that is expected.
 

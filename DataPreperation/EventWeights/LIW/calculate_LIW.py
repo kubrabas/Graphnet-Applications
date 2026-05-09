@@ -16,6 +16,7 @@ Usage:
 """
 
 import argparse
+import importlib.util
 import multiprocessing
 import os
 import re
@@ -37,6 +38,7 @@ icetray.I3Logger.global_logger = icetray.I3NullLogger()
 # ---------------------------------------------------------------------------
 
 XS_PATH = "/project/6008051/pone_simulation/pone_offline/CrossSectionModels/csms_differential_v1.0/"
+PATHS_PY = Path(__file__).resolve().parents[3] / "Metadata" / "paths.py"
 
 VALID_FLAVORS = {"muon", "electron", "tau", "nc"}
 N_GEN_PER_FILE = 100  # generated events per particle type per LIC file
@@ -98,6 +100,29 @@ def build_id_map(directory: str, *patterns: str) -> Dict[str, Path]:
     return result
 
 
+def load_paths():
+    spec = importlib.util.spec_from_file_location("paths", PATHS_PY)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+def bad_file_rule(i3_file: Path) -> Tuple[str, Optional[int]]:
+    target = str(i3_file.resolve())
+    bad_i3_files = getattr(load_paths(), "BAD_I3_FILES", {})
+
+    for flavors in bad_i3_files.values():
+        for info in flavors.values():
+            if target in set(map(str, info.get("no_daq_for_some_reason", set()))):
+                return "skip_no_daq", None
+
+            available_daq_counts = info.get("available_daq_counts", {})
+            if target in available_daq_counts:
+                return "limit_daq", int(available_daq_counts[target])
+
+    return "normal", None
+
+
 def load_xs():
     # Use physical nu/nubar cross sections for flux-free effective-area weights.
     return LW.CrossSectionFromSpline(
@@ -116,10 +141,11 @@ def append_error(existing: str, new: str) -> str:
     return f"{existing} | {new}"
 
 
-def read_event_properties(i3_file: Path) -> Tuple[Dict, str]:
+def read_event_properties(i3_file: Path, max_daq_frames: int = 0) -> Tuple[Dict, str]:
     props = {}
     error = ""
     opened = False
+    daq_count = 0
     try:
         f = dataio.I3File(str(i3_file))
         opened = True
@@ -135,11 +161,16 @@ def read_event_properties(i3_file: Path) -> Tuple[Dict, str]:
                 break
             if frame.Stop != icetray.I3Frame.DAQ:
                 continue
+            daq_count += 1
             if not frame.Has("EventProperties") or not frame.Has("I3EventHeader"):
+                if max_daq_frames > 0 and daq_count >= max_daq_frames:
+                    break
                 continue
             hdr = frame["I3EventHeader"]
             eid = (hdr.run_id, hdr.sub_run_id, hdr.event_id, hdr.sub_event_id)
             props[eid] = frame["EventProperties"]
+            if max_daq_frames > 0 and daq_count >= max_daq_frames:
+                break
         try:
             f.close()
         except RuntimeError as e:
@@ -180,11 +211,24 @@ def _process_one(args: tuple) -> tuple:
         "status": "not ok",
         "error": "",
         "i3_file_opened_ok": False,
+        "bad_file_rule": "normal",
+        "max_daq_frames": 0,
         "weights_calculated": 0,
         "duration_s": 0.0,
     }
 
-    event_props, event_props_error = read_event_properties(Path(i3_path))
+    rule, available_daq_count = bad_file_rule(Path(i3_path))
+    stat["bad_file_rule"] = rule
+    if rule == "skip_no_daq":
+        stat["status"] = "skipped"
+        stat["error"] = "input file is listed in paths.BAD_I3_FILES as no_daq_for_some_reason"
+        stat["duration_s"] = time.time() - t0
+        return batch_id, [], stat
+
+    max_daq_frames = available_daq_count if rule == "limit_daq" else 0
+    stat["max_daq_frames"] = max_daq_frames
+
+    event_props, event_props_error = read_event_properties(Path(i3_path), max_daq_frames)
     stat["error"] = event_props_error
     if not event_props:
         if not stat["error"]:
@@ -215,6 +259,7 @@ def _process_one(args: tuple) -> tuple:
     try:
         f = dataio.I3File(i3_path)
         stat["i3_file_opened_ok"] = True
+        daq_count = 0
         while f.more():
             try:
                 frame = f.pop_frame()
@@ -228,13 +273,18 @@ def _process_one(args: tuple) -> tuple:
 
             if frame.Stop != icetray.I3Frame.DAQ:
                 continue
+            daq_count += 1
             if not frame.Has("I3EventHeader"):
+                if max_daq_frames > 0 and daq_count >= max_daq_frames:
+                    break
                 continue
 
             hdr = frame["I3EventHeader"]
             eid = (hdr.run_id, hdr.sub_run_id, hdr.event_id, hdr.sub_event_id)
 
             if eid not in event_props:
+                if max_daq_frames > 0 and daq_count >= max_daq_frames:
+                    break
                 continue
 
             props = event_props[eid]
@@ -286,6 +336,8 @@ def _process_one(args: tuple) -> tuple:
                 "oneweight": oneweight,
             })
             weight_calculated += 1
+            if max_daq_frames > 0 and daq_count >= max_daq_frames:
+                break
 
         f.close()
 
@@ -306,7 +358,13 @@ def _process_one(args: tuple) -> tuple:
     elif weight_calculated > 0:
         stat["status"] = "partially ok"
         if not stat["error"]:
-            stat["error"] = "unknown"
+            if max_daq_frames > 0:
+                stat["error"] = (
+                    "processed only first "
+                    f"{max_daq_frames} DAQ frames per paths.BAD_I3_FILES"
+                )
+            else:
+                stat["error"] = "unknown"
     else:
         stat["status"] = "not ok"
         if not stat["error"]:
@@ -438,12 +496,14 @@ def main() -> int:
     n_ok_files = (stats_df["status"] == "ok").sum()
     n_partially_ok_files = (stats_df["status"] == "partially ok").sum()
     n_not_ok_files = (stats_df["status"] == "not ok").sum()
+    n_skipped_files = (stats_df["status"] == "skipped").sum()
     n_total_files = len(common)
     n_weights_calculated = int(stats_df["weights_calculated"].sum())
     log(f"\n--- Summary ---")
     log(f"files ok           : {n_ok_files} / {n_total_files}")
     log(f"files partially ok : {n_partially_ok_files}")
     log(f"files not ok       : {n_not_ok_files}")
+    log(f"files skipped      : {n_skipped_files}")
     log(f"weights calculated : {n_weights_calculated}")
     log(f"stats CSV written  : {statsfile}")
     log("per-file details   : see stats CSV")

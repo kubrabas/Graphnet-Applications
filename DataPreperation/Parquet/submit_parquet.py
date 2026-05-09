@@ -11,7 +11,8 @@ For each flavor:
   1. Reads PMT-response path and GCD from paths.py.
   2. Submits a single SLURM job with --cpus-per-task=NWORKERS.
      convert_parquet.py then processes all files in parallel inside that job.
-  3. Chains a merge job that runs merge_parquet.py only if conversion succeeds.
+  3. Chains a merge job after conversion finishes; merge uses any successful
+     truth/features parquet outputs that were produced.
 
 Shell script note:
     submit_parquet.sh must call convert_parquet.py with --nworkers $NWORKERS
@@ -126,7 +127,7 @@ def submit_merge(
     cmd = [
         "sbatch",
         f"--job-name={job_name}",
-        f"--dependency=afterok:{convert_job_id}",
+        f"--dependency=afterany:{convert_job_id}",
         (
             "--export="
             f"MC={mc},"
@@ -139,7 +140,7 @@ def submit_merge(
     ]
     result = subprocess.run(cmd, capture_output=True, text=True, check=True)
     merge_job_id = parse_job_id(result.stdout)
-    print(f"  chained:   {job_name}  job_id={merge_job_id}  (runs after successful completion of {convert_job_id})")
+    print(f"  chained:   {job_name}  job_id={merge_job_id}  (runs after completion of {convert_job_id})")
 
 
 # ---------------------------------------------------------------------------

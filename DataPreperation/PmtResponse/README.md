@@ -151,6 +151,16 @@ At the end of the job, the worker exits successfully only if all files succeeded
 
 Hard crashes, node kills, memory kills, or failures that do not become Python exceptions may stop the process before the failure block runs. In those cases, the final failure lines may be missing from the per file log.
 
+## Known Bad I3 Files
+
+The PMT workers check `Metadata/paths.py` for `BAD_I3_FILES` before running each input file.
+
+- Files listed under `no_daq_for_some_reason` are skipped and reported as `skipped`, not `failed`.
+- Files listed under `available_daq_counts` are processed only up to the recorded number of safe DAQ frames.
+- Files not listed there use the normal unlimited processing path.
+
+Skipped files keep a per file log ending with `SKIPPED`, and the job summary log includes a separate `skipped` count.
+
 ## QA Notebook
 
 `QA.ipynb` reads the per file logs and builds dataframes for the selected MC and geometry.

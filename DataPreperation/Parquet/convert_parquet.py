@@ -1,13 +1,12 @@
 """
 Convert PMT-response I3 files to Parquet format — parallel, single SLURM node.
 
-Processes all I3 files in indir in parallel using ProcessPoolExecutor:
+Processes all I3 files in indir using GraphNeT DataConverter multiprocessing:
   1. Discovers all I3 files in indir, sorts them.
-  2. Runs DataConverter with PONE_Reader + PONE extractors + ParquetWriter
-     for each file in a subprocess.
+  2. Runs one DataConverter with PONE_Reader + PONE extractors + ParquetWriter
+     over the full file list.
   3. Writes truth/ and features/ parquet files to a shared outdir.
-  4. Logs per-file results to logdir/<stem>.out
-  5. Writes a summary log to logdir/../job_<job_id>_<flavor>_<geometry>.log
+  4. Writes a summary log to logdir/../job_<job_id>_<flavor>_<geometry>.log
 
 Run merge_parquet.py after this script finishes to merge batches and build splits.
 
@@ -21,8 +20,7 @@ Usage (local test):
         --nworkers 4
 
 Shell script note:
-    The SLURM script should call this with --nworkers $SLURM_CPUS_PER_TASK
-    (no --array, no --task-id).
+    The SLURM script should call this with --nworkers $SLURM_CPUS_PER_TASK.
 """
 
 import h5py  # must be imported before icecube/graphnet to avoid HDF5 version conflict
@@ -32,7 +30,6 @@ import os
 import re
 import sys
 import time
-from concurrent.futures import ProcessPoolExecutor, as_completed
 from datetime import datetime
 from zoneinfo import ZoneInfo
 from glob import glob
@@ -393,43 +390,19 @@ def main() -> int:
         print(f"ERROR: No I3 files found in {args.indir}")
         return 3
 
-    cfg = {
-        "mc":       args.mc,
-        "flavor":   args.flavor,
-        "geometry": args.geometry,
-        "gcd":      args.gcd,
-        "pulsemap": args.pulsemap,
-    }
-
     def _is_done(f: Path) -> bool:
         stem = stem_from_i3(str(f))
         t = outdir / "truth" / f"{stem}_truth.parquet"
         x = outdir / "features" / f"{stem}_features.parquet"
-        l = per_file_log_path(logdir, stem)
-        if not l.exists():
-            return False
-        try:
-            if "=== SUCCESS" not in l.read_text(errors="replace"):
-                return False
-        except OSError:
-            return False
+        return t.exists() and x.exists()
 
-        category = classify_conversion(
-            logfile=l,
-            truth_out=t,
-            features_out=x,
-            failed=False,
-        )
-        return category in SUCCESS_CATEGORIES
-
-    # If --overwrite, pre-delete outputs so _process_one's skip check finds nothing
+    # If --overwrite, pre-delete outputs so the skip check finds nothing.
     if args.overwrite:
         for f in files:
             stem = stem_from_i3(str(f))
             for p in [
                 outdir / "truth" / f"{stem}_truth.parquet",
                 outdir / "features" / f"{stem}_features.parquet",
-                per_file_log_path(logdir, stem),
             ]:
                 try:
                     if p.exists():
@@ -457,23 +430,6 @@ def main() -> int:
     general_log_path = logdir / f"{date_stamp}_job_{job_id}.log"
     t_job_start      = time.time()
 
-    n_failed = n_skipped = 0
-    category_counts: Dict[str, int] = {
-        category: 0
-        for category in [
-            "successfully_transferred_kept_events",
-            "completely_empty_file",
-            "only_noise_events",
-            "only_missing_pulsemap_events",
-            "only_filtered_events",
-            "failed_to_open_file",
-            "failed_at_first_event",
-            "failed_after_partial_progress",
-            "failed_after_only_filtered_events",
-            "failed_missing_parquet_outputs_after_success",
-        ]
-    }
-
     with open(general_log_path, "w") as glog:
         def _glog(msg=""):
             glog.write(msg + "\n")
@@ -490,84 +446,66 @@ def main() -> int:
         _glog(f"total    : {len(files)}  (already_done={n_already_done}, to_process={len(to_process)})")
         _glog(f"workers  : {nworkers}")
         _glog()
-
-        with ProcessPoolExecutor(max_workers=nworkers) as executor:
-            futures = {
-                executor.submit(_process_one, infile, outdir, logdir, cfg): infile.name
-                for infile in to_process
-            }
-            for future in as_completed(futures):
-                result = future.result()
-                status = result[0]
-                fname  = result[1]
-                ts     = datetime.now(ZoneInfo("Europe/Berlin")).strftime("%H:%M:%S")
-                if status == "skipped":
-                    n_skipped += 1
-                    print(f"[skip]   {fname}")
-                    _glog(f"[{ts}] [skip]   {fname}")
-                else:
-                    category = status
-                    category_counts.setdefault(category, 0)
-                    category_counts[category] += 1
-                    elapsed = result[2] if len(result) > 2 else 0.0
-                    err = result[3] if len(result) > 3 else ""
-                    stem = stem_from_i3(fname)
-                    per_file_log = per_file_log_path(logdir, stem)
-                    summary_text = format_summary_for_log(per_file_log)
-                    if category in FAILED_CATEGORIES:
-                        n_failed += 1
-                        print(f"[{category}] {fname}  {summary_text}  ({err})")
-                        _glog(
-                            f"[{ts}] [{category}] {fname}  {summary_text}  "
-                            f"({elapsed:.1f}s) -- {err}"
-                        )
-                    else:
-                        print(f"[{category}] {fname}  {summary_text}")
-                        _glog(
-                            f"[{ts}] [{category}] {fname}  {summary_text}  "
-                            f"({elapsed:.1f}s)"
-                        )
-                sys.stdout.flush()
-
-        total_skipped = n_skipped + n_already_done
-        total_elapsed = time.time() - t_job_start
-        category_total = sum(category_counts.values())
-        per_file_logs_found = len(
-            [
-                p for p in logdir.glob("*.out")
-                if not p.name.startswith("merge_")
-            ]
+        reader = PONE_Reader(
+            gcd_rescue=args.gcd,
+            i3_filters=[NullSplitI3Filter()],
+            pulsemap=args.pulsemap,
+            skip_empty_pulses=True,
         )
-        accounting_check = "PASS" if category_total + total_skipped == len(files) else "FAIL"
-        per_file_log_check = "PASS" if per_file_logs_found == len(files) else "FAIL"
+        extractors = [
+            I3FeatureExtractorPONE(
+                pulsemap=args.pulsemap,
+                name="features",
+                exclude=[],
+            ),
+            I3TruthExtractorPONE(
+                name="truth",
+                exclude=[],
+            ),
+        ]
+        writer = ParquetWriter(truth_table="truth", index_column="event_no")
+        converter = DataConverter(
+            file_reader=reader,
+            save_method=writer,
+            extractors=extractors,
+            outdir=str(outdir),
+            num_workers=nworkers,
+            index_column="event_no",
+        )
+
+        orig_stdout = sys.stdout
+        orig_stderr = sys.stderr
+        sys.stdout = glog
+        sys.stderr = glog
+        try:
+            converter([str(f) for f in to_process])
+        finally:
+            sys.stdout = orig_stdout
+            sys.stderr = orig_stderr
+
+        total_elapsed = time.time() - t_job_start
+        truth_outputs = len(list((outdir / "truth").glob("*_truth.parquet")))
+        feature_outputs = len(list((outdir / "features").glob("*_features.parquet")))
         print("\nDone.")
         print("=== FINAL SUMMARY ===")
-        for category, count in category_counts.items():
-            print(f"{category} : {count}")
-        print(f"category_total : {category_total}")
-        print(f"failed_total : {n_failed}")
-        print(f"skipped_previously_done : {total_skipped}")
+        print(f"skipped_previously_done : {n_already_done}")
         print(f"input_files_discovered : {len(files)}")
-        print(f"per_file_logs_found : {per_file_logs_found}")
-        print(f"accounting_check : {accounting_check}")
-        print(f"per_file_log_check : {per_file_log_check}")
+        print(f"input_files_processed : {len(to_process)}")
+        print(f"truth_outputs_found : {truth_outputs}")
+        print(f"feature_outputs_found : {feature_outputs}")
         print(f"elapsed : {total_elapsed:.1f}s")
         _glog()
         _glog("=== FINAL SUMMARY ===")
         _glog(f"finished : {datetime.now(ZoneInfo('Europe/Berlin')).strftime('%Y-%m-%d %H:%M:%S %Z')}")
-        for category, count in category_counts.items():
-            _glog(f"{category} : {count}")
-        _glog(f"category_total : {category_total}")
-        _glog(f"failed_total : {n_failed}")
-        _glog(f"skipped_previously_done : {total_skipped}")
+        _glog(f"skipped_previously_done : {n_already_done}")
         _glog(f"input_files_discovered : {len(files)}")
-        _glog(f"per_file_logs_found : {per_file_logs_found}")
-        _glog(f"accounting_check : {accounting_check}")
-        _glog(f"per_file_log_check : {per_file_log_check}")
+        _glog(f"input_files_processed : {len(to_process)}")
+        _glog(f"truth_outputs_found : {truth_outputs}")
+        _glog(f"feature_outputs_found : {feature_outputs}")
         _glog(f"elapsed  : {total_elapsed:.1f}s")
         _glog(f"log      : {general_log_path}")
 
-    return 0 if n_failed == 0 else 1
+    return 0
 
 
 if __name__ == "__main__":

@@ -16,6 +16,8 @@ Usage:
         --logdir /home/kbas/scratch/String340MC/Logs/Electron_102_string_Parquet
 """
 
+import h5py  # must be imported before graphnet to avoid HDF5 version conflict
+
 import argparse
 import json
 import os
