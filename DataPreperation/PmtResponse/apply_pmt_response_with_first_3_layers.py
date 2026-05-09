@@ -8,6 +8,7 @@
 # =============================================================================
 import h5py  # must be imported before icecube to avoid HDF5 version conflict
 import argparse
+import importlib.util
 import os
 import re
 import sys
@@ -52,6 +53,39 @@ from copy import deepcopy
 print("[CHECKPOINT 0] Libraries imported successfully")
 
 MODE = "with_first_3_layers"
+PATHS_PY = Path(__file__).resolve().parents[2] / "Metadata" / "paths.py"
+BERLIN_TZ = ZoneInfo("Europe/Berlin")
+
+
+def berlin_timestamp() -> str:
+    return datetime.now(BERLIN_TZ).strftime("%H:%M %d %B %Y")
+
+
+def status_line(status: str, elapsed: float) -> str:
+    return f"=== {status}  @ {berlin_timestamp()}: elapsed={elapsed:.1f}s ==="
+
+
+def load_paths():
+    spec = importlib.util.spec_from_file_location("paths", PATHS_PY)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+def bad_file_rule(infile: Path):
+    target = str(infile.resolve())
+    bad_i3_files = getattr(load_paths(), "BAD_I3_FILES", {})
+
+    for flavors in bad_i3_files.values():
+        for info in flavors.values():
+            if target in set(map(str, info.get("no_daq_for_some_reason", set()))):
+                return "skip_no_daq", None
+
+            available_daq_counts = info.get("available_daq_counts", {})
+            if target in available_daq_counts:
+                return "limit_daq", int(available_daq_counts[target])
+
+    return "normal", None
 
 # =============================================================================
 # Custom modules
@@ -119,6 +153,31 @@ def drop_stale_keys(frame):
             frame.Delete(key)
 
 
+class DAQFrameLimiter(icetray.I3ConditionalModule):
+    def __init__(self, ctx):
+        super(DAQFrameLimiter, self).__init__(ctx)
+        self.AddOutBox("OutBox")
+        self.AddParameter("MaxDAQFrames", "Maximum DAQ frames to process; <=0 means unlimited", 0)
+
+    def Configure(self):
+        self.max_daq_frames = int(self.GetParameter("MaxDAQFrames"))
+        self.daq_count = 0
+
+    def Process(self):
+        frame = self.PopFrame()
+
+        if frame.Stop == icetray.I3Frame.DAQ:
+            self.daq_count += 1
+            if self.max_daq_frames > 0 and self.daq_count > self.max_daq_frames:
+                self.RequestSuspension()
+                return
+
+        self.PushFrame(frame)
+
+        if frame.Stop == icetray.I3Frame.DAQ and self.max_daq_frames > 0 and self.daq_count >= self.max_daq_frames:
+            self.RequestSuspension()
+
+
 # =============================================================================
 # Per-file worker  (runs in a subprocess via ProcessPoolExecutor)
 # =============================================================================
@@ -151,7 +210,7 @@ def _process_one(infile: Path, outfile: Path, logfile: Path, cfg: dict) -> tuple
         sys.stderr = log_fh
 
         print("=== PMT RESPONSE JOB STARTED (with_first_3_layers) ===")
-        print(f"started  : {datetime.now(ZoneInfo('Europe/Berlin')).strftime('%Y-%m-%d %H:%M:%S %Z')}")
+        print(f"started  : {datetime.now(BERLIN_TZ).strftime('%Y-%m-%d %H:%M:%S %Z')}")
         print(f"infile   : {infile}")
         print(f"outfile  : {outfile}")
         print(f"logfile  : {logfile}")
@@ -162,6 +221,20 @@ def _process_one(infile: Path, outfile: Path, logfile: Path, cfg: dict) -> tuple
         log_fh.flush()
 
         print("[CHECKPOINT 1] Log started successfully")
+
+        rule, available_daq_count = bad_file_rule(infile)
+        if rule == "skip_no_daq":
+            elapsed = time.time() - t_start
+            print("--- Skipping: input file is listed in paths.BAD_I3_FILES as no_daq_for_some_reason")
+            print(status_line("SKIPPED", elapsed))
+            log_fh.flush()
+            return ("skipped", infile.name, elapsed, "no_daq_for_some_reason")
+
+        max_daq_frames = available_daq_count if rule == "limit_daq" else 0
+        if max_daq_frames > 0:
+            print(f"available_daq_count : {max_daq_frames}")
+        else:
+            print("available_daq_count : unlimited")
 
         m = re.search(r"gen_(\d+)", infile.name) or re.search(r"cls_(\d+)", infile.name)
         if not m:
@@ -180,6 +253,7 @@ def _process_one(infile: Path, outfile: Path, logfile: Path, cfg: dict) -> tuple
         tray = I3Tray()
         tray.context["I3RandomService"] = randomService
         tray.AddModule("I3Reader", "reader", FilenameList=[cfg['gcd'], str(infile)])
+        tray.AddModule(DAQFrameLimiter, "DAQFrameLimiter", MaxDAQFrames=max_daq_frames)
 
         tray.AddModule(drop_stale_keys, "DropStaleKeys", Streams=[icetray.I3Frame.DAQ])
 
@@ -265,7 +339,7 @@ def _process_one(infile: Path, outfile: Path, logfile: Path, cfg: dict) -> tuple
         tray.Finish()
 
         elapsed = time.time() - t_start
-        print(f"=== SUCCESS  elapsed={elapsed:.1f}s ===")
+        print(status_line("SUCCESS", elapsed))
         print(f"frames_to_writer : DAQ={frame_counts['daq']}  Simulation={frame_counts['simulation']}")
         print(f"outfile : {outfile}")
         log_fh.flush()
@@ -277,7 +351,7 @@ def _process_one(infile: Path, outfile: Path, logfile: Path, cfg: dict) -> tuple
         elapsed = time.time() - t_start
         if log_fh and not log_fh.closed:
             try:
-                print(f"=== FAILED  elapsed={elapsed:.1f}s ===")
+                print(status_line("FAILED", elapsed))
                 print(f"ERROR: {e}")
                 print(f"frames_to_writer_before_failure : DAQ={frame_counts['daq']}  Simulation={frame_counts['simulation']}")
                 _tb.print_exc()
@@ -378,7 +452,7 @@ def main() -> int:
     t_job_start      = time.time()
 
     cfg = vars(args)
-    n_success = n_failed = 0
+    n_success = n_failed = n_skipped = 0
 
     with open(general_log_path, "w") as glog:
         def _glog(msg=""):
@@ -387,7 +461,7 @@ def main() -> int:
 
         _glog("=== PMT RESPONSE JOB ===")
         _glog(f"job_id   : {job_id}")
-        _glog(f"started  : {datetime.now(ZoneInfo('Europe/Berlin')).strftime('%Y-%m-%d %H:%M:%S %Z')}")
+        _glog(f"started  : {datetime.now(BERLIN_TZ).strftime('%Y-%m-%d %H:%M:%S %Z')}")
         _glog(f"flavor   : {args.flavor}")
         _glog(f"geometry : {args.geometry}")
         _glog(f"mc       : {args.mc}")
@@ -407,7 +481,7 @@ def main() -> int:
                 result  = future.result()
                 status  = result[0]
                 fname   = result[1]
-                ts      = datetime.now(ZoneInfo('Europe/Berlin')).strftime('%H:%M:%S')
+                ts      = datetime.now(BERLIN_TZ).strftime('%H:%M:%S')
                 if status == "success":
                     n_success += 1
                     elapsed = result[2] if len(result) > 2 else 0.0
@@ -415,6 +489,12 @@ def main() -> int:
                     sim = result[4] if len(result) > 4 else 0
                     print(f"[ok]     {fname}")
                     _glog(f"[{ts}] [ok]     {fname}  ({elapsed:.1f}s)  frames_to_writer: DAQ={daq} Simulation={sim}")
+                elif status == "skipped":
+                    n_skipped += 1
+                    elapsed = result[2] if len(result) > 2 else 0.0
+                    reason = result[3] if len(result) > 3 else "skipped"
+                    print(f"[skipped] {fname}  ({reason})")
+                    _glog(f"[{ts}] [skipped] {fname}  ({elapsed:.1f}s)  {reason}")
                 else:
                     n_failed += 1
                     err     = result[2] if len(result) > 2 else "unknown"
@@ -426,11 +506,12 @@ def main() -> int:
                 sys.stdout.flush()
 
         total_elapsed = time.time() - t_job_start
-        print(f"\nDone.  success={n_success}  failed={n_failed}")
+        print(f"\nDone.  success={n_success}  skipped={n_skipped}  failed={n_failed}")
         _glog()
         _glog("=== FINAL SUMMARY ===")
-        _glog(f"finished : {datetime.now(ZoneInfo('Europe/Berlin')).strftime('%Y-%m-%d %H:%M:%S %Z')}")
+        _glog(f"finished : {datetime.now(BERLIN_TZ).strftime('%Y-%m-%d %H:%M:%S %Z')}")
         _glog(f"success  : {n_success}")
+        _glog(f"skipped  : {n_skipped}")
         _glog(f"failed   : {n_failed}")
         _glog(f"elapsed  : {total_elapsed:.1f}s")
         _glog(f"log      : {general_log_path}")
