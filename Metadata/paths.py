@@ -270,9 +270,9 @@ STRING340MC_PARQUET = {
     "102_string": {
         "Muon":     {"train": None, "val": None, "test": None, "percentiles_csv": None},
         "Electron": {
-            "train": None,
-            "val": None,
-            "test": None,
+            "train": "/home/kbas/scratch/String340MC/102_string/Electron_Parquet/merged/train_reindexed",
+            "val": "/home/kbas/scratch/String340MC/102_string/Electron_Parquet/merged/val_reindexed",
+            "test": "/home/kbas/scratch/String340MC/102_string/Electron_Parquet/merged/test_reindexed",
             "percentiles_csv": "/project/def-nahee/kbas/Graphnet-Applications/Metadata/RobustScaler/340StringMC/102_string_electron_train_feature_percentiles_p25_p50_p75.csv",
         },
         "Tau":      {"train": None, "val": None, "test": None, "percentiles_csv": None},
