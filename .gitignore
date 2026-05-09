@@ -218,4 +218,15 @@ Meetings/
 logs
 .DS_Store
 Training/.DS_Store
+
+# Generated data products
+Metadata/EventWeights/**/*_LIW.csv
+Playground/**/*.i3.gz
 Training/EventPulseSeries_nonoise/.DS_Store
+
+
+
+/project/def-nahee/kbas/Graphnet-Applications/Metadata/EventWeights/String340MC/Electron_LIW.csv
+/project/def-nahee/kbas/Graphnet-Applications/Metadata/EventWeights/String340MC/Muon_LIW.csv
+/project/def-nahee/kbas/Graphnet-Applications/Metadata/EventWeights/String340MC/Tau_LIW.csv
+/project/def-nahee/kbas/Graphnet-Applications/Metadata/EventWeights/String340MC/NC_LIW.csv

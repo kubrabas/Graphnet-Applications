@@ -269,7 +269,12 @@ STRING340MC_PMT = {
 STRING340MC_PARQUET = {
     "102_string": {
         "Muon":     {"train": None, "val": None, "test": None, "percentiles_csv": None},
-        "Electron": {"train": None, "val": None, "test": None, "percentiles_csv": None},
+        "Electron": {
+            "train": None,
+            "val": None,
+            "test": None,
+            "percentiles_csv": "/project/def-nahee/kbas/Graphnet-Applications/Metadata/RobustScaler/340StringMC/102_string_electron_train_feature_percentiles_p25_p50_p75.csv",
+        },
         "Tau":      {"train": None, "val": None, "test": None, "percentiles_csv": None},
         "NC":       {"train": None, "val": None, "test": None, "percentiles_csv": None},
     },
@@ -306,6 +311,111 @@ STRING340MC_PARQUET_MIXED = {
     "full_geometry": {
         "train": None, "val": None, "test": None, "percentiles_csv": None,
         "flavors": ["Muon", "Electron", "Tau", "NC"],
+    },
+}
+
+
+# ============================================================
+# RobustScaler Percentiles
+# ============================================================
+# Each entry points to the CSV produced by DataPreperation/Parquet/merge_parquet.py
+# or DataPreperation/Parquet/compute_mixed_percentiles.py.
+
+ROBUST_SCALER = {
+    "340StringMC": {
+        "102_string": {
+            "Muon": None,
+            "Electron": "/project/def-nahee/kbas/Graphnet-Applications/Metadata/RobustScaler/340StringMC/102_string_electron_train_feature_percentiles_p25_p50_p75.csv",
+            "Tau": None,
+            "NC": None,
+            "mixed": None,
+        },
+        "160_string": {
+            "Muon": None,
+            "Electron": None,
+            "Tau": None,
+            "NC": None,
+            "mixed": None,
+        },
+        "full_geometry": {
+            "Muon": None,
+            "Electron": None,
+            "Tau": None,
+            "NC": None,
+            "mixed": None,
+        },
+    },
+    "Spring2026MC": {
+        "strings_102_40m": {
+            "Muon": None,
+            "Electron": None,
+            "Tau": None,
+            "NC": None,
+            "mixed": None,
+        },
+        "strings_102_80m": {
+            "Muon": None,
+            "Electron": None,
+            "Tau": None,
+            "NC": None,
+            "mixed": None,
+        },
+        "full_geometry": {
+            "Muon": None,
+            "Electron": None,
+            "Tau": None,
+            "NC": None,
+            "mixed": None,
+        },
+    },
+}
+
+
+# ============================================================
+# Triggered Event Lists
+# ============================================================
+# Each entry points to the CSV produced by DataPreperation/Parquet/merge_parquet.py.
+
+TRIGGERED_EVENT_LIST = {
+    "340StringMC": {
+        "102_string": {
+            "Muon": None,
+            "Electron": "/project/def-nahee/kbas/Graphnet-Applications/Metadata/TriggeredEventList/340StringMC/102_string_electron_triggered_events.csv",
+            "Tau": None,
+            "NC": None,
+        },
+        "160_string": {
+            "Muon": None,
+            "Electron": None,
+            "Tau": None,
+            "NC": None,
+        },
+        "full_geometry": {
+            "Muon": None,
+            "Electron": None,
+            "Tau": None,
+            "NC": None,
+        },
+    },
+    "Spring2026MC": {
+        "strings_102_40m": {
+            "Muon": None,
+            "Electron": None,
+            "Tau": None,
+            "NC": None,
+        },
+        "strings_102_80m": {
+            "Muon": None,
+            "Electron": None,
+            "Tau": None,
+            "NC": None,
+        },
+        "full_geometry": {
+            "Muon": None,
+            "Electron": None,
+            "Tau": None,
+            "NC": None,
+        },
     },
 }
 
@@ -557,6 +667,8 @@ BAD_I3_FILES = {
             "available_daq_counts": {
                 "/project/6008051/pone_simulation/MC000003-nu_e-2_7-LeptonInjector_PROPOSAL_clsim-v10/Generator/gen_1150.i3.zst": 165,
                 "/project/6008051/pone_simulation/MC000003-nu_e-2_7-LeptonInjector_PROPOSAL_clsim-v10/Generator/gen_1492.i3.zst": 122,
+                "/project/6008051/pone_simulation/MC000003-nu_e-2_7-LeptonInjector_PROPOSAL_clsim-v10/Generator/gen_2363.i3.zst": 99,
+                "/project/6008051/pone_simulation/MC000003-nu_e-2_7-LeptonInjector_PROPOSAL_clsim-v10/Generator/gen_2404.i3.zst": 79,
                 "/project/6008051/pone_simulation/MC000003-nu_e-2_7-LeptonInjector_PROPOSAL_clsim-v10/Generator/gen_2418.i3.zst": 117,
                 "/project/6008051/pone_simulation/MC000003-nu_e-2_7-LeptonInjector_PROPOSAL_clsim-v10/Generator/gen_2798.i3.zst": 122,
                 "/project/6008051/pone_simulation/MC000003-nu_e-2_7-LeptonInjector_PROPOSAL_clsim-v10/Generator/gen_2959.i3.zst": 158,
@@ -665,4 +777,3 @@ BAD_I3_FILES = {
 
 # aga bu tau icinde event weight hesaplanamamis olanlar var :ooooo 
 # onlara bakmam gerek. gerekirse onlari da buraya almaliyim.
-

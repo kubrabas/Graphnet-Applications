@@ -120,7 +120,7 @@ def bad_file_rule(i3_file: Path) -> Tuple[str, Optional[int]]:
             if target in available_daq_counts:
                 return "limit_daq", int(available_daq_counts[target])
 
-    return "normal", None
+    return "not_a_bad_file", None
 
 
 def load_xs():
@@ -211,7 +211,7 @@ def _process_one(args: tuple) -> tuple:
         "status": "not ok",
         "error": "",
         "i3_file_opened_ok": False,
-        "bad_file_rule": "normal",
+        "bad_file_rule": "not_a_bad_file",
         "max_daq_frames": 0,
         "weights_calculated": 0,
         "duration_s": 0.0,
