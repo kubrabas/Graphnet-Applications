@@ -445,10 +445,11 @@ def main() -> int:
     sys.stdout.flush()
 
     job_id           = os.environ.get("SLURM_JOB_ID", "local")
-    general_logdir   = logdir.parent
+    job_start_dt     = datetime.now(BERLIN_TZ)
+    job_date         = job_start_dt.strftime("%Y-%m-%d")
+    general_logdir   = logdir
     general_logdir.mkdir(parents=True, exist_ok=True)
-    geo_safe         = args.geometry.replace("/", "_")
-    general_log_path = general_logdir / f"job_{job_id}_{args.flavor}_{geo_safe}.log"
+    general_log_path = general_logdir / f"summary_{job_date}_job_{job_id}.log"
     t_job_start      = time.time()
 
     cfg = vars(args)
@@ -461,7 +462,7 @@ def main() -> int:
 
         _glog("=== PMT RESPONSE JOB ===")
         _glog(f"job_id   : {job_id}")
-        _glog(f"started  : {datetime.now(BERLIN_TZ).strftime('%Y-%m-%d %H:%M:%S %Z')}")
+        _glog(f"started  : {job_start_dt.strftime('%Y-%m-%d %H:%M:%S %Z')}")
         _glog(f"flavor   : {args.flavor}")
         _glog(f"geometry : {args.geometry}")
         _glog(f"mc       : {args.mc}")
