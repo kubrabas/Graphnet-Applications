@@ -1,8 +1,8 @@
-# LeptonInjector Weight Formula Notes
+# LeptonInjector Weight Formula for Volume Mode
 
 This note documents what `calculate_LIW.py` currently does when producing the
 `oneweight` column. For now, this document focuses only on the raw
-LeptonWeighter `get_oneweight(event)` calculation.
+LeptonWeighter `get_oneweight(event)` calculation for volume mode.
 
 ## Source Files
 
@@ -103,345 +103,282 @@ fs0 = to_lw_particle(props.finalType1)
 fs1 = to_lw_particle(props.finalType2)
 ```
 
-## Oneweight Column
 
-The actual weight stored in the `oneweight` column is produced by one call:
 
-```python
-oneweight = weighter.get_oneweight(event)
+## Example: MC000009 Electron Neutrino
+
+Source generation script:
+
+```text
+/project/6008051/pone_simulation/MC000009-nu_e-2_6-LeptonInjector_PROPOSAL_clsim-v17.1/runscripts/GenerateEvents.py
 ```
 
-For one event `i`, define:
+This script has two volume-mode electron generators in each matched LIC file:
+
+```text
+G_e- : EMinus + Hadrons, Ranged = False
+G_e+ : EPlus  + Hadrons, Ranged = False
+```
+
+So the general denominator is:
 
 ```math
-E_i      = \texttt{event.energy}
+G_{\mathrm{total}}(i) = G_{e^-}(i) + G_{e^+}(i)
 ```
+
+For an electron-neutrino event:
 
 ```math
-\theta_i = \texttt{event.zenith}
+G_{e^+}(i) = 0
 ```
 
-```math
-\phi_i   = \texttt{event.azimuth}
-```
-
-```math
-x_i      = \texttt{event.interaction\_x}
-```
-
-```math
-y_i      = \texttt{event.interaction\_y}
-```
-
-```math
-X_i      = \texttt{event.total\_column\_depth}
-```
-
-```math
-\vec{r}_i =
-(\texttt{event.x}, \texttt{event.y}, \texttt{event.z})
-```
-
-The full `oneweight` formula is:
+Therefore:
 
 ```math
 \boxed{
-\mathrm{oneweight}_i =
-\frac{
-    \sigma_i
-}{
-    \sum_{g \in \mathrm{generators}} G_g(i)
-}
-}
-```
-
-Here `generators` is the list read from the matched LIC file:
-
-```python
-generators = LW.MakeGeneratorsFromLICFile(lic_path)
-```
-
-For the current `MC000002-nu_mu-2_7` generation script, one file contains two
-ranged injectors:
-
-```text
-generator 1: FinalType1 = MuMinus, FinalType2 = Hadrons, Ranged = True
-generator 2: FinalType1 = MuPlus,  FinalType2 = Hadrons, Ranged = True
-```
-
-So for this sample, the denominator for one matched LIC/I3 batch is not a sum
-over all LIC files in the dataset. It is the sum over the generators stored in
-that matched LIC file. In this case:
-
-```math
-\sum_{g \in \mathrm{generators}} G_g(i)
+\mathrm{oneweight}_i(\nu_e)
 =
-G_{\mu^-}(i) + G_{\mu^+}(i)
+\frac{\sigma_i}{G_{e^-}(i)}
+}
 ```
 
-### Numerator
+Substituting the numerator for an electron-neutrino charged-current event:
 
 ```math
-\sigma_i =
-10^4
-\times
-S_{\nu/\bar{\nu},\,CC/NC}^{\mathrm{external}}
-\left(
-    \log_{10} E_i,
-    \log_{10} x_i,
-    \log_{10} y_i
-\right)
+\boxed{
+\mathrm{oneweight}_i(\nu_e)
+=
+\frac{
+    10^4\,
+    \operatorname{dsdxdy\_nu\_CC\_iso}
+    \left(
+        \log_{10}E_i,
+        \log_{10}x_i,
+        \log_{10}y_i
+    \right)
+}{
+    G_{e^-}(i)
+}
+}
 ```
 
-The selected spline comes from the cross-section object `_xs` built in
-`calculate_LIW.py`:
-
-```python
-_xs = LW.CrossSectionFromSpline(
-    XS_PATH + "dsdxdy_nu_CC_iso.fits",
-    XS_PATH + "dsdxdy_nubar_CC_iso.fits",
-    XS_PATH + "dsdxdy_nu_NC_iso.fits",
-    XS_PATH + "dsdxdy_nubar_NC_iso.fits",
-)
-```
-
-The spline choice is:
+The factor `10^4` comes directly from the LeptonWeighter source code:
 
 ```text
-event.primary_type is neutrino     + charged final particle -> nu_CC
-event.primary_type is neutrino     + no charged final       -> nu_NC
-event.primary_type is antineutrino + charged final particle -> nubar_CC
-event.primary_type is antineutrino + no charged final       -> nubar_NC
+msq_tocmsq = 1.e4
 ```
 
-This term is returned by LeptonWeighter as a double-differential cross section in
-`cm^2`.
+It is a hardcoded unit-conversion factor used when returning the cross-section:
 
-### Denominator
-
-The denominator is the summed generation weight from every generator in the LIC
-file:
-
-```math
-G_{\mathrm{total}}(i) =
-\sum_{g \in \mathrm{generators}} G_g(i)
+```text
+sigma_i = msq_tocmsq * spline_value
 ```
 
-For one generator `g`, LeptonWeighter uses:
+In words:
+
+```text
+1 m^2 = 10^4 cm^2
+```
+
+
+First look at the denominator:
 
 ```math
-G_g(i) =
-N_g
+G_{e^-}(i)
+=
+N_{e^-}
 \times
-P_E^g(E_i)
+P_E
 \times
-P_\Omega^g(\theta_i, \phi_i)
+P_{\mathrm{direction}}
 \times
-P_A^g
+P_{\mathrm{interaction}}
 \times
-P_{\mathrm{pos}}^g(\vec{r}_i,\theta_i,\phi_i)
-\times
-P_{\mathrm{fs}}^g
-\times
-P_{\mathrm{int}}^g(E_i,x_i,y_i,X_i)
+P_{\mathrm{position}}
 ```
 
-where `N_g` is the number of events stored in the LIC generator configuration.
-If the event is outside the generator phase space, the relevant probability is
-zero and therefore `G_g(i)=0`.
-
-The generated-energy probability is:
+For this electron-neutrino event, the final-state matching factor is already:
 
 ```math
-P_E^g(E_i) =
-\begin{cases}
-C_g E_i^{-\alpha_g}, & E_{\min,g} \le E_i \le E_{\max,g} \\
-0, & \mathrm{otherwise}
-\end{cases}
+P_{\mathrm{final\ state}} = 1
 ```
 
-with:
+For this electron-neutrino event-weight calculation:
 
 ```math
-C_g =
-\begin{cases}
-\dfrac{1-\alpha_g}
-{E_{\max,g}^{1-\alpha_g} - E_{\min,g}^{1-\alpha_g}},
-& \alpha_g \ne 1 \\
-\dfrac{1}{\ln(E_{\max,g}/E_{\min,g})},
-& \alpha_g = 1
-\end{cases}
+N_{e^-} = 100
 ```
 
-The generated-direction probability is:
+not `200`.
 
-```math
-P_\Omega^g(\theta_i,\phi_i) =
-\begin{cases}
-\dfrac{1}
-{(\phi_{\max,g}-\phi_{\min,g})
-(\cos\theta_{\min,g}-\cos\theta_{\max,g})},
-& \theta_i,\phi_i \mathrm{\ inside\ bounds} \\
-0, & \mathrm{otherwise}
-\end{cases}
+The reason is:
+
+```text
+G_e- uses only the EMinus + Hadrons generator.
 ```
 
-The final-state probability is:
+The file has two generators:
 
-```math
-P_{\mathrm{fs}}^g =
-\begin{cases}
-1, & \mathrm{event.final\_state\_particle\_0/1\ match\ the\ generator\ final\ state} \\
-0, & \mathrm{otherwise}
-\end{cases}
+```text
+100 events from the e- generator
+100 events from the e+ generator
 ```
 
-The target-count factor is:
+So the file has `200` generated events in total, but for an electron-neutrino
+event:
 
 ```math
-T_i = N_A X_i
+G_{e^+}(i) = 0
 ```
 
-with:
+and therefore the denominator uses:
 
 ```math
-N_A = 6.022140857 \times 10^{23}
+N_{e^-} = 100
 ```
 
-The interaction-kinematics probability is:
+For this sample, the generated-energy probability is:
 
 ```math
-P_{\mathrm{int}}^g(E_i,x_i,y_i,X_i) =
-\frac{
-    S_{\mathrm{diff}}^g(\log_{10}E_i,\log_{10}x_i,\log_{10}y_i)
-}{
-    1 -
-    \exp\left[
-        -S_{\mathrm{tot}}^g(\log_{10}E_i,\log_{10}x_i,\log_{10}y_i)
-        T_i
-    \right]
-}
-```
-
-where `S_diff^g` and `S_tot^g` are the differential and total cross-section
-splines stored in the LIC generator configuration. In the source code, the
-stored spline values are exponentiated as `10^(spline value)`.
-
-Now split the generator contribution by generator type.
-
-### Range Generator Formula
-
-For one ranged generator `g`, the source code has:
-
-```math
-P_A^g =
-\frac{1}
-{10^4 \pi R_{\mathrm{inj},g}^{2}}
-```
-
-```math
-P_{\mathrm{pos}}^g = 1
-```
-
-Therefore the ranged-generator contribution is:
-
-```math
-\boxed{
-G_{\mathrm{range},g}(i) =
-N_g
-P_E^g(E_i)
-P_\Omega^g(\theta_i,\phi_i)
-P_{\mathrm{fs}}^g
-P_{\mathrm{int}}^g(E_i,x_i,y_i,X_i)
-\frac{1}{10^4 \pi R_{\mathrm{inj},g}^{2}}
-}
-```
-
-If the LIC file contains only ranged generators, the oneweight is:
-
-```math
-\boxed{
-\mathrm{oneweight}_i^{\mathrm{range}} =
-\frac{
-    \sigma_i
-}{
-    \sum_{g \in \mathrm{range\ generators}}
-    G_{\mathrm{range},g}(i)
-}
-}
-```
-
-### Volume Generator Formula
-
-For one volume generator `g`, the source code has:
-
-```math
-P_A^g = 1
-```
-
-```math
-P_{\mathrm{pos}}^g(\vec{r}_i,\theta_i,\phi_i) =
+P_E(E_i)
+=
 \begin{cases}
 \dfrac{
-    L_{\mathrm{eff}}^g(\vec{r}_i,\theta_i,\phi_i)
+    (1 - 1.5) E_i^{-1.5}
 }{
-    10^4 \pi R_{\mathrm{cyl},g}^{2} H_{\mathrm{cyl},g}
+    (10^6)^{1 - 1.5} - (10^2)^{1 - 1.5}
 },
-& \vec{r}_i \mathrm{\ inside\ the\ generation\ cylinder} \\
-0, & \mathrm{otherwise}
+& 10^2 \le E_i \le 10^6 \\
+0,
+& \mathrm{otherwise}
 \end{cases}
 ```
 
-Here `L_eff` is the chord length through the generation cylinder in the event
-direction.
-
-Therefore the volume-generator contribution is:
+For this sample, the generated-direction probability is:
 
 ```math
-\boxed{
-G_{\mathrm{volume},g}(i) =
-N_g
-P_E^g(E_i)
-P_\Omega^g(\theta_i,\phi_i)
-P_{\mathrm{fs}}^g
-P_{\mathrm{int}}^g(E_i,x_i,y_i,X_i)
-P_{\mathrm{pos}}^g(\vec{r}_i,\theta_i,\phi_i)
-}
+P_{\mathrm{direction}}(\theta_i,\phi_i)
+=
+\begin{cases}
+\dfrac{1}
+{(\phi_{\max}-\phi_{\min})
+(\cos\theta_{\min}-\cos\theta_{\max})},
+& \theta_i,\phi_i \mathrm{\ inside\ bounds} \\
+0,
+& \mathrm{otherwise}
+\end{cases}
 ```
 
-If the LIC file contains only volume generators, the oneweight is:
+For `MC000009`:
+
+```text
+theta_min = 0
+theta_max = pi
+phi_min = 0
+phi_max = 2 pi
+```
+
+Therefore:
 
 ```math
-\boxed{
-\mathrm{oneweight}_i^{\mathrm{volume}} =
+P_{\mathrm{direction}}
+=
+\frac{1}
+{(2\pi - 0)(\cos 0 - \cos\pi)}
+=
+\frac{1}{4\pi}
+```
+
+For this sample, the volume-position probability is:
+
+```math
+P_{\mathrm{position}}
+=
 \frac{
-    \sigma_i
+    L_{\mathrm{eff}}(\vec{r}_i,\theta_i,\phi_i)
 }{
-    \sum_{g \in \mathrm{volume\ generators}}
-    G_{\mathrm{volume},g}(i)
-}
+    10^4 \pi (900)^2 (1100)
 }
 ```
 
-### Mixed Generator Formula
+if the event vertex is inside the generation cylinder.
 
-If the LIC file contains both ranged and volume generators, LeptonWeighter sums
-all generator contributions:
+If the event vertex is outside the cylinder:
 
 ```math
-\boxed{
-\mathrm{oneweight}_i =
+P_{\mathrm{position}} = 0
+```
+
+We will inspect `L_eff` separately.
+
+## Appendix
+
+### Why the Energy Probability Has This Form
+
+The generator samples energy from a power-law probability density:
+
+```math
+P_E(E) = C E^{-\alpha}
+```
+
+Because this is a probability density, it must integrate to one over the
+generation energy range:
+
+```math
+\int_{E_{\min}}^{E_{\max}} P_E(E)\,dE = 1
+```
+
+Substituting the power law:
+
+```math
+C \int_{E_{\min}}^{E_{\max}} E^{-\alpha}\,dE = 1
+```
+
+For `alpha != 1`:
+
+```math
+\int E^{-\alpha}\,dE =
+\frac{E^{1-\alpha}}{1-\alpha}
+```
+
+Therefore:
+
+```math
+C
 \frac{
-    \sigma_i
+E_{\max}^{1-\alpha} - E_{\min}^{1-\alpha}
 }{
-    \sum_{g \in \mathrm{range\ generators}}
-    G_{\mathrm{range},g}(i)
-    +
-    \sum_{g \in \mathrm{volume\ generators}}
-    G_{\mathrm{volume},g}(i)
+1-\alpha
 }
+= 1
+```
+
+Solving for `C` gives:
+
+```math
+C =
+\frac{
+1-\alpha
+}{
+E_{\max}^{1-\alpha} - E_{\min}^{1-\alpha}
 }
 ```
 
-The range and volume sizes in these formulas come from the LIC generator
-configuration.
+So the normalized generated-energy probability density is:
+
+```math
+P_E(E) =
+\frac{
+(1-\alpha) E^{-\alpha}
+}{
+E_{\max}^{1-\alpha} - E_{\min}^{1-\alpha}
+}
+```
+
+For the `MC000009` electron sample:
+
+```text
+alpha = 1.5
+E_min = 10^2 GeV
+E_max = 10^6 GeV
+```
