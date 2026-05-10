@@ -107,11 +107,15 @@ fs1 = to_lw_particle(props.finalType2)
 
 ## Example: MC000009 Electron Neutrino
 
+### Generation Script
+
 Source generation script:
 
 ```text
 /project/6008051/pone_simulation/MC000009-nu_e-2_6-LeptonInjector_PROPOSAL_clsim-v17.1/runscripts/GenerateEvents.py
 ```
+
+### Generators in One Matched LIC File
 
 This script has two volume-mode electron generators in each matched LIC file:
 
@@ -119,6 +123,8 @@ This script has two volume-mode electron generators in each matched LIC file:
 G_e- : EMinus + Hadrons, Ranged = False
 G_e+ : EPlus  + Hadrons, Ranged = False
 ```
+
+### Electron-Neutrino Denominator Reduction
 
 So the general denominator is:
 
@@ -142,6 +148,8 @@ Therefore:
 }
 ```
 
+### Numerator Substitution
+
 Substituting the numerator for an electron-neutrino charged-current event:
 
 ```math
@@ -162,6 +170,8 @@ Substituting the numerator for an electron-neutrino charged-current event:
 }
 ```
 
+### Cross-Section Unit Conversion
+
 The factor `10^4` comes directly from the LeptonWeighter source code:
 
 ```text
@@ -180,6 +190,7 @@ In words:
 1 m^2 = 10^4 cm^2
 ```
 
+### Denominator First Look
 
 First look at the denominator:
 
@@ -202,6 +213,8 @@ For this electron-neutrino event, the final-state matching factor is already:
 ```math
 P_{\mathrm{final\ state}} = 1
 ```
+
+### Number of Generated Events in the Active Generator
 
 For this electron-neutrino event-weight calculation:
 
@@ -237,6 +250,8 @@ and therefore the denominator uses:
 N_{e^-} = 100
 ```
 
+### Generated-Energy Probability
+
 For this sample, the generated-energy probability is:
 
 ```math
@@ -253,6 +268,8 @@ P_E(E_i)
 & \mathrm{otherwise}
 \end{cases}
 ```
+
+### Generated-Direction Probability
 
 For this sample, the generated-direction probability is:
 
@@ -289,6 +306,8 @@ P_{\mathrm{direction}}
 \frac{1}{4\pi}
 ```
 
+### Volume-Position Probability
+
 For this sample, the volume-position probability is:
 
 ```math
@@ -309,7 +328,54 @@ If the event vertex is outside the cylinder:
 P_{\mathrm{position}} = 0
 ```
 
-We will inspect `L_eff` separately.
+Here `L_eff` is the full chord length through the generation cylinder.
+
+For the event position and direction, imagine the straight line passing through:
+
+```text
+r_i = (event.x, event.y, event.z)
+```
+
+with direction:
+
+```text
+(event.zenith, event.azimuth)
+```
+
+This line intersects the generation cylinder at two points:
+
+```text
+p_entry = where the line enters the cylinder
+p_exit  = where the line exits the cylinder
+```
+
+The interaction point is somewhere between these two points:
+
+```text
+p_entry ---- r_i ---- p_exit
+```
+
+Therefore:
+
+```math
+L_{\mathrm{eff}}
+=
+\left|
+\vec{p}_{\mathrm{exit}}
+-
+\vec{p}_{\mathrm{entry}}
+\right|
+```
+
+In words:
+
+```text
+L_eff is the full length of the direction line inside the generation cylinder.
+```
+
+It is not only the distance from the interaction point to the exit point.
+
+![Effective chord length in the volume generator](figures/effective_chord_length.png)
 
 ## Appendix
 
@@ -381,4 +447,50 @@ For the `MC000009` electron sample:
 alpha = 1.5
 E_min = 10^2 GeV
 E_max = 10^6 GeV
+```
+
+### Why `L_eff` Appears Even Though `P_direction` Already Exists
+
+`P_direction` and `P_position` are not the same probability factor.
+
+`P_direction` answers:
+
+```text
+How likely was it for the generator to choose this neutrino direction?
+```
+
+For the `MC000009` electron sample, directions are generated uniformly over the
+full sky, so:
+
+```math
+P_{\mathrm{direction}} = \frac{1}{4\pi}
+```
+
+This only accounts for choosing the direction `(event.zenith, event.azimuth)`.
+
+`P_position` answers a different question:
+
+```text
+After this direction is chosen, how much generation-cylinder path length is
+available for an interaction vertex with this position-direction geometry?
+```
+
+For a fixed direction, different lines through the cylinder can have different
+lengths inside the cylinder. A line passing near the center has a larger
+`L_eff`; a line grazing the cylinder edge has a smaller `L_eff`.
+
+So:
+
+```text
+P_direction chooses the direction.
+L_eff describes the available chord length inside the cylinder for that
+position-direction combination.
+```
+
+This is why the volume-mode position factor contains:
+
+```math
+P_{\mathrm{position}}
+\propto
+L_{\mathrm{eff}}(\vec{r}_i,\theta_i,\phi_i)
 ```
