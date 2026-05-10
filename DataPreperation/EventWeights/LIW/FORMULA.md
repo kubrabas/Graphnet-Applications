@@ -158,7 +158,7 @@ Substituting the numerator for an electron-neutrino charged-current event:
 =
 \frac{
     10^4\,
-    \operatorname{dsdxdy\_nu\_CC\_iso}
+    \mathrm{dsdxdy\_nu\_CC\_iso}
     \left(
         \log_{10}E_i,
         \log_{10}x_i,
