@@ -2,7 +2,7 @@
 
 1. Allocate a GPU node:
    ```bash
-   salloc --time=2:40:00 --account=def-nahee --mem=24G --gpus-per-node=nvidia_h100_80gb_hbm3_1g.10gb:1
+   salloc --time=0:40:00 --account=def-nahee --mem=24G --gpus-per-node=nvidia_h100_80gb_hbm3_1g.10gb:1
    ```
 2. Load modules:
    ```bash
@@ -41,7 +41,7 @@ To use Jupyter notebook in VS Code with the IceTray environment set up above, fo
 
 1. Start a Jupyter server on the compute node:
    ```bash
-   jupyter notebook --no-browser --ip=127.0.0.1 --port=8888
+   jupyter notebook --no-browser --ip=127.0.0.1 --port=8899
    ```
 
 2. Copy the token URL printed in the output, e.g.:
@@ -51,7 +51,7 @@ To use Jupyter notebook in VS Code with the IceTray environment set up above, fo
 
 3. In a **separate terminal**, open an SSH tunnel to the compute node (replace `fc11020` with your actual node name):
    ```bash
-   ssh -N -L 8889:localhost:8889 fc11005
+   ssh -N -L 8899:localhost:8899 fc11005
    ```
    > Nothing will appear in this terminal. that is expected.
 

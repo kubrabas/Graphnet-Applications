@@ -13,6 +13,26 @@ The per-file result is written to `<logdir>/<Flavor>_file_stats.csv`, including
 the applied bad-file rule and DAQ-frame limit.
 
 
+## Unit of LIW
+
+The following `EventProperties` units have been confirmed:
+
+```text
+EventProperties.totalEnergy       GeV
+EventProperties.zenith            rad
+EventProperties.azimuth           rad
+EventProperties.finalStateX       dimensionless
+EventProperties.finalStateY       dimensionless
+EventProperties.initialType       particle code / enum
+EventProperties.finalType1        particle code / enum
+EventProperties.finalType2        particle code / enum
+EventProperties.totalColumnDepth  g/cm^2
+EventProperties.x                 meter
+EventProperties.y                 meter
+EventProperties.z                 meter
+```
+
+
 ## Section 1: My Understanding
 
 This section summarizes my current interpretation of the LIW weights produced

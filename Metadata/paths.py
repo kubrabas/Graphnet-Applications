@@ -377,7 +377,7 @@ ROBUST_SCALER = {
 # Each entry points to the CSV produced by DataPreperation/Parquet/merge_parquet.py.
 
 TRIGGERED_EVENT_LIST = {
-    "340StringMC": {
+    "String340MC": {
         "102_string": {
             "Muon": None,
             "Electron": "/project/def-nahee/kbas/Graphnet-Applications/Metadata/TriggeredEventList/340StringMC/102_string_electron_triggered_events.csv",
@@ -416,6 +416,26 @@ TRIGGERED_EVENT_LIST = {
             "Tau": None,
             "NC": None,
         },
+    },
+}
+
+
+# ============================================================
+# LeptonInjector Weights
+# ============================================================
+
+LIW = {
+    "Spring2026MC": {
+        "Muon": None,
+        "Electron": None,
+        "Tau": None,
+        "NC": None,
+    },
+    "String340MC": {
+        "Muon": "/project/def-nahee/kbas/Graphnet-Applications/Metadata/EventWeights/String340MC/Muon_LIW.csv",
+        "Electron": "/project/def-nahee/kbas/Graphnet-Applications/Metadata/EventWeights/String340MC/Electron_LIW.csv",
+        "Tau": "/project/def-nahee/kbas/Graphnet-Applications/Metadata/EventWeights/String340MC/Tau_LIW.csv",
+        "NC": "/project/def-nahee/kbas/Graphnet-Applications/Metadata/EventWeights/String340MC/NC_LIW.csv",
     },
 }
 
