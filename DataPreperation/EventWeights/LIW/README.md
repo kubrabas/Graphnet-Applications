@@ -1,215 +1,631 @@
-# LeptonInjector Weights (LIW)
+# LeptonInjector Weight Formula for Volume Mode
 
-## Bad I3 Files
+This note documents what `calculate_LIW.py` currently does when producing the
+`oneweight` column. For now, this document focuses only on the raw
+LeptonWeighter `get_oneweight(event)` calculation for volume mode.
 
-`calculate_LIW.py` checks `Metadata/paths.py` for known problematic input files:
+## Source Files
 
-- files listed under `no_daq_for_some_reason` are skipped without adding events
-  to the LIW CSV.
-- files listed under `available_daq_counts` are processed only up to the recorded
-  number of safe DAQ frames.
-
-The per-file result is written to `<logdir>/<Flavor>_file_stats.csv`, including
-the applied bad-file rule and DAQ-frame limit.
-
-
-## Unit of LIW
-
-The following `EventProperties` units have been confirmed:
+The relevant script in this repository is:
 
 ```text
-EventProperties.totalEnergy       GeV
-EventProperties.zenith            rad
-EventProperties.azimuth           rad
-EventProperties.finalStateX       dimensionless
-EventProperties.finalStateY       dimensionless
-EventProperties.initialType       particle code / enum
-EventProperties.finalType1        particle code / enum
-EventProperties.finalType2        particle code / enum
-EventProperties.totalColumnDepth  g/cm^2
-EventProperties.x                 meter
-EventProperties.y                 meter
-EventProperties.z                 meter
+DataPreperation/EventWeights/LIW/calculate_LIW.py
+```
+
+The LeptonWeighter object is built from two ingredients:
+
+```python
+generators = LW.MakeGeneratorsFromLICFile(lic_path)
+weighter = LW.Weighter(_xs, generators)
+```
+
+where:
+
+```text
+lic_path  = matched LeptonInjector .lic file for the current batch
+_xs       = cross-section object loaded from CSMS differential spline files
+generators = generator configuration read from the .lic file
+```
+
+The cross-section object is loaded as:
+
+```python
+_xs = LW.CrossSectionFromSpline(
+    XS_PATH + "dsdxdy_nu_CC_iso.fits",
+    XS_PATH + "dsdxdy_nubar_CC_iso.fits",
+    XS_PATH + "dsdxdy_nu_NC_iso.fits",
+    XS_PATH + "dsdxdy_nubar_NC_iso.fits",
+)
+```
+
+## Per-Frame Inputs
+
+For each readable DAQ frame, the script requires:
+
+```text
+I3EventHeader
+EventProperties
+```
+
+The event identity is taken from `I3EventHeader`:
+
+```text
+RunID       = hdr.run_id
+SubrunID    = hdr.sub_run_id
+EventID     = hdr.event_id
+SubEventID  = hdr.sub_event_id
+```
+
+The physics quantities are taken from `EventProperties` and copied into a
+`LeptonWeighter.Event` object:
+
+```text
+EventProperties.totalEnergy       -> event.energy
+EventProperties.zenith            -> event.zenith
+EventProperties.azimuth           -> event.azimuth
+EventProperties.finalStateX       -> event.interaction_x
+EventProperties.finalStateY       -> event.interaction_y
+EventProperties.initialType       -> event.primary_type
+EventProperties.finalType1        -> event.final_state_particle_0
+EventProperties.finalType2        -> event.final_state_particle_1
+EventProperties.impactParameter   -> event.radius
+EventProperties.totalColumnDepth  -> event.total_column_depth
+EventProperties.x                 -> event.x
+EventProperties.y                 -> event.y
+EventProperties.z                 -> event.z
+```
+
+In code, the object is built like this:
+
+```python
+event = LW.Event()
+event.energy = props.totalEnergy
+event.zenith = props.zenith
+event.azimuth = props.azimuth
+event.interaction_x = props.finalStateX
+event.interaction_y = props.finalStateY
+event.primary_type = primary
+event.final_state_particle_0 = fs0
+event.final_state_particle_1 = fs1
+event.radius = props.impactParameter
+event.total_column_depth = props.totalColumnDepth
+event.x = props.x
+event.y = props.y
+event.z = props.z
+```
+
+The particle-type fields are converted from `EventProperties` particle codes to
+LeptonWeighter particle enums before they are assigned:
+
+```python
+primary = to_lw_particle(props.initialType)
+fs0 = to_lw_particle(props.finalType1)
+fs1 = to_lw_particle(props.finalType2)
 ```
 
 
-## Section 1: My Understanding
 
-This section summarizes my current interpretation of the LIW weights produced
-with LeptonWeighter. The interpretation is based on the LeptonWeighter source
-code and on the *LeptonWeighter Design and Specifications* document quoted below
-in Section 2.
+## Example: MC000009 Electron Neutrino
 
-In particular, Section 2 states that the flux used by the weighter as an input is
-the neutrino flux **arriving** at the detector. In this analysis, I use a constant
-flux. Therefore, I interpret the result as an analysis under a flux that is
-constant at the detector, both in energy and in direction. If needed, a physical
-atmospheric or astrophysical flux model can also be used instead. My current
-question is: for effective-area studies, is using a unit flux model the correct
-choice?
+### Generation Script
 
-A useful way to read the `sum(LIW)` plots is:
+Source generation script:
 
 ```text
-sum(LIW) is an expected interaction-contribution distribution, not a flux distribution.
+/project/6008051/pone_simulation/MC000009-nu_e-2_6-LeptonInjector_PROPOSAL_clsim-v17.1/runscripts/GenerateEvents.py
 ```
 
-A flat arriving flux does not imply a flat interaction distribution. The
-interaction contribution can still depend on energy, direction, cross section,
-generation geometry, and the event's `totalColumnDepth`.
+### Generators in One Matched LIC File
 
-![Unweighted and LIW-weighted zenith distributions](figures/unweighted_vs_liw_zenith.png)
-
-Figure: The unweighted `cos(zenith)` distribution is approximately flat, as
-expected from uniform direction generation. The LIW-weighted distribution is not
-a flux histogram; it shows the expected interaction contribution under a unit
-neutrino flux arriving at the detector. The plot on the right is surprising to
-me, so I want to check carefully whether I am interpreting and calculating LIW
-correctly.
-
-As shown in the figure, the expected interaction contribution depends strongly on
-zenith. I think this may be related to the total column depth that the neutrino
-travels through the Earth. To check this interpretation, I also plotted
-`cos(zenith)` versus `totalColumnDepth` below.
-
-Why the zenith dependence of LIW feels confusing to me:
-
-If the flux model used in LeptonWeighter were the flux outside the Earth, rather
-than the flux arriving at the P-ONE detector, this zenith dependence would feel
-more intuitive. However, according to the LeptonWeighter specification, this is
-not the convention: the flux is the neutrino flux arriving at the detector. This
-raises the following question for me.
-
-In LeptonInjector, are we not already assuming that the neutrino has passed
-through the Earth and arrived near the detector? The LeptonInjector model seems
-to generate neutrino interactions in the vicinity of the detector. If that is the
-case, why should the amount of column depth traveled affect the final weight? Is
-the probability for a neutrino to interact really something that accumulates as
-"the more material it crosses, the more likely it is to interact"?
-
-I checked the LeptonWeighter source code. The relevant schematic formula is:
+This script has two volume-mode electron generators in each matched LIC file:
 
 ```text
-P_interact = 1 - exp(-sigma_total * N_A * X)
+G_e- : EMinus + Hadrons, Ranged = False
+G_e+ : EPlus  + Hadrons, Ranged = False
 ```
 
-Here, `X` is the total column depth.
+### Electron-Neutrino Denominator Reduction
 
-This comes from the LeptonWeighter generator-probability source code:
+So the general denominator is:
+
+```math
+G_{\mathrm{total}}(i) = G_{e^-}(i) + G_{e^+}(i)
+```
+
+For an electron-neutrino event:
+
+```math
+G_{e^+}(i) = 0
+```
+
+Therefore:
+
+```math
+\boxed{
+\mathrm{oneweight}_i(\nu_e)
+=
+\frac{\sigma_i}{G_{e^-}(i)}
+}
+```
+
+### Numerator Substitution
+
+Substituting the numerator for an electron-neutrino charged-current event:
+
+```math
+\boxed{
+\mathrm{oneweight}_i(\nu_e)
+=
+\frac{
+    10^4\,
+    \mathrm{dsdxdy\_nu\_CC\_iso}
+    \left(
+        \log_{10}E_i,
+        \log_{10}x_i,
+        \log_{10}y_i
+    \right)
+}{
+    G_{e^-}(i)
+}
+}
+```
+
+### Cross-Section Unit Conversion
+
+The factor `10^4` comes directly from the LeptonWeighter source code:
+
+```text
+msq_tocmsq = 1.e4
+```
+
+It is a hardcoded unit-conversion factor used when returning the cross-section:
+
+```text
+sigma_i = msq_tocmsq * spline_value
+```
+
+In words:
+
+```text
+1 m^2 = 10^4 cm^2
+```
+
+### Denominator First Look
+
+First look at the denominator:
+
+```math
+G_{e^-}(i)
+=
+N_{e^-}
+\times
+P_E
+\times
+P_{\mathrm{direction}}
+\times
+P_{\mathrm{interaction}}
+\times
+P_{\mathrm{position}}
+```
+
+For this electron-neutrino event, the final-state matching factor is already:
+
+```math
+P_{\mathrm{final\ state}} = 1
+```
+
+### Number of Generated Events in the Active Generator
+
+For this electron-neutrino event-weight calculation:
+
+```math
+N_{e^-} = 100
+```
+
+not `200`.
+
+The reason is:
+
+```text
+G_e- uses only the EMinus + Hadrons generator.
+```
+
+The file has two generators:
+
+```text
+100 events from the e- generator
+100 events from the e+ generator
+```
+
+So the file has `200` generated events in total, but for an electron-neutrino
+event:
+
+```math
+G_{e^+}(i) = 0
+```
+
+and therefore the denominator uses:
+
+```math
+N_{e^-} = 100
+```
+
+### Generated-Energy Probability
+
+For this sample, the generated-energy probability is:
+
+```math
+P_E(E_i)
+=
+\begin{cases}
+\dfrac{
+    (1 - 1.5) E_i^{-1.5}
+}{
+    (10^6)^{1 - 1.5} - (10^2)^{1 - 1.5}
+},
+& 10^2 \le E_i \le 10^6 \\
+0,
+& \mathrm{otherwise}
+\end{cases}
+```
+
+### Generated-Direction Probability
+
+For this sample, the generated-direction probability is:
+
+```math
+P_{\mathrm{direction}}(\theta_i,\phi_i)
+=
+\begin{cases}
+\dfrac{1}
+{(\phi_{\max}-\phi_{\min})
+(\cos\theta_{\min}-\cos\theta_{\max})},
+& \theta_i,\phi_i \mathrm{\ inside\ bounds} \\
+0,
+& \mathrm{otherwise}
+\end{cases}
+```
+
+For `MC000009`:
+
+```text
+theta_min = 0
+theta_max = pi
+phi_min = 0
+phi_max = 2 pi
+```
+
+Therefore:
+
+```math
+P_{\mathrm{direction}}
+=
+\frac{1}
+{(2\pi - 0)(\cos 0 - \cos\pi)}
+=
+\frac{1}{4\pi}
+```
+
+### Volume-Position Probability
+
+For this sample, the volume-position probability is:
+
+```math
+P_{\mathrm{position}}
+=
+\frac{
+    L_{\mathrm{eff}}(\vec{r}_i,\theta_i,\phi_i)
+}{
+    10^4 \pi (900)^2 (1100)
+}
+```
+
+if the event vertex is inside the generation cylinder.
+
+If the event vertex is outside the cylinder:
+
+```math
+P_{\mathrm{position}} = 0
+```
+
+Here `L_eff` is the full chord length through the generation cylinder.
+
+For the event position and direction, imagine the straight line passing through:
+
+```text
+r_i = (event.x, event.y, event.z)
+```
+
+with direction:
+
+```text
+(event.zenith, event.azimuth)
+```
+
+This line intersects the generation cylinder at two points:
+
+```text
+p_entry = where the line enters the cylinder
+p_exit  = where the line exits the cylinder
+```
+
+The interaction point is somewhere between these two points:
+
+```text
+p_entry ---- r_i ---- p_exit
+```
+
+Therefore:
+
+```math
+L_{\mathrm{eff}}
+=
+\left|
+\vec{p}_{\mathrm{exit}}
+-
+\vec{p}_{\mathrm{entry}}
+\right|
+```
+
+In words:
+
+```text
+L_eff is the full length of the direction line inside the generation cylinder.
+```
+
+It is not only the distance from the interaction point to the exit point.
+
+![Effective chord length in the volume generator](figures/effective_chord_length.png)
+
+## Appendix
+
+### Why the Energy Probability Has This Form
+
+The generator samples energy from a power-law probability density:
+
+```math
+P_E(E) = C E^{-\alpha}
+```
+
+Because this is a probability density, it must integrate to one over the
+generation energy range:
+
+```math
+\int_{E_{\min}}^{E_{\max}} P_E(E)\,dE = 1
+```
+
+Substituting the power law:
+
+```math
+C \int_{E_{\min}}^{E_{\max}} E^{-\alpha}\,dE = 1
+```
+
+For `alpha != 1`:
+
+```math
+\int E^{-\alpha}\,dE =
+\frac{E^{1-\alpha}}{1-\alpha}
+```
+
+Therefore:
+
+```math
+C
+\frac{
+E_{\max}^{1-\alpha} - E_{\min}^{1-\alpha}
+}{
+1-\alpha
+}
+= 1
+```
+
+Solving for `C` gives:
+
+```math
+C =
+\frac{
+1-\alpha
+}{
+E_{\max}^{1-\alpha} - E_{\min}^{1-\alpha}
+}
+```
+
+So the normalized generated-energy probability density is:
+
+```math
+P_E(E) =
+\frac{
+(1-\alpha) E^{-\alpha}
+}{
+E_{\max}^{1-\alpha} - E_{\min}^{1-\alpha}
+}
+```
+
+For the `MC000009` electron sample:
+
+```text
+alpha = 1.5
+E_min = 10^2 GeV
+E_max = 10^6 GeV
+```
+
+### Why `L_eff` Appears Even Though `P_direction` Already Exists
+
+`P_direction` and `P_position` are not the same probability factor.
+
+`P_direction` answers:
+
+```text
+How likely was it for the generator to choose this neutrino direction?
+```
+
+For the `MC000009` electron sample, directions are generated uniformly over the
+full sky, so:
+
+```math
+P_{\mathrm{direction}} = \frac{1}{4\pi}
+```
+
+This only accounts for choosing the direction `(event.zenith, event.azimuth)`.
+
+`P_position` answers a different question:
+
+```text
+After this direction is chosen, how much generation-cylinder path length is
+available for an interaction vertex with this position-direction geometry?
+```
+
+For a fixed direction, different lines through the cylinder can have different
+lengths inside the cylinder. A line passing near the center has a larger
+`L_eff`; a line grazing the cylinder edge has a smaller `L_eff`.
+
+So:
+
+```text
+P_direction chooses the direction.
+L_eff describes the available chord length inside the cylinder for that
+position-direction combination.
+```
+
+This is why the volume-mode position factor contains:
+
+```math
+P_{\mathrm{position}}
+\propto
+L_{\mathrm{eff}}(\vec{r}_i,\theta_i,\phi_i)
+```
+
+### Why the Interaction Probability Has This Form
+
+A neutrino travelling through a column of matter encounters target nucleons
+along its path. Each nucleon presents an effective area `σ_tot` to the
+neutrino (the total cross section). The number of target nucleons per unit
+area along the path is:
+
+```math
+N_{\mathrm{targets}} = N_A \cdot \mathrm{col\_depth}
+```
+
+In an infinitesimal slice of thickness `dx`, the probability of interacting is:
+
+```math
+dP_{\mathrm{interact}} = \sigma_{\mathrm{tot}} \cdot n \cdot dx
+```
+
+where `n` is the number density of targets. Integrating this along the full
+column — the same differential equation as radioactive decay or Beer-Lambert
+attenuation — gives the probability of **surviving** without interacting:
+
+```math
+P_{\mathrm{survive}} = e^{-\sigma_{\mathrm{tot}} \cdot N_A \cdot \mathrm{col\_depth}}
+```
+
+Therefore the probability of **interacting at least once** is:
+
+```math
+P_{\mathrm{interact}} = 1 - e^{-\sigma_{\mathrm{tot}} \cdot N_A \cdot \mathrm{col\_depth}}
+```
+
+LeptonInjector forces every generated event to interact. The factor
+`(1 - \exp(-\sigma_{\mathrm{tot}} \cdot N_A \cdot \mathrm{col\_depth}))` inside
+`P_{\mathrm{interaction}}` carries this forced-interaction correction into
+`G(i)`, so that when the oneweight is computed it correctly accounts for the
+natural interaction probability.
+
+#### What `col_depth` is in volume mode
+
+In volume mode, `totalColumnDepth` is the column depth along the full chord
+through the generation cylinder — from `p_entry` to `p_exit`, where these are
+the two points at which the neutrino track intersects the cylinder wall. This
+is the same chord shown in Panel A of the figure below:
+
+![Effective chord length in the volume generator](figures/effective_chord_length.png)
+
+The column depth is computed using the Earth density model between those two
+intersection points (source:
+`LeptonInjector/private/LeptonInjector/LeptonInjector.cxx`, lines 794–795):
 
 ```cpp
-// /usr/local/LeptonWeighter/private/LeptonWeighter/Generator.cpp
-return differential_xs / (1. - exp(-total_xs * number_of_targets));
+properties->totalColumnDepth =
+    earthModel->GetColumnDepthInCGS(
+        std::get<0>(cylinder_intersections),
+        std::get<1>(cylinder_intersections)
+    );
+```
 
-double RangeGenerator::number_of_targets(Event& e) const {
-    return Constants::Na * e.total_column_depth;
+**Ranged mode is different.** In ranged mode `totalColumnDepth` is the sum of
+the lepton range (converted from MWE to g/cm²) and the column depth through
+the injection endcaps — a more complex quantity that is not simply the cylinder
+chord (source: same file, lines 652–653).
+
+```math
+P_{\mathrm{interaction}}(E_i, x_i, y_i)
+=
+\frac{
+    \left.\dfrac{d^2\sigma}{dx\,dy}\right|_{\mathrm{LIC}}
+    \!\left(\log_{10}E_i,\,\log_{10}x_i,\,\log_{10}y_i\right)
+}{
+    1 - \exp\!\left(
+        -\sigma_{\mathrm{tot,LIC}}\!\left(\log_{10}E_i,\,\log_{10}x_i,\,\log_{10}y_i\right)
+        \cdot N_A \cdot \mathrm{col\_depth}_i
+    \right)
 }
-
-double VolumeGenerator::number_of_targets(Event& e) const {
-    return Constants::Na * e.total_column_depth;
-}
 ```
 
-For small interaction probability, this becomes approximately:
+## Oneweight as Importance Sampling
+
+The oneweight formula is an importance sampling ratio:
+
+```math
+\mathrm{oneweight} =
+\frac{\text{what I want to weight with}}{\text{how I generated the event}}
+```
+
+The two differential cross sections in the formula play different roles:
 
 ```text
-P_interact ~= sigma_total * N_A * X
+P_interaction (denominator):  the cross section used during injection —
+                               "(x, y) were sampled from this distribution"
+
+oneweight numerator:           the physical cross section we want to apply —
+                               "this event occurs in nature with this cross section"
 ```
 
-According to this formula, LIW clearly depends on `X`. As mentioned above, I do
-not yet understand this intuitively. Either I am misunderstanding the overall
-logic of LeptonWeighter, or I am only misunderstanding the meaning of this
-specific formula and how the column-depth dependence enters the weight.
+The generation distribution is placed in the denominator to undo the
+production bias, replacing it with the physical distribution (CSMS splines)
+in the numerator.
 
-The second plot is the effective-area plot:
+## Correcting a Wrong Cross Section at Injection Time
 
-![Muon effective area by local zenith band](figures/muon_effective_area_by_local_zenith_band.png)
+In the 340StringMC production, the antineutrino samples were injected using
+the neutrino cross-section splines instead of the antineutrino splines.
+Concretely, `dsdxdy_nu_CC_iso` was used to sample `(x, y)` for antineutrino
+events where `dsdxdy_nubar_CC_iso` should have been used.
 
-Figure: Muon generation-level effective area as a function of energy, split by
-local `cos(zenith)` band. This includes all generated events, not only triggered
-or selected events. When I compare effective areas for different layouts, such as
-the 70-string baseline or the 102-string ROV-constrained layout, I plan to keep
-only the events triggered by each specific layout.
-
-For an energy bin and a local zenith band, the effective area is computed as:
+Because oneweight is an importance sampling ratio, this mistake can be
+corrected at the weighting stage. The key observation is:
 
 ```text
-A_eff(E_bin, cosz_band) = sum(LIW_i) / (DeltaE * DeltaOmega)
+G(i)  correctly records what was actually done at injection time
+      (the .lic file has the nu splines embedded).
+
+If the oneweight numerator is set to the correct nubar cross section,
+the per-event ratio becomes:
+
+    oneweight ∝ dsdxdy_nubar_CSMS / dsdxdy_nu_LIC
+
+which is exactly the importance sampling correction that maps the
+wrongly-sampled (x, y) distribution back to the correct nubar distribution.
 ```
 
-where `LIW_i` is the LeptonInjector weight of event `i`, `DeltaE` is the
-energy-bin width, and for a local zenith band `[cosz_min, cosz_max]`:
+Therefore, using `dsdxdy_nubar_CC_iso` in the Weighter cross-section object
+(the numerator) is sufficient to correct the injection mistake.
 
-```text
-DeltaOmega = 2 * pi * (cosz_max - cosz_min)
-```
-
-### Summary (Please correct me if I am wrong)
-
-1. A possible confusion is to think that summing LIW weights in energy or zenith
-   bins gives the physical neutrino flux. This is not correct. The flux is an
-   input to the weighting, not an output of summing weights.
-
-2. LIW-weighted histograms are expected interaction-contribution histograms under
-   a unit neutrino flux arriving at the detector. Equivalently:
-
-```text
-LIW_i = the interaction contribution represented by MC event i under a unit neutrino flux arriving at the detector
-```
-
-Therefore, `sum(LIW)` versus energy answers:
-
-```text
-If a unit neutrino flux arrived at P-ONE, how much interaction contribution would each energy bin produce?
-```
-
-Similarly, `sum(LIW)` versus zenith answers:
-
-```text
-If a unit neutrino flux arrived from each direction, how much interaction contribution would each zenith bin produce?
-```
-
-### My Plan (Please correct me if this does not make sense)
-
-The goal is to compare different detector layouts. I calculated event weights
-using all available events. Ideally, I think the correct pipeline is:
-
-1. Calculate event weights from the available data and store them in a table such
-   as:
-
-```text
-EventID, LIW
-1, 3
-2, 8
-...
-```
-
-2. For a given detector layout, take the subset of events triggered by that
-   layout. In other words, select the corresponding events from the table from the first step.
-   Then use those selected events and their LIW values to compute the effective
-   area using the formula above. Repeat this for each geometry.
-
-3. To understand whether the comparison is statistically meaningful, also compute
-   `sigma(A_eff)` for each effective-area curve. Then draw the effective-area
-   curves for the compared geometries on the same plot. My current interpretation
-   is that if the curves differ by more than the statistical uncertainty bands,
-   then the difference in effective area is statistically meaningful.
-
-4. I may also use Maria's figure of merit from MSU as an additional comparison
-   metric.
-
-### Some Other Helper Plots
-
-![P-ONE zenith convention](figures/PONE.png)
-
-Figure: The zenith convention on the x-axis should be interpreted using the
-P-ONE local coordinate convention.
-
-![Column depth versus local zenith](figures/column_depth_vs_local_zenith.png)
-
-Figure: The event `totalColumnDepth` depends strongly on local zenith. This helps
-explain why the LIW-weighted zenith distribution is not flat under a unit
-arriving flux.
+There is one residual approximation: the `(1 - exp(-sigma_tot * N_A *
+col_depth))` factor inside `G(i)` uses `sigma_tot_nu` instead of
+`sigma_tot_nubar`. At the energies relevant here (100 GeV – 1 PeV) the DIS
+total cross sections for neutrino and antineutrino are close, so this
+introduces only a small error.
 
 
-
+yani sonuc olarak weightingde nubar kullanarak sorunu cozuyo muyum. cozemiyosam neden. bunu codex ile konus
