@@ -77,21 +77,27 @@ def main() -> int:
         print("ERROR: No feature directories found.")
         return 1
 
-    patterns = [str(d / "*.parquet") for _, d in feature_dirs]
-    print(f"\nScanning {len(patterns)} directories with Polars...")
-    lf = pl.scan_parquet(patterns)
+    all_files = []
+    for _, d in feature_dirs:
+        all_files.extend(sorted(d.glob("*.parquet")))
 
-    schema   = lf.collect_schema()
-    num_cols = [c for c, t in schema.items() if t.is_numeric() and c not in EXCLUDE_COLS]
+    if not all_files:
+        print("ERROR: No .parquet files found in feature directories.")
+        return 1
+
+    print(f"\nReading {len(all_files)} parquet files (memory_map=False)...")
+    df = pl.read_parquet([str(f) for f in all_files], memory_map=False)
+
+    num_cols = [c for c, t in df.schema.items() if t.is_numeric() and c not in EXCLUDE_COLS]
 
     if not num_cols:
         print("ERROR: No numeric feature columns found.")
         return 1
 
     print(f"Computing percentiles for {len(num_cols)} columns...")
-    q25 = lf.select([pl.col(c).quantile(0.25).alias(c) for c in num_cols]).collect()
-    q50 = lf.select([pl.col(c).quantile(0.50).alias(c) for c in num_cols]).collect()
-    q75 = lf.select([pl.col(c).quantile(0.75).alias(c) for c in num_cols]).collect()
+    q25 = df.select([pl.col(c).quantile(0.25) for c in num_cols])
+    q50 = df.select([pl.col(c).quantile(0.50) for c in num_cols])
+    q75 = df.select([pl.col(c).quantile(0.75) for c in num_cols])
 
     result = pd.DataFrame({
         "feature": num_cols,

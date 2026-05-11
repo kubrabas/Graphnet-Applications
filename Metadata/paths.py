@@ -1,5 +1,3 @@
-import os
-
 # ============================================================
 # GCD Files
 # ============================================================
@@ -102,22 +100,22 @@ SPRING2026MC_PMT = {
 
 SPRING2026MC_PARQUET = {
     "strings_102_40m": {
-        "Muon":     {"train": None, "val": None, "test": None, "percentiles_csv": None},
-        "Electron": {"train": None, "val": None, "test": None, "percentiles_csv": None},
-        "Tau":      {"train": None, "val": None, "test": None, "percentiles_csv": None},
-        "NC":       {"train": None, "val": None, "test": None, "percentiles_csv": None},
+        "Muon":     {"train": None, "val": None, "test": None},
+        "Electron": {"train": None, "val": None, "test": None},
+        "Tau":      {"train": None, "val": None, "test": None},
+        "NC":       {"train": None, "val": None, "test": None},
     },
     "strings_102_80m": {
-        "Muon":     {"train": None, "val": None, "test": None, "percentiles_csv": None},
-        "Electron": {"train": None, "val": None, "test": None, "percentiles_csv": None},
-        "Tau":      {"train": None, "val": None, "test": None, "percentiles_csv": None},
-        "NC":       {"train": None, "val": None, "test": None, "percentiles_csv": None},
+        "Muon":     {"train": None, "val": None, "test": None},
+        "Electron": {"train": None, "val": None, "test": None},
+        "Tau":      {"train": None, "val": None, "test": None},
+        "NC":       {"train": None, "val": None, "test": None},
     },
     "full_geometry": {
-        "Muon":     {"train": None, "val": None, "test": None, "percentiles_csv": None},
-        "Electron": {"train": None, "val": None, "test": None, "percentiles_csv": None},
-        "Tau":      {"train": None, "val": None, "test": None, "percentiles_csv": None},
-        "NC":       {"train": None, "val": None, "test": None, "percentiles_csv": None},
+        "Muon":     {"train": None, "val": None, "test": None},
+        "Electron": {"train": None, "val": None, "test": None},
+        "Tau":      {"train": None, "val": None, "test": None},
+        "NC":       {"train": None, "val": None, "test": None},
     },
 }
 
@@ -268,27 +266,38 @@ STRING340MC_PMT = {
 
 STRING340MC_PARQUET = {
     "102_string": {
-        "Muon":     {"train": None, "val": None, "test": None, "percentiles_csv": None},
+        "Muon": {
+            "train": "/home/kbas/scratch/String340MC/102_string/Muon_Parquet/merged/train_reindexed",
+            "val":   "/home/kbas/scratch/String340MC/102_string/Muon_Parquet/merged/val_reindexed",
+            "test":  "/home/kbas/scratch/String340MC/102_string/Muon_Parquet/merged/test_reindexed",
+        },
         "Electron": {
             "train": "/home/kbas/scratch/String340MC/102_string/Electron_Parquet/merged/train_reindexed",
-            "val": "/home/kbas/scratch/String340MC/102_string/Electron_Parquet/merged/val_reindexed",
-            "test": "/home/kbas/scratch/String340MC/102_string/Electron_Parquet/merged/test_reindexed",
-            "percentiles_csv": "/project/def-nahee/kbas/Graphnet-Applications/Metadata/RobustScaler/340StringMC/102_string_electron_train_feature_percentiles_p25_p50_p75.csv",
+            "val":   "/home/kbas/scratch/String340MC/102_string/Electron_Parquet/merged/val_reindexed",
+            "test":  "/home/kbas/scratch/String340MC/102_string/Electron_Parquet/merged/test_reindexed",
         },
-        "Tau":      {"train": None, "val": None, "test": None, "percentiles_csv": None},
-        "NC":       {"train": None, "val": None, "test": None, "percentiles_csv": None},
+        "Tau": {
+            "train": "/home/kbas/scratch/String340MC/102_string/Tau_Parquet/merged/train_reindexed",
+            "val":   "/home/kbas/scratch/String340MC/102_string/Tau_Parquet/merged/val_reindexed",
+            "test":  "/home/kbas/scratch/String340MC/102_string/Tau_Parquet/merged/test_reindexed",
+        },
+        "NC": {
+            "train": "/home/kbas/scratch/String340MC/102_string/NC_Parquet/merged/train_reindexed",
+            "val":   "/home/kbas/scratch/String340MC/102_string/NC_Parquet/merged/val_reindexed",
+            "test":  "/home/kbas/scratch/String340MC/102_string/NC_Parquet/merged/test_reindexed",
+        },
     },
     "160_string": {
-        "Muon":     {"train": None, "val": None, "test": None, "percentiles_csv": None},
-        "Electron": {"train": None, "val": None, "test": None, "percentiles_csv": None},
-        "Tau":      {"train": None, "val": None, "test": None, "percentiles_csv": None},
-        "NC":       {"train": None, "val": None, "test": None, "percentiles_csv": None},
+        "Muon":     {"train": None, "val": None, "test": None},
+        "Electron": {"train": None, "val": None, "test": None},
+        "Tau":      {"train": None, "val": None, "test": None},
+        "NC":       {"train": None, "val": None, "test": None},
     },
     "full_geometry": {
-        "Muon":     {"train": None, "val": None, "test": None, "percentiles_csv": None},
-        "Electron": {"train": None, "val": None, "test": None, "percentiles_csv": None},
-        "Tau":      {"train": None, "val": None, "test": None, "percentiles_csv": None},
-        "NC":       {"train": None, "val": None, "test": None, "percentiles_csv": None},
+        "Muon":     {"train": None, "val": None, "test": None},
+        "Electron": {"train": None, "val": None, "test": None},
+        "Tau":      {"train": None, "val": None, "test": None},
+        "NC":       {"train": None, "val": None, "test": None},
     },
 }
 
@@ -328,7 +337,7 @@ ROBUST_SCALER = {
             "Electron": "/project/def-nahee/kbas/Graphnet-Applications/Metadata/RobustScaler/340StringMC/102_string_electron_train_feature_percentiles_p25_p50_p75.csv",
             "Tau": "/project/def-nahee/kbas/Graphnet-Applications/Metadata/RobustScaler/340StringMC/102_string_tau_train_feature_percentiles_p25_p50_p75.csv",
             "NC": "/project/def-nahee/kbas/Graphnet-Applications/Metadata/RobustScaler/340StringMC/102_string_nc_train_feature_percentiles_p25_p50_p75.csv",
-            "mixed": None,
+            "mixed": "/project/def-nahee/kbas/Graphnet-Applications/Metadata/RobustScaler/340StringMC/102_string_mixed_muon_electron_tau_nc_train_feature_percentiles_p25_p50_p75.csv",
         },
         "160_string": {
             "Muon": None,
