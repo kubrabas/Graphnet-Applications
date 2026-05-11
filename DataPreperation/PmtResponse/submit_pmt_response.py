@@ -38,7 +38,7 @@ from pathlib import Path
 PATHS_PY     = "/project/def-nahee/kbas/Graphnet-Applications/Metadata/paths.py"
 WORKER_SH    = Path("/home/kbas/SlurmScripts/DataPreperation/submit_pmt_response.sh")
 SCRATCH_BASE = "/home/kbas/scratch"
-NWORKERS     = 8    # CPUs per job (parallel files processed simultaneously)
+NWORKERS     = 12    # CPUs per job (parallel files processed simultaneously)
 
 # ---------------------------------------------------------------------------
 # MC lookup table
