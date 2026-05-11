@@ -324,10 +324,10 @@ STRING340MC_PARQUET_MIXED = {
 ROBUST_SCALER = {
     "340StringMC": {
         "102_string": {
-            "Muon": None,
+            "Muon": "/project/def-nahee/kbas/Graphnet-Applications/Metadata/RobustScaler/340StringMC/102_string_muon_train_feature_percentiles_p25_p50_p75.csv",
             "Electron": "/project/def-nahee/kbas/Graphnet-Applications/Metadata/RobustScaler/340StringMC/102_string_electron_train_feature_percentiles_p25_p50_p75.csv",
-            "Tau": None,
-            "NC": None,
+            "Tau": "/project/def-nahee/kbas/Graphnet-Applications/Metadata/RobustScaler/340StringMC/102_string_tau_train_feature_percentiles_p25_p50_p75.csv",
+            "NC": "/project/def-nahee/kbas/Graphnet-Applications/Metadata/RobustScaler/340StringMC/102_string_nc_train_feature_percentiles_p25_p50_p75.csv",
             "mixed": None,
         },
         "160_string": {
@@ -379,10 +379,10 @@ ROBUST_SCALER = {
 TRIGGERED_EVENT_LIST = {
     "String340MC": {
         "102_string": {
-            "Muon": None,
+            "Muon": "/project/def-nahee/kbas/Graphnet-Applications/Metadata/TriggeredEventList/340StringMC/102_string_muon_triggered_events.csv",
             "Electron": "/project/def-nahee/kbas/Graphnet-Applications/Metadata/TriggeredEventList/340StringMC/102_string_electron_triggered_events.csv",
-            "Tau": None,
-            "NC": None,
+            "Tau": "/project/def-nahee/kbas/Graphnet-Applications/Metadata/TriggeredEventList/340StringMC/102_string_tau_triggered_events.csv",
+            "NC": "/project/def-nahee/kbas/Graphnet-Applications/Metadata/TriggeredEventList/340StringMC/102_string_nc_triggered_events.csv",
         },
         "160_string": {
             "Muon": None,

@@ -68,10 +68,44 @@ Per file logs are written under:
 The job level summary log is written under:
 
 ```text
-/scratch/kbas/{MCFolder}/Logs/job_{job_id}_{Flavor}_{geometry}.log
+/scratch/kbas/{MCFolder}/Logs/{Flavor}_pmt_response_{GeometryFolder}/summary_{YYYY-MM-DD}_job_{job_id}.log
 ```
 
+The date in the summary log filename is the job start date in Berlin time.
+
 Some scripts may record paths under `/home/kbas/scratch`, while the same storage is often accessed as `/scratch/kbas` on the login node. The QA notebook checks the configured output directory as a fallback when the logged output path is not found.
+
+## Skip and Cleanup Logic
+
+At the start of each worker job, before any processing begins, the worker
+compares the expected output files against the expected log files for every
+input file in the task list.
+
+For each input file the worker computes the expected output path and the
+expected per-file log path. It then checks which of these already exist on
+disk and applies the following rules:
+
+- Both output and log exist → file is considered done, skip it.
+- Log exists but output is missing → the log is a leftover from a previous
+  failed or interrupted run. The log is deleted and the file is added to the
+  work queue.
+- Output exists but log is missing → the output is a leftover without a
+  matching record. The output is deleted and the file is added to the work
+  queue.
+- Neither exists → the file is added to the work queue normally.
+
+The terminal output and the summary log both report the counts before any
+processing starts:
+
+```text
+Total files        : 9977
+Already done (skip): 6000
+Cleaned (log only) : 3
+Cleaned (out only) : 1
+To process         : 3977
+```
+
+`To process` includes the cleaned files.
 
 ## Logging Model
 
@@ -88,10 +122,10 @@ Each input file gets its own log file. During processing, both standard output a
 The job summary log has this form:
 
 ```text
-job_{job_id}_{Flavor}_{geometry}.log
+summary_{YYYY-MM-DD}_job_{job_id}.log
 ```
 
-This log is written by the parent process. It records one line per completed file with the final status, runtime, and DAQ frame count from the writer counter.
+This log is written by the parent process. It starts with a header that includes the skip and cleanup counts, then records one line per completed file with the final status, runtime, and DAQ frame count from the writer counter.
 
 The SLURM wrapper standard output and standard error are disabled, so wrapper level echo output is not kept in a separate SLURM log file.
 
@@ -160,6 +194,22 @@ The PMT workers check `Metadata/paths.py` for `BAD_I3_FILES` before running each
 - Files not listed there use the normal unlimited processing path.
 
 Skipped files keep a per file log ending with `SKIPPED`, and the job summary log includes a separate `skipped` count.
+
+## Frame Filtering and Empty Output Files
+
+Two modules in the pipeline can drop DAQ frames before they reach the writer.
+
+`HitCountCheck` drops any frame whose `PMT_Response` contains fewer than 5 unique OMs. The frame is discarded without being pushed downstream.
+
+`DetectorTrigger` with `CutOnTrigger=True` drops frames that do not satisfy the detector-level trigger condition.
+
+If all frames in a file are dropped by either of these filters, the tray still completes without error. The output `.i3.gz` file is written and the job reports `success`, but the file contains only GCD frames and zero DAQ events. This appears in the per-file log as:
+
+```text
+frames_to_writer : DAQ=0  Simulation=0
+```
+
+and in the job summary log as a `success` line with `DAQ=0`. These files are not failures and do not produce a traceback. They can be identified in the QA notebook by filtering for `status == "success"` and `daq_frames_to_writer == 0`.
 
 ## QA Notebook
 

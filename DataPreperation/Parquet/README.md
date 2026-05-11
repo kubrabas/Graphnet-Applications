@@ -24,9 +24,7 @@ python3 DataPreperation/Parquet/submit_parquet.py \
 ```
 
 `submit_parquet.py` submits one conversion job per flavor and chains one merge
-job after conversion finishes. If some input files fail but successful
-truth/features parquet outputs exist, the merge job still runs on the available
-outputs.
+job after conversion finishes.
 
 ## Output Layout
 
@@ -46,7 +44,7 @@ conversion writes:
   merged/
 ```
 
-Per-file conversion logs and merge logs are written to:
+Conversion and merge logs are written to:
 
 ```text
 /home/kbas/scratch/String340MC/Logs/Electron_102_string_Parquet/
@@ -55,21 +53,15 @@ Per-file conversion logs and merge logs are written to:
 Example log names:
 
 ```text
-electron_electron_gen_000.out
 05_06_2026_job_38837651.log
 merge_Electron_102_string.out
 ```
 
 ## Conversion Logic
 
-`convert_parquet.py` discovers all non-GCD I3 files under `--indir`.
-It processes files in parallel at the file level:
-
-```text
-ProcessPoolExecutor(max_workers=NWORKERS)
-```
-
-Inside each worker, GraphNeT `DataConverter` is run with:
+`convert_parquet.py` discovers all non-GCD I3 files under `--indir` and
+processes them in parallel using GraphNeT `DataConverter` with
+`num_workers=NWORKERS`. A single converter instance handles all files:
 
 ```text
 PONE_Reader
@@ -78,145 +70,47 @@ I3TruthExtractorPONE
 ParquetWriter
 ```
 
-`DataConverter` itself uses `num_workers=1`. This avoids nested
-multiprocessing and keeps memory/I/O behavior predictable.
+Per-file parquet outputs are written to `truth/` and `features/` under
+`--outdir`. Files that already have both outputs on disk are skipped on
+re-runs.
 
-## Per-File Log Format
+## File Handling
 
-Each input file gets one log:
+**DAQ-less files:** If `PONE_Reader` finds no DAQ (Q) frames in a file,
+it returns an empty event list. `ParquetWriter` writes nothing for that
+file. The job continues processing the remaining files.
 
-```text
-<stem>.out
-```
+**Pulsemap missing or empty:** Frames where the requested pulsemap key is
+absent or empty are silently skipped within the file. If all frames are
+filtered this way, no parquet output is written for that file.
 
-Normal successful example:
+**File open failure:** If `pop_daq()` raises an error other than
+`no frame to pop`, a `RuntimeError` is raised and the job stops. Check
+the SLURM log for the traceback and the offending filename.
 
-```text
-[electron_electron_gen_000.i3.gz] kept=12  noise_only=0  pulsemap_does_not_exist=0
-=== SUCCESS  elapsed=10.2s ===
-category : successfully_transferred_kept_events
-@ 2026-05-06 11:10:48 (Berlin)
-```
+## Job Log
 
-Completely empty example:
-
-```text
-[electron_electron_gen_1080.i3.gz] kept=0  noise_only=0  pulsemap_does_not_exist=0
-=== SUCCESS  elapsed=0.1s ===
-category : completely_empty_file
-@ 2026-05-06 11:10:48 (Berlin)
-```
-
-File-open failure example:
-
-```text
-[FILE ERROR] Could not open: /path/to/file.i3.gz  error=...
-=== FAILED  elapsed=0.1s ===
-category : failed_to_open_file
-```
-
-## Counters
-
-`kept`
-: Number of events that passed filtering and were handed to the extractors.
-
-`noise_only`
-: Number of frames where the requested pulsemap exists but is empty.
-
-`pulsemap_does_not_exist`
-: Number of frames where the requested pulsemap key is missing.
-
-Frame read failures are not counted as `corrupt_frames`. If `pop_daq()` fails,
-the file fails immediately. The log still prints the counters collected before
-the failure.
-
-## File Categories
-
-Every processed file is assigned exactly one category.
-
-`successfully_transferred_kept_events`
-: Conversion succeeded and `kept > 0`. Expected truth/features Parquet files
-exist.
-
-`completely_empty_file`
-: Conversion succeeded with `kept=0`, `noise_only=0`, and
-`pulsemap_does_not_exist=0`. This usually means no usable DAQ/event frames
-survived to this stage.
-
-`only_noise_events`
-: Conversion succeeded with `kept=0`, `noise_only > 0`, and
-`pulsemap_does_not_exist=0`.
-
-`only_missing_pulsemap_events`
-: Conversion succeeded with `kept=0`, `noise_only=0`, and
-`pulsemap_does_not_exist > 0`.
-
-`only_filtered_events`
-: Conversion succeeded with `kept=0`, `noise_only > 0`, and
-`pulsemap_does_not_exist > 0`.
-
-`failed_to_open_file`
-: The I3 file could not be opened.
-
-`failed_at_first_event`
-: The file opened, but conversion failed before any event was kept or filtered.
-
-`failed_after_partial_progress`
-: Conversion failed after at least one event was kept.
-
-`failed_after_only_filtered_events`
-: Conversion failed after seeing only filtered events, such as noise-only or
-missing-pulsemap frames.
-
-`failed_missing_parquet_outputs_after_success`
-: The reader reported kept events, but the expected truth/features Parquet
-outputs were not present.
-
-## General Job Log
-
-The general conversion log is written in the same log directory as the per-file
-logs:
+The conversion log is written to:
 
 ```text
 MM_DD_YYYY_job_<job_id>.log
 ```
 
-Each processed file is logged with category and counters:
-
-```text
-[12:34:56] [successfully_transferred_kept_events] electron_electron_gen_000.i3.gz  kept=12 noise_only=0 pulsemap_does_not_exist=0  (10.2s)
-```
-
-The final summary includes validation checks:
+It contains a job header, tqdm progress output, and a final summary:
 
 ```text
 === FINAL SUMMARY ===
-successfully_transferred_kept_events : 3972
-completely_empty_file : 5
-only_noise_events : 0
-only_missing_pulsemap_events : 0
-only_filtered_events : 0
-failed_to_open_file : 0
-failed_at_first_event : 0
-failed_after_partial_progress : 0
-failed_after_only_filtered_events : 0
-failed_missing_parquet_outputs_after_success : 0
-category_total : 3977
-failed_total : 0
 skipped_previously_done : 0
-input_files_discovered : 3977
-per_file_logs_found : 3977
-accounting_check : PASS
-per_file_log_check : PASS
+input_files_discovered  : 3977
+input_files_processed   : 3977
+truth_outputs_found     : 3972
+feature_outputs_found   : 3972
+elapsed                 : 612.3s
 ```
 
-For a fresh run, the important lines are:
-
-```text
-failed_total : 0
-accounting_check : PASS
-per_file_log_check : PASS
-```
+`truth_outputs_found` and `feature_outputs_found` count the actual parquet
+files on disk after the run. Files that were DAQ-less or fully filtered will
+not appear here.
 
 ## Merge
 
@@ -239,7 +133,7 @@ Merge logs are saved as:
 merge_<Flavor>_<geometry>.out
 ```
 
-in the same log directory as the per-file conversion logs.
+in the same log directory as the conversion log.
 
 ### Does GraphNeT Shuffle During Merge?
 

@@ -190,14 +190,6 @@ def _process_one(infile: Path, outfile: Path, logfile: Path, cfg: dict) -> tuple
         ("failed",   filename, error_message)
     """
 
-    # Clean up old outputs before processing.
-    for p in (logfile, outfile):
-        try:
-            if p.exists():
-                p.unlink()
-        except OSError:
-            pass
-
     orig_stdout = sys.stdout
     orig_stderr = sys.stderr
     log_fh = None
@@ -431,9 +423,27 @@ def main() -> int:
         logfile  = logdir / f"{flavor_l}_{stem}.out"
         tasks.append((infile, outfile, logfile))
 
-    to_process = tasks
+    n_cleaned_log = n_cleaned_out = 0
+    to_process = []
+    for inf, outf, logf in tasks:
+        has_out = outf.exists()
+        has_log = logf.exists()
+        if has_out and has_log:
+            continue
+        if has_log and not has_out:
+            logf.unlink()
+            n_cleaned_log += 1
+        elif has_out and not has_log:
+            outf.unlink()
+            n_cleaned_out += 1
+        to_process.append((inf, outf, logf))
+
+    n_already_done = len(tasks) - len(to_process)
 
     print(f"Total files        : {len(tasks)}")
+    print(f"Already done (skip): {n_already_done}")
+    print(f"Cleaned (log only) : {n_cleaned_log}")
+    print(f"Cleaned (out only) : {n_cleaned_out}")
     print(f"To process         : {len(to_process)}")
 
     if not to_process:
@@ -470,6 +480,9 @@ def main() -> int:
         _glog(f"outdir   : {outdir}")
         _glog(f"logdir   : {logdir}")
         _glog(f"total    : {len(tasks)}")
+        _glog(f"skipped  : {n_already_done}")
+        _glog(f"cleaned  : log_only={n_cleaned_log}  out_only={n_cleaned_out}")
+        _glog(f"to_proc  : {len(to_process)}")
         _glog(f"workers  : {nworkers}")
         _glog()
 
