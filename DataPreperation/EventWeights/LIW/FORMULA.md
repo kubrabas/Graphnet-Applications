@@ -494,3 +494,138 @@ P_{\mathrm{position}}
 \propto
 L_{\mathrm{eff}}(\vec{r}_i,\theta_i,\phi_i)
 ```
+
+### Why the Interaction Probability Has This Form
+
+A neutrino travelling through a column of matter encounters target nucleons
+along its path. Each nucleon presents an effective area `σ_tot` to the
+neutrino (the total cross section). The number of target nucleons per unit
+area along the path is:
+
+```math
+N_{\mathrm{targets}} = N_A \cdot \mathrm{col\_depth}
+```
+
+In an infinitesimal slice of thickness `dx`, the probability of interacting is:
+
+```math
+dP_{\mathrm{interact}} = \sigma_{\mathrm{tot}} \cdot n \cdot dx
+```
+
+where `n` is the number density of targets. Integrating this along the full
+column — the same differential equation as radioactive decay or Beer-Lambert
+attenuation — gives the probability of **surviving** without interacting:
+
+```math
+P_{\mathrm{survive}} = e^{-\sigma_{\mathrm{tot}} \cdot N_A \cdot \mathrm{col\_depth}}
+```
+
+Therefore the probability of **interacting at least once** is:
+
+```math
+P_{\mathrm{interact}} = 1 - e^{-\sigma_{\mathrm{tot}} \cdot N_A \cdot \mathrm{col\_depth}}
+```
+
+LeptonInjector forces every generated event to interact. The factor
+`(1 - \exp(-\sigma_{\mathrm{tot}} \cdot N_A \cdot \mathrm{col\_depth}))` inside
+`P_{\mathrm{interaction}}` carries this forced-interaction correction into
+`G(i)`, so that when the oneweight is computed it correctly accounts for the
+natural interaction probability.
+
+#### What `col_depth` is in volume mode
+
+In volume mode, `totalColumnDepth` is the column depth along the full chord
+through the generation cylinder — from `p_entry` to `p_exit`, where these are
+the two points at which the neutrino track intersects the cylinder wall. This
+is the same chord shown in Panel A of the figure below:
+
+![Effective chord length in the volume generator](figures/effective_chord_length.png)
+
+The column depth is computed using the Earth density model between those two
+intersection points (source:
+`LeptonInjector/private/LeptonInjector/LeptonInjector.cxx`, lines 794–795):
+
+```cpp
+properties->totalColumnDepth =
+    earthModel->GetColumnDepthInCGS(
+        std::get<0>(cylinder_intersections),
+        std::get<1>(cylinder_intersections)
+    );
+```
+
+**Ranged mode is different.** In ranged mode `totalColumnDepth` is the sum of
+the lepton range (converted from MWE to g/cm²) and the column depth through
+the injection endcaps — a more complex quantity that is not simply the cylinder
+chord (source: same file, lines 652–653).
+
+```math
+P_{\mathrm{interaction}}(E_i, x_i, y_i)
+=
+\frac{
+    \left.\dfrac{d^2\sigma}{dx\,dy}\right|_{\mathrm{LIC}}
+    \!\left(\log_{10}E_i,\,\log_{10}x_i,\,\log_{10}y_i\right)
+}{
+    1 - \exp\!\left(
+        -\sigma_{\mathrm{tot,LIC}}\!\left(\log_{10}E_i,\,\log_{10}x_i,\,\log_{10}y_i\right)
+        \cdot N_A \cdot \mathrm{col\_depth}_i
+    \right)
+}
+```
+
+## Oneweight as Importance Sampling
+
+The oneweight formula is an importance sampling ratio:
+
+```math
+\mathrm{oneweight} =
+\frac{\text{what I want to weight with}}{\text{how I generated the event}}
+```
+
+The two differential cross sections in the formula play different roles:
+
+```text
+P_interaction (denominator):  the cross section used during injection —
+                               "(x, y) were sampled from this distribution"
+
+oneweight numerator:           the physical cross section we want to apply —
+                               "this event occurs in nature with this cross section"
+```
+
+The generation distribution is placed in the denominator to undo the
+production bias, replacing it with the physical distribution (CSMS splines)
+in the numerator.
+
+## Correcting a Wrong Cross Section at Injection Time
+
+In the 340StringMC production, the antineutrino samples were injected using
+the neutrino cross-section splines instead of the antineutrino splines.
+Concretely, `dsdxdy_nu_CC_iso` was used to sample `(x, y)` for antineutrino
+events where `dsdxdy_nubar_CC_iso` should have been used.
+
+Because oneweight is an importance sampling ratio, this mistake can be
+corrected at the weighting stage. The key observation is:
+
+```text
+G(i)  correctly records what was actually done at injection time
+      (the .lic file has the nu splines embedded).
+
+If the oneweight numerator is set to the correct nubar cross section,
+the per-event ratio becomes:
+
+    oneweight ∝ dsdxdy_nubar_CSMS / dsdxdy_nu_LIC
+
+which is exactly the importance sampling correction that maps the
+wrongly-sampled (x, y) distribution back to the correct nubar distribution.
+```
+
+Therefore, using `dsdxdy_nubar_CC_iso` in the Weighter cross-section object
+(the numerator) is sufficient to correct the injection mistake.
+
+There is one residual approximation: the `(1 - exp(-sigma_tot * N_A *
+col_depth))` factor inside `G(i)` uses `sigma_tot_nu` instead of
+`sigma_tot_nubar`. At the energies relevant here (100 GeV – 1 PeV) the DIS
+total cross sections for neutrino and antineutrino are close, so this
+introduces only a small error.
+
+
+yani sonuc olarak weightingde nubar kullanarak sorunu cozuyo muyum. cozemiyosam neden. bunu codex ile konus
