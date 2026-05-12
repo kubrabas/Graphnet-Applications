@@ -27,14 +27,21 @@ x1, x2 = np.array([-4.0, 0.0]), np.array([4.5, 0.0])
 y1, y2 = np.array([0.0, -3.0]), np.array([0.0, 3.0])
 
 # -----------------------------------------------
-# MANUEL AYARLAR  (hepsi derece cinsinden)
-disk_angle_deg  = 195    # 3. eksenin açısı (x eksenine göre)
-arrow_angle_deg = 50   # okun yönü
-ellipse_rot_deg = -30   # elipsin açısı
+# MANUAL SETTINGS  (all in degrees)
+disk_angle_deg  = 195   # tilted gray axis
+arrow_angle_deg = 50    # neutrino direction arrow
+ellipse_rot_deg = -30   # ellipse rotation
 # -----------------------------------------------
 
-disk_dir = np.array([np.cos(np.deg2rad(disk_angle_deg)),  np.sin(np.deg2rad(disk_angle_deg))])
-nu_dir   = np.array([np.cos(np.deg2rad(arrow_angle_deg)), np.sin(np.deg2rad(arrow_angle_deg))])
+disk_dir = np.array([
+    np.cos(np.deg2rad(disk_angle_deg)),
+    np.sin(np.deg2rad(disk_angle_deg))
+])
+
+nu_dir = np.array([
+    np.cos(np.deg2rad(arrow_angle_deg)),
+    np.sin(np.deg2rad(arrow_angle_deg))
+])
 
 # -----------------------------
 # Main gray axes
@@ -52,12 +59,14 @@ draw_line(p1, p2, color="0.65", lw=5, solid_capstyle="round", zorder=2)
 # -----------------------------
 # Shaded disk / ellipse
 # -----------------------------
+ellipse_width = 6.9
+ellipse_height = 1.45
 ellipse_angle = ellipse_rot_deg
 
 ellipse = Ellipse(
     xy=origin,
-    width=6.9,
-    height=1.45,
+    width=ellipse_width,
+    height=ellipse_height,
     angle=ellipse_angle,
     facecolor="0.85",
     edgecolor="0.20",
@@ -68,11 +77,10 @@ ellipse = Ellipse(
 )
 ax.add_patch(ellipse)
 
-# Add a second dashed outline darker for clarity
 ellipse_outline = Ellipse(
     xy=origin,
-    width=6.9,
-    height=1.45,
+    width=ellipse_width,
+    height=ellipse_height,
     angle=ellipse_angle,
     facecolor="none",
     edgecolor="0.20",
@@ -81,6 +89,23 @@ ellipse_outline = Ellipse(
     zorder=4
 )
 ax.add_patch(ellipse_outline)
+
+# -----------------------------
+# Radius line from origin to the right end of ellipse
+# -----------------------------
+a_ell = ellipse_width / 2
+theta = np.deg2rad(ellipse_rot_deg)
+
+# right tip of the major axis
+ellipse_right = np.array([
+    a_ell * np.cos(theta),
+    a_ell * np.sin(theta)
+])
+
+draw_line(origin, ellipse_right, color="black", lw=1.8, zorder=5)
+
+# radius direction
+radius_dir = ellipse_right / np.linalg.norm(ellipse_right)
 
 # -----------------------------
 # Neutrino direction arrow from origin
@@ -102,15 +127,15 @@ ax.add_patch(arrow)
 # -----------------------------
 # 90 degree marker
 # -----------------------------
-# small square between disk direction and neutrino direction
+# between neutrino direction and radius line
 s = 0.28
-a = disk_dir
+a = radius_dir
 b = nu_dir
 
-corner0 = origin + 0.18 * a
-corner1 = corner0 + s * a
-corner2 = corner1 + s * b
-corner3 = corner0 + s * b
+corner0 = origin
+corner1 = corner0 + s * b
+corner2 = corner1 + s * a
+corner3 = corner0 + s * a
 
 right_angle = Polygon(
     [corner0, corner1, corner2, corner3],
@@ -124,20 +149,8 @@ right_angle = Polygon(
 ax.add_patch(right_angle)
 
 # -----------------------------
-# Optional label
+# Label
 # -----------------------------
-label_pos = origin + 1.75 * nu_dir + np.array([0.35, 0.05])
-ax.text(
-    label_pos[0],
-    label_pos[1],
-    "neutrino direction",
-    fontsize=16,
-    fontfamily="serif",
-    ha="left",
-    va="center",
-    color="black",
-    zorder=8
-)
 
 # -----------------------------
 # Limits and save
@@ -146,6 +159,8 @@ ax.set_xlim(-4.8, 5.0)
 ax.set_ylim(-3.4, 3.4)
 
 plt.tight_layout()
-plt.savefig("neutrino_disk_diagram.png", dpi=300, bbox_inches="tight")
-plt.savefig("neutrino_disk_diagram.svg", bbox_inches="tight")
+import os
+script_dir = os.path.dirname(os.path.abspath(__file__))
+plt.savefig(os.path.join(script_dir, "ranged_mode_1.png"), dpi=300, bbox_inches="tight")
+# plt.savefig(os.path.join(script_dir, "neutrino_disk_diagram.svg"), bbox_inches="tight")
 plt.show()
