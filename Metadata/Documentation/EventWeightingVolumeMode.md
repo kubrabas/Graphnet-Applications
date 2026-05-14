@@ -14,7 +14,7 @@ the simplified oneweight expression appropriate for the current pipeline.
 
 ## OneWeight
 
-$$
+```math
 \text{oneweight}
 =
 \frac{
@@ -22,7 +22,7 @@ $$
 }{
 N \times P_E \times P_{\mathrm{direction}} \times P_{\mathrm{interaction}} \times P_{\mathrm{position}}
 }
-$$
+```
 
 This is the `oneweight` column in the CSV produced by
 `/project/def-nahee/kbas/Graphnet-Applications/DataPreperation/EventWeights/LIW/calculate_LIW.py`.
@@ -31,9 +31,9 @@ This is the `oneweight` column in the CSV produced by
 
 ## Number of generated events
 
-$$
+```math
 N = 100
-$$
+```
 
 $N$ is a unitless event count.
 
@@ -41,25 +41,25 @@ $N$ is a unitless event count.
 
 ## Direction probability
 
-$$
+```math
 P_{\mathrm{direction}}
 =
 \frac{1}{
 (\phi_{\max,\mathrm{LIC}}-\phi_{\min,\mathrm{LIC}})
 (\cos\theta_{\min,\mathrm{LIC}}-\cos\theta_{\max,\mathrm{LIC}})
 }
-$$
+```
 
 Here, $\theta$ is the zenith angle and $\phi$ is the azimuth angle. The limits
 are read from the matching generator stored in the LIC file. For the current
 full-sky datasets,
 
-$$
+```math
 \phi_{\min,\mathrm{LIC}} = 0,\quad
 \phi_{\max,\mathrm{LIC}} = 2\pi,\quad
 \theta_{\min,\mathrm{LIC}} = 0,\quad
 \theta_{\max,\mathrm{LIC}} = \pi,
-$$
+```
 
 
 The unit of $P_{\mathrm{direction}}$ is $\mathrm{sr}^{-1}$.
@@ -68,15 +68,15 @@ The unit of $P_{\mathrm{direction}}$ is $\mathrm{sr}^{-1}$.
 
 ## Energy probability
 
-$$
+```math
 P_E(E)
 =
 C_{\mathrm{LIC}} E^{-\gamma_{\mathrm{LIC}}}
-$$
+```
 
 where
 
-$$
+```math
 C_{\mathrm{LIC}}
 =
 \frac{
@@ -88,20 +88,20 @@ E_{\min,\mathrm{LIC}}^{1-\gamma_{\mathrm{LIC}}}
 }
 \quad
 (\gamma_{\mathrm{LIC}} \neq 1).
-$$
+```
 
 The energy limits and power-law index are read from the matching generator
 stored in the LIC file. For the current datasets,
 
-$$
+```math
 \gamma_{\mathrm{LIC}} = 1.5,\quad
 E_{\min,\mathrm{LIC}} = 10^2\,\mathrm{GeV},\quad
 E_{\max,\mathrm{LIC}} = 10^6\,\mathrm{GeV},
-$$
+```
 
 so
 
-$$
+```math
 P_E(E)
 =
 -\frac{1}{2}
@@ -110,7 +110,7 @@ E^{-1.5}
 }{
 (10^6)^{-1/2} - (10^2)^{-1/2}
 }.
-$$
+```
 
 The unit of $P_E$ is $\mathrm{GeV}^{-1}$.
 
@@ -118,7 +118,7 @@ The unit of $P_E$ is $\mathrm{GeV}^{-1}$.
 
 ## Position probability
 
-$$
+```math
 P_{\mathrm{position}}
 =
 \frac{
@@ -126,7 +126,7 @@ L_{\text{eff}}
 }{
 10^4 \times \pi \times r_{\mathrm{LIC}}^2 \times h_{\mathrm{LIC}}
 }
-$$
+```
 
 Here, $r_{\mathrm{LIC}}$ and $h_{\mathrm{LIC}}$ are the volume-mode cylinder
 radius and height read from the matching generator stored in the LIC file.
@@ -146,7 +146,7 @@ The unit of $P_{\mathrm{position}}$ is therefore $\mathrm{m}^{-2}$.
 
 ## Interaction probability
 
-$$
+```math
 P_{\mathrm{interaction}}
 =
 \frac{
@@ -158,7 +158,7 @@ P_{\mathrm{interaction}}
 -N_A \, \mathrm{EventProperties.totalColumnDepth} \, \left(\sigma_{\mathrm{tot}}\right)_{\mathrm{LIC}}
 \right)
 }
-$$
+```
 
 
 
@@ -181,18 +181,18 @@ cross section. Therefore, the unit of $P_{\mathrm{interaction}}$ is $\mathrm{cm}
 1. The double-differential cross section is a function of the interaction
    variables $x$, $y$, and the neutrino energy $E$:
 
-$$
+```math
 \frac{d^2\sigma}{dx\,dy}
 =
 \text{function of } x, y, E
-$$
+```
 
 
 
 
 2. The total cross section is a function of the neutrino energy $E$:
 
-$$
+```math
 \sigma_{\text{tot}}
 =
 \int
@@ -202,15 +202,15 @@ $$
 dx\,dy
 =
 \text{function of } E
-$$
+```
 
 
 
 3. The effective length is a function of the sampled vertex position and the
    neutrino direction:
 
-$$
+```math
 L_{\text{eff}}
 =
 \text{function of vertex position and neutrino direction}
-$$
+```
