@@ -1,8 +1,8 @@
-# Volume Mode
+# Ranged Mode
 
-This notebook explains how events generated with the volume-mode setup
+This notebook explains how events generated with the ranged-mode setup
 documented in
-`/project/def-nahee/kbas/Graphnet-Applications/Metadata/Documentation/LeptonInjectionVolumeMode.md`
+`/project/def-nahee/kbas/Graphnet-Applications/Metadata/Documentation/LeptonInjectionRangeMode.md`
 are weighted.
 
 In the current MC pipeline, each generated event can come from only one
@@ -12,6 +12,11 @@ generators have zero final-state probability for a given event, so that sum
 reduces to the single matching generator term. Therefore, this notebook uses
 the simplified oneweight expression appropriate for the current pipeline.
 
+For the current muon-neutrino charged-current datasets, the matching generator
+is selected by the final-state particles. A `MuMinus + Hadrons` event matches
+the `NuMu` generator, and a `MuPlus + Hadrons` event matches the `NuMuBar`
+generator.
+
 ## OneWeight
 
 ```math
@@ -20,7 +25,7 @@ the simplified oneweight expression appropriate for the current pipeline.
 \frac{
 \left(\dfrac{d^2\sigma}{dx\,dy}\right)_{\mathrm{phys}}
 }{
-N \times P_E \times P_{\mathrm{direction}} \times P_{\mathrm{interaction}} \times P_{\mathrm{position}}
+N \times P_E \times P_{\mathrm{direction}} \times P_{\mathrm{interaction}} \times P_{\mathrm{area}}
 }
 ```
 
@@ -61,6 +66,11 @@ full-sky datasets,
 \theta_{\max,\mathrm{LIC}} = \pi,
 ```
 
+so
+
+```math
+P_{\mathrm{direction}} = \frac{1}{4\pi}.
+```
 
 The unit of $P_{\mathrm{direction}}$ is $\mathrm{sr}^{-1}$.
 
@@ -116,33 +126,38 @@ The unit of $P_E$ is $\mathrm{GeV}^{-1}$.
 
 
 
-## Position probability
+## Area probability
 
 ```math
-P_{\mathrm{position}}
+P_{\mathrm{area}}
 =
-\frac{
-L_{\text{eff}}
-}{
-10^4 \times \pi \times r_{\mathrm{LIC}}^2 \times h_{\mathrm{LIC}}
+\frac{1}{
+10^4 \times \pi \times R_{\mathrm{LIC}}^2
 }
 ```
 
-Here, $r_{\mathrm{LIC}}$ and $h_{\mathrm{LIC}}$ are the volume-mode cylinder
-radius and height read from the matching generator stored in the LIC file.
-They correspond to `CylinderRadius` and `CylinderHeight` in the LeptonInjector
-configuration.
+Here, $R_{\mathrm{LIC}}$ is the ranged-mode injection disk radius read from the
+matching generator stored in the LIC file. It corresponds to `InjectionRadius`
+in the LeptonInjector configuration.
 
-$L_{\text{eff}}$ is the length of the chord through the injection cylinder
-along the sampled neutrino direction, passing through the sampled interaction
-vertex. Since the event vertex coordinates `EventProperties.x`,
-`EventProperties.y`, and `EventProperties.z` are stored in meters, and the LIC
-cylinder radius and height are also in meters, $L_{\text{eff}}$ is measured in
-meters.
+In ranged mode, LeptonInjector samples the closest-approach point, `pca`, on a
+disk perpendicular to the sampled neutrino direction. The disk is centered on
+the detector-coordinate origin and has radius $R_{\mathrm{LIC}}$. In
+LeptonWeighter, this disk-area factor is handled by `probability_area`.
 
 The factor $10^4$ converts the area factor from $\mathrm{m}^2$ to
-$\mathrm{cm}^2$. Therefore, the unit of $P_{\mathrm{position}}$ is
+$\mathrm{cm}^2$. Therefore, the unit of $P_{\mathrm{area}}$ is
 $\mathrm{cm}^{-2}$.
+
+For ranged mode, the source code sets the position probability to 1:
+
+```math
+P_{\mathrm{position}} = 1.
+```
+
+The physical vertex is sampled along the allowed column-depth region during
+event generation, but LeptonWeighter does not include an additional
+volume-position probability for ranged mode.
 
 
 
@@ -162,7 +177,9 @@ P_{\mathrm{interaction}}
 }
 ```
 
-
+Here, `EventProperties.totalColumnDepth` is copied into
+`LW.Event.total_column_depth` by `calculate_LIW.py` before calling
+`weighter.get_oneweight(event)`.
 
 Here, $N_A = 6.022140857 \times 10^{23}$.
 
@@ -183,6 +200,39 @@ is the same as the unit of a cross section. Therefore, the unit of
 $P_{\mathrm{interaction}}$ is $\mathrm{cm}^2$.
 
 
+## OneWeight unit
+
+The units entering the simplified ranged-mode expression are
+
+```math
+\left(\frac{d^2\sigma}{dx\,dy}\right)_{\mathrm{phys}}
+\rightarrow \mathrm{cm}^2,
+```
+
+```math
+N \rightarrow 1,\quad
+P_E \rightarrow \mathrm{GeV}^{-1},\quad
+P_{\mathrm{direction}} \rightarrow \mathrm{sr}^{-1},
+```
+
+```math
+P_{\mathrm{interaction}} \rightarrow \mathrm{cm}^2,\quad
+P_{\mathrm{area}} \rightarrow \mathrm{cm}^{-2}.
+```
+
+Therefore,
+
+```math
+\text{oneweight}
+\rightarrow
+\frac{\mathrm{cm}^2}{
+\mathrm{GeV}^{-1}\,\mathrm{sr}^{-1}\,\mathrm{cm}^2\,\mathrm{cm}^{-2}
+}
+=
+\mathrm{GeV}\,\mathrm{sr}\,\mathrm{cm}^2.
+```
+
+
 ## Notes
 
 1. The double-differential cross section is a function of the interaction
@@ -193,9 +243,6 @@ $P_{\mathrm{interaction}}$ is $\mathrm{cm}^2$.
 =
 \text{function of } x, y, E
 ```
-
-
-
 
 2. The total cross section is a function of the neutrino energy $E$:
 
@@ -211,13 +258,6 @@ dx\,dy
 \text{function of } E
 ```
 
-
-
-3. The effective length is a function of the sampled vertex position and the
-   neutrino direction:
-
-```math
-L_{\text{eff}}
-=
-\text{function of vertex position and neutrino direction}
-```
+3. `EventProperties.totalColumnDepth` is the total column depth of the allowed
+   ranged-mode sampling region, as documented in
+   `LeptonInjectionRangeMode.md`.
