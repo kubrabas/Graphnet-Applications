@@ -18,12 +18,9 @@ $$
 \text{oneweight}
 =
 \frac{
-\left[
-\dfrac{d^2\sigma}{dx\,dy}
-\right]
-_{\text{phys}}
+\left(\dfrac{d^2\sigma}{dx\,dy}\right)_{\mathrm{phys}}
 }{
-N \times P_E \times P_{\text{direction}} \times P_{\text{interaction}} \times P_{\text{position}}
+N \times P_E \times P_{\mathrm{direction}} \times P_{\mathrm{interaction}} \times P_{\mathrm{position}}
 }
 $$
 
@@ -45,11 +42,11 @@ $N$ is a unitless event count.
 ## Direction probability
 
 $$
-P_{\text{direction}}
+P_{\mathrm{direction}}
 =
 \frac{1}{
-(\phi_{\max,\text{LIC}}-\phi_{\min,\text{LIC}})
-(\cos\theta_{\min,\text{LIC}}-\cos\theta_{\max,\text{LIC}})
+(\phi_{\max,\mathrm{LIC}}-\phi_{\min,\mathrm{LIC}})
+(\cos\theta_{\min,\mathrm{LIC}}-\cos\theta_{\max,\mathrm{LIC}})
 }
 $$
 
@@ -58,14 +55,14 @@ are read from the matching generator stored in the LIC file. For the current
 full-sky datasets,
 
 $$
-\phi_{\min,\text{LIC}} = 0,\quad
-\phi_{\max,\text{LIC}} = 2\pi,\quad
-\theta_{\min,\text{LIC}} = 0,\quad
-\theta_{\max,\text{LIC}} = \pi,
+\phi_{\min,\mathrm{LIC}} = 0,\quad
+\phi_{\max,\mathrm{LIC}} = 2\pi,\quad
+\theta_{\min,\mathrm{LIC}} = 0,\quad
+\theta_{\max,\mathrm{LIC}} = \pi,
 $$
 
 
-The unit of $P_{\text{direction}}$ is $\text{sr}^{-1}$.
+The unit of $P_{\mathrm{direction}}$ is $\mathrm{sr}^{-1}$.
 
 
 
@@ -74,32 +71,32 @@ The unit of $P_{\text{direction}}$ is $\text{sr}^{-1}$.
 $$
 P_E(E)
 =
-C_{\text{LIC}} E^{-\gamma_{\text{LIC}}}
+C_{\mathrm{LIC}} E^{-\gamma_{\mathrm{LIC}}}
 $$
 
 where
 
 $$
-C_{\text{LIC}}
+C_{\mathrm{LIC}}
 =
 \frac{
-1-\gamma_{\text{LIC}}
+1-\gamma_{\mathrm{LIC}}
 }{
-E_{\max,\text{LIC}}^{1-\gamma_{\text{LIC}}}
+E_{\max,\mathrm{LIC}}^{1-\gamma_{\mathrm{LIC}}}
 -
-E_{\min,\text{LIC}}^{1-\gamma_{\text{LIC}}}
+E_{\min,\mathrm{LIC}}^{1-\gamma_{\mathrm{LIC}}}
 }
 \quad
-(\gamma_{\text{LIC}} \neq 1).
+(\gamma_{\mathrm{LIC}} \neq 1).
 $$
 
 The energy limits and power-law index are read from the matching generator
 stored in the LIC file. For the current datasets,
 
 $$
-\gamma_{\text{LIC}} = 1.5,\quad
-E_{\min,\text{LIC}} = 10^2\,\text{GeV},\quad
-E_{\max,\text{LIC}} = 10^6\,\text{GeV},
+\gamma_{\mathrm{LIC}} = 1.5,\quad
+E_{\min,\mathrm{LIC}} = 10^2\,\mathrm{GeV},\quad
+E_{\max,\mathrm{LIC}} = 10^6\,\mathrm{GeV},
 $$
 
 so
@@ -115,23 +112,23 @@ E^{-1.5}
 }.
 $$
 
-The unit of $P_E$ is $\text{GeV}^{-1}$.
+The unit of $P_E$ is $\mathrm{GeV}^{-1}$.
 
 
 
 ## Position probability
 
 $$
-P_{\text{position}}
+P_{\mathrm{position}}
 =
 \frac{
 L_{\text{eff}}
 }{
-10^4 \times \pi \times r_{\text{LIC}}^2 \times h_{\text{LIC}}
+10^4 \times \pi \times r_{\mathrm{LIC}}^2 \times h_{\mathrm{LIC}}
 }
 $$
 
-Here, $r_{\text{LIC}}$ and $h_{\text{LIC}}$ are the volume-mode cylinder
+Here, $r_{\mathrm{LIC}}$ and $h_{\mathrm{LIC}}$ are the volume-mode cylinder
 radius and height read from the matching generator stored in the LIC file.
 They correspond to `CylinderRadius` and `CylinderHeight` in the LeptonInjector
 configuration.
@@ -143,36 +140,29 @@ vertex. Since the event vertex coordinates `EventProperties.x`,
 cylinder radius and height are also in meters, $L_{\text{eff}}$ is measured in
 meters.
 
-The unit of $P_{\text{position}}$ is therefore $\text{m}^{-2}$
+The unit of $P_{\mathrm{position}}$ is therefore $\mathrm{m}^{-2}$.
 
 
 
 ## Interaction probability
 
 $$
-P_{\text{interaction}}
+P_{\mathrm{interaction}}
 =
-
-\left[
 \frac{
-\left[
-\dfrac{d^2\sigma}{dx\,dy}
-\right]_{\text{LIC}}
+\left(\dfrac{d^2\sigma}{dx\,dy}\right)_{\mathrm{LIC}}
 }{
-\left[
 1 -
 \exp
 \left(
--N_A \, \text{EventProperties.totalColumnDepth} \, \left[\sigma_{\text{tot}}\right]_{\text{LIC}}
+-N_A \, \mathrm{EventProperties.totalColumnDepth} \, \left(\sigma_{\mathrm{tot}}\right)_{\mathrm{LIC}}
 \right)
-\right]
 }
-\right]
 $$
 
 
 
-Here, $N_A = 6.022140857 \times 10^{23}$
+Here, $N_A = 6.022140857 \times 10^{23}$.
 
 In this interaction-probability term, both cross-section inputs come from the
 matching generator stored in the LIC file: the double-differential cross-section
@@ -182,8 +172,8 @@ cross-section in the numerator of the oneweight expression, which is loaded by
 
 The exponential argument is dimensionless. Since $x$ and $y$ are dimensionless,
 the unit of
-$\left[d^2\sigma/dx\,dy\right]_{\text{LIC}}$ is the same as the unit of a
-cross section. Therefore, the unit of $P_{\text{interaction}}$ is $\text{cm}^2$.
+$\left(d^2\sigma/dx\,dy\right)_{\mathrm{LIC}}$ is the same as the unit of a
+cross section. Therefore, the unit of $P_{\mathrm{interaction}}$ is $\mathrm{cm}^2$.
 
 
 ## Notes
