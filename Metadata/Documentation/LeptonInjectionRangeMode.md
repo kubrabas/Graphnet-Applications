@@ -18,10 +18,10 @@ In range mode, each event is generated in the following order:
 2. The injector samples the neutrino direction from the configured zenith and azimuth ranges.
 3. The injector samples a `pca` point on a disk of radius `InjectionRadius`, centered on the detector-coordinate origin and perpendicular to the sampled neutrino direction.
 4. The injector estimates a maximum possible range for the secondary charged lepton from the sampled neutrino energy. For the current `nu_mu` charged-current run, this is a muon-range allowance; the motivation for "maximum" is described in Sampling Formulas.
-5. allowed sampling region aciklansin burda. endcaplength ile rmax range kullanilarak.
-6. sonra bu allowed sampling region uzerinden total column depth hesaplanir. 
-7. A column depth is sampled uniformly between `0` and `totalColumnDepth`. This is the amount of material the incoming neutrino traverses in allowed sampling region  before interacting. this is called traversed column depth. Note that the sampling is uniform in column depth, not necessarily uniform in physical path length.
-8. earth model, bu allowed sampling region  uzerinde neutrinonun taradigi column depth traversed column depth olcak sekilde interaction vertex'i yerlestirir. physical path length fln hesaplar ynai bu surecte. 
+5. The allowed sampling region is defined along the extrapolated neutrino path using `EndcapLength` and this maximum range allowance.
+6. The total column depth is then computed over this allowed sampling region.
+7. A column depth is sampled uniformly between `0` and `totalColumnDepth`. This is the amount of material the incoming neutrino traverses within the allowed sampling region before interacting. This quantity is called the traversed column depth. Note that the sampling is uniform in column depth, not necessarily uniform in physical path length.
+8. EarthModel places the interaction vertex along the allowed sampling region such that, within that region, the incoming neutrino has accumulated the sampled traversed column depth at that point. In this step, EarthModel converts the column-depth coordinate into the corresponding physical position along the path.
 9. The doubly differential cross-section model samples the final-state variables `x` and `y`. Here `y` sets the energy split between the outgoing muon and the hadronic system.
 10. The final-state particles are constructed at the sampled vertex. For the current `nu_mu` charged-current run, the first final-state particle is either `MuMinus` or `MuPlus`, and the second is `Hadrons`.
 11. A primary neutrino particle is added to the `I3MCTree`. Its type is inferred from the final-state particles: `MuMinus + Hadrons` corresponds to `NuMu`, and `MuPlus + Hadrons` corresponds to `NuMuBar`.
