@@ -230,3 +230,7 @@ Training/EventPulseSeries_nonoise/.DS_Store
 /project/def-nahee/kbas/Graphnet-Applications/Metadata/EventWeights/String340MC/Muon_LIW.csv
 /project/def-nahee/kbas/Graphnet-Applications/Metadata/EventWeights/String340MC/Tau_LIW.csv
 /project/def-nahee/kbas/Graphnet-Applications/Metadata/EventWeights/String340MC/NC_LIW.csv
+
+# Local reproducibility command logs for source-code archaeology
+Metadata/Documentation/LeptonInjectionVolumeMode_ReproCommands.md
+Metadata/Documentation/LeptonInjectionRangeMode_ReproCommands.md
