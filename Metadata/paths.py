@@ -310,7 +310,8 @@ STRING340MC_PARQUET = {
 
 STRING340MC_PARQUET_MIXED = {
     "102_string": {
-        "train": None, "val": None, "test": None, "percentiles_csv": None,
+        "train": None, "val": None, "test": None,
+        "percentiles_csv": "/project/def-nahee/kbas/Graphnet-Applications/Metadata/RobustScaler/340StringMC/102_string_mixed_muon_electron_tau_nc_train_feature_percentiles_p25_p50_p75.csv",
         "flavors": ["Muon", "Electron", "Tau", "NC"],
     },
     "160_string": {

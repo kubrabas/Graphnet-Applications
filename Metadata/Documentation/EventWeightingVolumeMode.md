@@ -183,6 +183,39 @@ is the same as the unit of a cross section. Therefore, the unit of
 $P_{\mathrm{interaction}}$ is $\mathrm{cm}^2$.
 
 
+## OneWeight unit
+
+The units entering the simplified volume-mode expression are
+
+```math
+\left(\frac{d^2\sigma}{dx\,dy}\right)_{\mathrm{phys}}
+\rightarrow \mathrm{cm}^2,
+```
+
+```math
+N \rightarrow 1,\quad
+P_E \rightarrow \mathrm{GeV}^{-1},\quad
+P_{\mathrm{direction}} \rightarrow \mathrm{sr}^{-1},
+```
+
+```math
+P_{\mathrm{interaction}} \rightarrow \mathrm{cm}^2,\quad
+P_{\mathrm{position}} \rightarrow \mathrm{cm}^{-2}.
+```
+
+Therefore,
+
+```math
+\text{oneweight}
+\rightarrow
+\frac{\mathrm{cm}^2}{
+\mathrm{GeV}^{-1}\,\mathrm{sr}^{-1}\,\mathrm{cm}^2\,\mathrm{cm}^{-2}
+}
+=
+\mathrm{GeV}\,\mathrm{sr}\,\mathrm{cm}^2.
+```
+
+
 ## Notes
 
 1. The double-differential cross section is a function of the interaction

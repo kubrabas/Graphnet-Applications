@@ -30,6 +30,12 @@
    export PONESRCDIR=/project/6008051/pone_simulation/pone_offline
    ```
 
+   for photospline
+   ```bash
+   export PYTHONPATH=/cvmfs/software.pacific-neutrino.org/containers/itray_v1.17.1/usr/local/photospline/source:$PYTHONPATH
+   ```
+
+
 **Note:** Haven't checked the contents of `env-shell.sh`.
 
 
