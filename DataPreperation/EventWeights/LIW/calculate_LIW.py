@@ -17,9 +17,11 @@ Usage:
 
 import argparse
 import importlib.util
+import math
 import multiprocessing
 import os
 import re
+import struct
 import sys
 import time
 from pathlib import Path
@@ -39,10 +41,18 @@ icetray.I3Logger.global_logger = icetray.I3NullLogger()
 
 XS_PATH = "/project/6008051/pone_simulation/pone_offline/CrossSectionModels/csms_differential_v1.0/"
 PATHS_PY = Path(__file__).resolve().parents[3] / "Metadata" / "paths.py"
+DEFAULT_NUSQUIDS_WEIGHT_TABLE = (
+    "/cvmfs/software.pacific-neutrino.org/pone_offline/v2.0/"
+    "data/nsq_allneu_propagation_weight_gamma2.h5"
+)
 
 VALID_FLAVORS = {"muon", "electron", "tau", "nc"}
 N_GEN_PER_FILE = 100  # generated events per particle type per LIC file
 EXPECTED_EVENTS_PER_FILE = 2 * N_GEN_PER_FILE
+DEFAULT_INJECTION_RADIUS = 500.0
+DEFAULT_INJECTION_MODE = "unknown"
+DEFAULT_INJECTION_SOURCE = "default"
+LIC_SIZE_T_BYTES = 8
 
 LW_PARTICLE_FROM_PDG = {
     12: LW.NuE,
@@ -62,6 +72,7 @@ LW_PARTICLE_FROM_PDG = {
 
 # Per-worker cross-section object; initialised once per worker process.
 _xs = None
+_survival = None
 
 
 # ---------------------------------------------------------------------------
@@ -133,12 +144,142 @@ def load_xs():
     )
 
 
+class SurvivalProbability:
+    def __init__(self, table_path: str):
+        import nuSQuIDS as nsq
+
+        self.nsq_atm = nsq.nuSQUIDSAtm(table_path)
+        self.units = nsq.Const()
+        cosrange = [cth for cth in self.nsq_atm.GetCosthRange()]
+        energyrange = [energy for energy in self.nsq_atm.GetERange()]
+        self.cosmax = max(cosrange)
+        self.cosmin = min(cosrange)
+        self.emax = max(energyrange)
+        self.emin = min(energyrange)
+
+    @staticmethod
+    def _nusquids_index(primary_type):
+        type_index = 0
+        anti_index = 0
+        if primary_type in (LW.NuMu, LW.NuMuBar):
+            type_index = 1
+        elif primary_type in (LW.NuTau, LW.NuTauBar):
+            type_index = 2
+        if primary_type in (LW.NuEBar, LW.NuMuBar, LW.NuTauBar):
+            anti_index = 1
+        return type_index, anti_index
+
+    @staticmethod
+    def _eflux(energy):
+        return 1e18 * energy ** (-2.0)
+
+    def __call__(self, energy_gev: float, zenith: float, primary_type) -> float:
+        nusquids_energy = energy_gev * self.units.GeV
+        cos_zenith = math.cos(zenith)
+        type_index, anti_index = self._nusquids_index(primary_type)
+
+        if self.cosmin < cos_zenith < self.cosmax:
+            if self.emin < nusquids_energy < self.emax:
+                return (
+                    self.nsq_atm.EvalFlavor(
+                        type_index, cos_zenith, nusquids_energy, anti_index
+                    )
+                    / self._eflux(nusquids_energy)
+                )
+            if nusquids_energy <= self.emin:
+                return 1.0
+            return 0.0
+
+        if self.emin < nusquids_energy < self.emax:
+            return (
+                self.nsq_atm.EvalFlavor(type_index, 0.0, nusquids_energy, anti_index)
+                / self._eflux(nusquids_energy)
+            )
+
+        return 0.0
+
+
 def append_error(existing: str, new: str) -> str:
     if not new:
         return existing
     if not existing:
         return new
     return f"{existing} | {new}"
+
+
+def read_lic_injection_configs(lic_path: str) -> List[dict]:
+    configs = []
+    data = Path(lic_path).read_bytes()
+    offset = 0
+
+    while offset + 17 <= len(data):
+        block_start = offset
+        try:
+            block_len = struct.unpack_from("<Q", data, offset)[0]
+            offset += 8
+            name_len = struct.unpack_from("<Q", data, offset)[0]
+            offset += LIC_SIZE_T_BYTES
+            name = data[offset:offset + name_len].decode("utf-8", errors="replace")
+            offset += name_len
+            offset += 1  # block type version
+        except (struct.error, UnicodeDecodeError):
+            break
+
+        payload_len = block_len - (17 + name_len)
+        payload_start = offset
+        payload_end = payload_start + payload_len
+        if block_len < 17 + name_len or payload_end > len(data):
+            break
+
+        payload = data[payload_start:payload_end]
+        if name in ("RangedInjectionConfiguration", "VolumeInjectionConfiguration"):
+            if len(payload) < 16:
+                offset = block_start + block_len
+                continue
+            mode = "range" if name == "RangedInjectionConfiguration" else "volume"
+            radius = struct.unpack_from("<d", payload, len(payload) - 16)[0]
+            configs.append({
+                "mode": mode,
+                "radius": radius,
+                "block_type": name,
+            })
+
+        offset = block_start + block_len
+
+    return configs
+
+
+def get_lic_injection_config(lic_path: str) -> Tuple[str, float, str]:
+    configs = read_lic_injection_configs(lic_path)
+    unique = {
+        (config["mode"], config["radius"])
+        for config in configs
+    }
+
+    if not unique:
+        return DEFAULT_INJECTION_MODE, DEFAULT_INJECTION_RADIUS, DEFAULT_INJECTION_SOURCE
+
+    if len(unique) == 1:
+        mode, radius = next(iter(unique))
+        return mode, radius, "lic"
+
+    return DEFAULT_INJECTION_MODE, DEFAULT_INJECTION_RADIUS, DEFAULT_INJECTION_SOURCE
+
+
+def get_injection_config(
+    frame,
+    current_mode: str,
+    current_radius: float,
+    current_source: str,
+) -> Tuple[str, float, str]:
+    if not frame.Has("LeptonInjectorProperties"):
+        return current_mode, current_radius, current_source
+
+    props = frame["LeptonInjectorProperties"]
+    try:
+        return "range", props.injectionRadius, "LeptonInjectorProperties"
+    except AttributeError:
+        return "volume", props.cylinderRadius, "LeptonInjectorProperties"
 
 
 def read_event_properties(i3_file: Path, max_daq_frames: int = 0) -> Tuple[Dict, str]:
@@ -194,9 +335,13 @@ def read_event_properties(i3_file: Path, max_daq_frames: int = 0) -> Tuple[Dict,
 # Worker
 # ---------------------------------------------------------------------------
 
-def _worker_init():
-    global _xs
+def _worker_init(compute_survival: bool, nusquids_weight_tables: str):
+    global _xs, _survival
     _xs = load_xs()
+    _survival = (
+        SurvivalProbability(nusquids_weight_tables)
+        if compute_survival else None
+    )
 
 
 def _process_one(args: tuple) -> tuple:
@@ -242,6 +387,9 @@ def _process_one(args: tuple) -> tuple:
     try:
         generators = LW.MakeGeneratorsFromLICFile(lic_path)
         weighter = LW.Weighter(_xs, generators)
+        lic_injection_mode, lic_injection_radius, lic_injection_source = (
+            get_lic_injection_config(lic_path)
+        )
     except Exception as e:
         stat["status"] = "not ok"
         stat["error"] = append_error(
@@ -260,6 +408,9 @@ def _process_one(args: tuple) -> tuple:
         f = dataio.I3File(i3_path)
         stat["i3_file_opened_ok"] = True
         daq_count = 0
+        injection_mode = lic_injection_mode
+        injection_radius = lic_injection_radius
+        injection_source = lic_injection_source
         while f.more():
             try:
                 frame = f.pop_frame()
@@ -270,6 +421,10 @@ def _process_one(args: tuple) -> tuple:
                     f"{weight_calculated} event weights were calculated before the problem. Error: {e}"
                 )
                 break
+
+            injection_mode, injection_radius, injection_source = get_injection_config(
+                frame, injection_mode, injection_radius, injection_source
+            )
 
             if frame.Stop != icetray.I3Frame.DAQ:
                 continue
@@ -303,7 +458,7 @@ def _process_one(args: tuple) -> tuple:
             event.primary_type = primary
             event.final_state_particle_0 = fs0
             event.final_state_particle_1 = fs1
-            event.radius = props.impactParameter
+            event.radius = injection_radius
             event.total_column_depth = props.totalColumnDepth
             event.x = props.x
             event.y = props.y
@@ -311,6 +466,10 @@ def _process_one(args: tuple) -> tuple:
 
             try:
                 oneweight = weighter.get_oneweight(event)
+                survival_prob = (
+                    _survival(event.energy, event.zenith, event.primary_type)
+                    if _survival is not None else None
+                )
             except Exception as e:
                 problem_event = weight_calculated + 1
                 i3_error = (
@@ -330,11 +489,16 @@ def _process_one(args: tuple) -> tuple:
                 "finalStateX": props.finalStateX,
                 "finalStateY": props.finalStateY,
                 "columnDepth": props.totalColumnDepth,
+                "injectionMode": injection_mode,
+                "injectionRadius": injection_radius,
+                "injectionConfigSource": injection_source,
                 "initialType": int(props.initialType),
                 "finalType1": int(props.finalType1),
                 "finalType2": int(props.finalType2),
                 "oneweight": oneweight,
             })
+            if survival_prob is not None:
+                records[-1]["survivalProb"] = survival_prob
             weight_calculated += 1
             if max_daq_frames > 0 and daq_count >= max_daq_frames:
                 break
@@ -390,6 +554,12 @@ def main() -> int:
     ap.add_argument("--logdir", required=True)
     ap.add_argument("--workers", type=int, default=None,
                     help="parallel workers (default: all available CPUs)")
+    ap.add_argument("--no-survival-prob", dest="survival_prob",
+                    action="store_false",
+                    help="do not add P-ONE-style nuSQuIDS survivalProb column")
+    ap.add_argument("--nusquids-weight-tables", default=DEFAULT_NUSQUIDS_WEIGHT_TABLE,
+                    help="nuSQuIDS propagation table for survivalProb")
+    ap.set_defaults(survival_prob=True)
     ap.add_argument("--overwrite", action="store_true")
     args = ap.parse_args()
 
@@ -428,6 +598,9 @@ def main() -> int:
     log(f"lic_dir   : {args.lic_dir}")
     log(f"photon_dir: {args.photon_dir}")
     log(f"pattern   : {args.photon_pattern}")
+    log(f"survival  : {args.survival_prob}")
+    if args.survival_prob:
+        log(f"nsq table : {args.nusquids_weight_tables}")
     log(f"outfile   : {outfile}")
     log(f"statsfile : {statsfile}")
     log(f"logfile   : {logfile}")
@@ -478,7 +651,11 @@ def main() -> int:
     all_records: List[dict] = []
     progress_step = max(1, len(tasks) // 20)
 
-    with multiprocessing.Pool(workers, initializer=_worker_init) as pool:
+    with multiprocessing.Pool(
+        workers,
+        initializer=_worker_init,
+        initargs=(args.survival_prob, args.nusquids_weight_tables),
+    ) as pool:
         for i, (batch_id, records, stat) in enumerate(
             pool.imap_unordered(_process_one, tasks), 1
         ):
