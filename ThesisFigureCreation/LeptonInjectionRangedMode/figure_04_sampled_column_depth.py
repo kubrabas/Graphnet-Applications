@@ -31,8 +31,8 @@ mpl.rcParams.update(
 PNG_OUT = OUT_DIR / "figure_04_sampled_column_depth.png"
 PDF_OUT = OUT_DIR / "figure_04_sampled_column_depth.pdf"
 
-VIEW_XLIM = (-10.4, 10.4)
-VIEW_YLIM = (-10.2, 8.0)
+VIEW_XLIM = (-5.8, 5.9)
+VIEW_YLIM = (-9.9, 4.3)
 REFERENCE_VIEW_WIDTH = 9.4
 STYLE_SCALE = min(1.0, REFERENCE_VIEW_WIDTH / (VIEW_XLIM[1] - VIEW_XLIM[0]))
 FONT_SCALE = 0.95
@@ -212,7 +212,7 @@ def main() -> None:
     )
     draw_tick(ax, sampling_start, nu_dir, length=0.26, color=column_color, lw=lw(1.7), zorder=10)
     ax.text(
-        *(0.5 * (sampling_start + sampled_stop) + np.array([-1.05, -0.25])),
+        *(0.5 * (sampling_start + sampled_stop) + np.array([-0.55, 0.18])),
         "Sampled\nColumn Depth",
         ha="right",
         va="center",

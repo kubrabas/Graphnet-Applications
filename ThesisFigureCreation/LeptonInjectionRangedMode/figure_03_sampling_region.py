@@ -31,8 +31,8 @@ mpl.rcParams.update(
 PNG_OUT = OUT_DIR / "figure_03_sampling_region.png"
 PDF_OUT = OUT_DIR / "figure_03_sampling_region.pdf"
 
-VIEW_XLIM = (-10.4, 10.4)
-VIEW_YLIM = (-10.2, 8.0)
+VIEW_XLIM = (-6.2, 5.9)
+VIEW_YLIM = (-9.9, 4.3)
 REFERENCE_VIEW_WIDTH = 9.4
 STYLE_SCALE = min(1.0, REFERENCE_VIEW_WIDTH / (VIEW_XLIM[1] - VIEW_XLIM[0]))
 FONT_SCALE = 0.95
