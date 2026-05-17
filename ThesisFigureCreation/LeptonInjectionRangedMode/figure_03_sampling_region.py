@@ -35,6 +35,7 @@ VIEW_XLIM = (-10.4, 10.4)
 VIEW_YLIM = (-10.2, 8.0)
 REFERENCE_VIEW_WIDTH = 9.4
 STYLE_SCALE = min(1.0, REFERENCE_VIEW_WIDTH / (VIEW_XLIM[1] - VIEW_XLIM[0]))
+FONT_SCALE = 0.95
 
 
 def lw(value: float) -> float:
@@ -46,7 +47,7 @@ def area(value: float) -> float:
 
 
 def font(value: float) -> float:
-    return max(5.5, value * STYLE_SCALE)
+    return max(8.5, value * FONT_SCALE)
 
 
 def unit(angle_deg: float) -> np.ndarray:
@@ -210,7 +211,7 @@ def main() -> None:
     draw_tick(ax, endcap_start, nu_dir, length=0.20, color=blue, lw=lw(1.6), zorder=10)
     draw_tick(ax, endcap_stop, nu_dir, length=0.20, color=blue, lw=lw(1.6), zorder=10)
     ax.text(
-        *(pca + 0.62 * endcap_length * nu_dir + np.array([-0.15, -0.70])),
+        *(pca + 0.62 * endcap_length * nu_dir + np.array([-0.15, -0.80])),
         r"$2\times$ EndcapLength",
         ha="left",
         va="center",
@@ -230,7 +231,7 @@ def main() -> None:
     )
     draw_tick(ax, range_start, nu_dir, length=0.22, color=range_color, lw=lw(1.6), zorder=10)
     ax.text(
-        *(endcap_start - 0.48 * range_length * nu_dir + np.array([0.15, -0.12])),
+        *(endcap_start - 0.48 * range_length * nu_dir + np.array([0.25, -0.32])),
         "Range",
         ha="left",
         va="center",
@@ -267,17 +268,6 @@ def main() -> None:
         linewidth=lw(0.8),
         zorder=11,
     )
-    ax.text(
-        *(pca + np.array([0.1, -0.28])),
-        "PCA",
-        ha="left",
-        va="bottom",
-        color=pca_red,
-        fontsize=font(11),
-        fontweight="bold",
-        zorder=12,
-    )
-
     ax.scatter([0], [0], s=area(48), color="black", zorder=8)
 
     ax.set_xlim(*VIEW_XLIM)
