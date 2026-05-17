@@ -21,6 +21,7 @@ mpl.rcParams.update(
         "text.usetex": False,
         "font.family": "serif",
         "font.size": 11,
+        "mathtext.fontset": "cm",
         "axes.linewidth": 0.8,
         "figure.dpi": 150,
         "savefig.dpi": 300,
@@ -176,6 +177,15 @@ def main() -> None:
             color="black",
             zorder=9,
         )
+    )
+    ax.text(
+        *(arrow_end + np.array([0.12, -0.16])),
+        r"$\hat{d}$",
+        ha="left",
+        va="center",
+        color="#111111",
+        fontsize=18,
+        zorder=12,
     )
 
     marker_size = 0.22

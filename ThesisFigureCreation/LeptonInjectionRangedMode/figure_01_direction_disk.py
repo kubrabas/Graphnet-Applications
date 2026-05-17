@@ -21,6 +21,7 @@ mpl.rcParams.update(
         "text.usetex": False,
         "font.family": "serif",
         "font.size": 11,
+        "mathtext.fontset": "cm",
         "axes.linewidth": 0.8,
         "figure.dpi": 150,
         "savefig.dpi": 300,
@@ -172,20 +173,12 @@ def main() -> None:
         fontsize=10,
     )
     ax.text(
-        *(arrow_end + np.array([-0.8, 0.03])),
-        "sampled neutrino direction",
-        ha="left",
-        va="bottom",
-        color="#111111",
-        fontsize=10,
-    )
-    ax.text(
-        *(arrow_end + np.array([0.08, -0.02])),
-        "",
+        *(arrow_end + np.array([0.05, -0.00])),
+        r"$\hat{d}$",
         ha="left",
         va="center",
         color="#111111",
-        fontsize=9.5,
+        fontsize=18,
     )
     ax.text(
         *(0.55 * radius_end + np.array([-0.12, 0.18])),
