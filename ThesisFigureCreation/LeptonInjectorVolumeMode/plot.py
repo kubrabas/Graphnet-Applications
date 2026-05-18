@@ -90,4 +90,5 @@ ax.text(
 
 plt.tight_layout()
 plt.savefig(Path(__file__).with_suffix(".svg"), format="svg", bbox_inches="tight")
+plt.savefig(Path(__file__).with_suffix(".pdf"), format="pdf", bbox_inches="tight")
 plt.show()
