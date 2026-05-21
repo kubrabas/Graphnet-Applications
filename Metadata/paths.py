@@ -315,39 +315,23 @@ STRING340MC_PARQUET = {
         "Tau":      {"train": None, "val": None, "test": None},
         "NC":       {"train": None, "val": None, "test": None},
     },
+    "160_string_emax1e6": {
+        "Muon":     {"train": None, "val": None, "test": None},
+        "Electron": {"train": None, "val": None, "test": None},
+        "Tau":      {"train": None, "val": None, "test": None},
+        "NC":       {"train": None, "val": None, "test": None},
+    },
     "full_geometry": {
         "Muon":     {"train": None, "val": None, "test": None},
         "Electron": {"train": None, "val": None, "test": None},
         "Tau":      {"train": None, "val": None, "test": None},
         "NC":       {"train": None, "val": None, "test": None},
     },
-}
-
-
-# ============================================================
-# 340 String MC - Parquet (mixed / multi-flavor)
-# ============================================================
-# Use when events from multiple flavors are merged into one dataset.
-# "flavors" field documents which flavors were combined.
-
-STRING340MC_PARQUET_MIXED = {
-    "102_string": {
-        "train": None, "val": None, "test": None,
-        "percentiles_csv": "/project/def-nahee/kbas/Graphnet-Applications/Metadata/RobustScaler/340StringMC/102_string_mixed_muon_electron_tau_nc_train_feature_percentiles_p25_p50_p75.csv",
-        "flavors": ["Muon", "Electron", "Tau", "NC"],
-    },
-    "102_string_emax1e6": {
-        "train": None, "val": None, "test": None,
-        "percentiles_csv": "/project/def-nahee/kbas/Graphnet-Applications/Metadata/RobustScaler/340StringMC/102_string_emax1e6_mixed_muon_electron_tau_nc_train_feature_percentiles_p25_p50_p75.csv",
-        "flavors": ["Muon", "Electron", "Tau", "NC"],
-    },
-    "160_string": {
-        "train": None, "val": None, "test": None, "percentiles_csv": None,
-        "flavors": ["Muon", "Electron", "Tau", "NC"],
-    },
-    "full_geometry": {
-        "train": None, "val": None, "test": None, "percentiles_csv": None,
-        "flavors": ["Muon", "Electron", "Tau", "NC"],
+    "full_geometry_emax1e6": {
+        "Muon":     {"train": None, "val": None, "test": None},
+        "Electron": {"train": None, "val": None, "test": None},
+        "Tau":      {"train": None, "val": None, "test": None},
+        "NC":       {"train": None, "val": None, "test": None},
     },
 }
 
@@ -361,11 +345,11 @@ STRING340MC_PARQUET_MIXED = {
 ROBUST_SCALER = {
     "340StringMC": {
         "102_string": {
-            "Muon": "/project/def-nahee/kbas/Graphnet-Applications/Metadata/RobustScaler/340StringMC/102_string_muon_train_feature_percentiles_p25_p50_p75.csv",
-            "Electron": "/project/def-nahee/kbas/Graphnet-Applications/Metadata/RobustScaler/340StringMC/102_string_electron_train_feature_percentiles_p25_p50_p75.csv",
-            "Tau": "/project/def-nahee/kbas/Graphnet-Applications/Metadata/RobustScaler/340StringMC/102_string_tau_train_feature_percentiles_p25_p50_p75.csv",
-            "NC": "/project/def-nahee/kbas/Graphnet-Applications/Metadata/RobustScaler/340StringMC/102_string_nc_train_feature_percentiles_p25_p50_p75.csv",
-            "mixed": "/project/def-nahee/kbas/Graphnet-Applications/Metadata/RobustScaler/340StringMC/102_string_mixed_muon_electron_tau_nc_train_feature_percentiles_p25_p50_p75.csv",
+            "Muon": None,
+            "Electron":None,
+            "Tau": None,
+            "NC": None,
+            "mixed": None,
         },
         "102_string_emax1e6": {
             "Muon": None,
@@ -381,7 +365,21 @@ ROBUST_SCALER = {
             "NC": None,
             "mixed": None,
         },
+         "160_string_emax1e6": {
+            "Muon": None,
+            "Electron": None,
+            "Tau": None,
+            "NC": None,
+            "mixed": None,
+        },
         "full_geometry": {
+            "Muon": None,
+            "Electron": None,
+            "Tau": None,
+            "NC": None,
+            "mixed": None,
+        },
+        "full_geometry_emax1e6": {
             "Muon": None,
             "Electron": None,
             "Tau": None,
