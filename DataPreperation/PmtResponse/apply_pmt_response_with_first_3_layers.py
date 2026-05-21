@@ -429,7 +429,11 @@ def main() -> int:
         has_out = outf.exists()
         has_log = logf.exists()
         if has_out and has_log:
-            continue
+            with open(logf, "r", errors="ignore") as fh:
+                if any(("SKIPPED" in line or "SUCCESS" in line) for line in fh):
+                    continue
+            logf.unlink()
+            outf.unlink()
         if has_log and not has_out:
             logf.unlink()
             n_cleaned_log += 1
