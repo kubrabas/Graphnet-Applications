@@ -287,6 +287,28 @@ STRING340MC_PARQUET = {
             "test":  "/home/kbas/scratch/String340MC/102_string/NC_Parquet/merged/test_reindexed",
         },
     },
+    "102_string_emax1e6": {
+        "Muon": {
+            "train": "/home/kbas/scratch/String340MC/102_string/Muon_Parquet_Emax1e6/merged/train_reindexed",
+            "val":   "/home/kbas/scratch/String340MC/102_string/Muon_Parquet_Emax1e6/merged/val_reindexed",
+            "test":  "/home/kbas/scratch/String340MC/102_string/Muon_Parquet_Emax1e6/merged/test_reindexed",
+        },
+        "Electron": {
+            "train": "/home/kbas/scratch/String340MC/102_string/Electron_Parquet/merged/train_reindexed",
+            "val":   "/home/kbas/scratch/String340MC/102_string/Electron_Parquet/merged/val_reindexed",
+            "test":  "/home/kbas/scratch/String340MC/102_string/Electron_Parquet/merged/test_reindexed",
+        },
+        "Tau": {
+            "train": "/home/kbas/scratch/String340MC/102_string/Tau_Parquet/merged/train_reindexed",
+            "val":   "/home/kbas/scratch/String340MC/102_string/Tau_Parquet/merged/val_reindexed",
+            "test":  "/home/kbas/scratch/String340MC/102_string/Tau_Parquet/merged/test_reindexed",
+        },
+        "NC": {
+            "train": "/home/kbas/scratch/String340MC/102_string/NC_Parquet/merged/train_reindexed",
+            "val":   "/home/kbas/scratch/String340MC/102_string/NC_Parquet/merged/val_reindexed",
+            "test":  "/home/kbas/scratch/String340MC/102_string/NC_Parquet/merged/test_reindexed",
+        },
+    },
     "160_string": {
         "Muon":     {"train": None, "val": None, "test": None},
         "Electron": {"train": None, "val": None, "test": None},
@@ -314,6 +336,11 @@ STRING340MC_PARQUET_MIXED = {
         "percentiles_csv": "/project/def-nahee/kbas/Graphnet-Applications/Metadata/RobustScaler/340StringMC/102_string_mixed_muon_electron_tau_nc_train_feature_percentiles_p25_p50_p75.csv",
         "flavors": ["Muon", "Electron", "Tau", "NC"],
     },
+    "102_string_emax1e6": {
+        "train": None, "val": None, "test": None,
+        "percentiles_csv": "/project/def-nahee/kbas/Graphnet-Applications/Metadata/RobustScaler/340StringMC/102_string_emax1e6_mixed_muon_electron_tau_nc_train_feature_percentiles_p25_p50_p75.csv",
+        "flavors": ["Muon", "Electron", "Tau", "NC"],
+    },
     "160_string": {
         "train": None, "val": None, "test": None, "percentiles_csv": None,
         "flavors": ["Muon", "Electron", "Tau", "NC"],
@@ -339,6 +366,13 @@ ROBUST_SCALER = {
             "Tau": "/project/def-nahee/kbas/Graphnet-Applications/Metadata/RobustScaler/340StringMC/102_string_tau_train_feature_percentiles_p25_p50_p75.csv",
             "NC": "/project/def-nahee/kbas/Graphnet-Applications/Metadata/RobustScaler/340StringMC/102_string_nc_train_feature_percentiles_p25_p50_p75.csv",
             "mixed": "/project/def-nahee/kbas/Graphnet-Applications/Metadata/RobustScaler/340StringMC/102_string_mixed_muon_electron_tau_nc_train_feature_percentiles_p25_p50_p75.csv",
+        },
+        "102_string_emax1e6": {
+            "Muon": None,
+            "Electron": None,
+            "Tau": None,
+            "NC": None,
+            "mixed": "/project/def-nahee/kbas/Graphnet-Applications/Metadata/RobustScaler/340StringMC/102_string_emax1e6_mixed_muon_electron_tau_nc_train_feature_percentiles_p25_p50_p75.csv",
         },
         "160_string": {
             "Muon": None,

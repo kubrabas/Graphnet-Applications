@@ -173,7 +173,20 @@ def summarize_conversion_logs(logdir: Path, flavor: str, geometry: str) -> None:
     print(f"  pulsemap_does_not_exist : {total_absent}")
 
 
-def save_triggered_event_list(merged_raw: Path, mc: str, geometry: str, flavor: str) -> None:
+def dataset_name(geometry: str, flavor: str, metadata_suffix: str = "") -> str:
+    parts = [geometry, flavor.lower()]
+    if metadata_suffix:
+        parts.append(metadata_suffix)
+    return "_".join(parts)
+
+
+def save_triggered_event_list(
+    merged_raw: Path,
+    mc: str,
+    geometry: str,
+    flavor: str,
+    metadata_suffix: str = "",
+) -> None:
     truth_files = sorted((merged_raw / "truth").glob("truth_*.parquet"))
     if not truth_files:
         print(f"[WARN] No truth files in {merged_raw / 'truth'} — skipping event list.")
@@ -190,13 +203,17 @@ def save_triggered_event_list(merged_raw: Path, mc: str, geometry: str, flavor: 
 
     out_dir = Path(METADATA_BASE) / mc
     out_dir.mkdir(parents=True, exist_ok=True)
-    out_path = out_dir / f"{geometry}_{flavor.lower()}_triggered_events.csv"
+    out_path = out_dir / f"{dataset_name(geometry, flavor, metadata_suffix)}_triggered_events.csv"
     combined.write_csv(str(out_path))
     print(f"triggered event list -> {out_path}  ({len(combined)} unique events)")
 
 
 def compute_feature_percentiles(
-    train_feat_dir: Path, mc: str, geometry: str, flavor: str
+    train_feat_dir: Path,
+    mc: str,
+    geometry: str,
+    flavor: str,
+    metadata_suffix: str = "",
 ) -> None:
     pattern = str(train_feat_dir / "features_*.parquet")
     lf = pl.scan_parquet(pattern)
@@ -221,7 +238,7 @@ def compute_feature_percentiles(
 
     out_dir = Path(METADATA_ROBUSTSCALER) / mc
     out_dir.mkdir(parents=True, exist_ok=True)
-    csv_name = f"{geometry}_{flavor.lower()}_train_feature_percentiles_p25_p50_p75.csv"
+    csv_name = f"{dataset_name(geometry, flavor, metadata_suffix)}_train_feature_percentiles_p25_p50_p75.csv"
     csv_path = out_dir / csv_name
     result.to_csv(str(csv_path), index=False, float_format="%.16f")
     print(f"feature percentiles -> {csv_path}")
@@ -240,6 +257,8 @@ def main() -> int:
     ap.add_argument("--logdir",           required=True)
     ap.add_argument("--events-per-batch", type=int, default=1024)
     ap.add_argument("--num-workers",      type=int, default=1)
+    ap.add_argument("--metadata-suffix",  default="",
+                    help="Optional suffix inserted into metadata CSV names, e.g. Emax1e6")
     ap.add_argument("--dry-run",          action="store_true")
     args = ap.parse_args()
 
@@ -262,6 +281,7 @@ def main() -> int:
     print(f"flavor        : {args.flavor}")
     print(f"geometry      : {args.geometry}")
     print(f"outdir        : {outdir}")
+    print(f"metadata_suffix : {args.metadata_suffix or '(none)'}")
     print(f"events/batch  : {args.events_per_batch}")
     log_fh.flush()
 
@@ -325,6 +345,7 @@ def main() -> int:
                 mc         = args.mc,
                 geometry   = args.geometry,
                 flavor     = args.flavor,
+                metadata_suffix = args.metadata_suffix,
             )
         log_fh.flush()
 
@@ -337,6 +358,7 @@ def main() -> int:
                 mc             = args.mc,
                 geometry       = args.geometry,
                 flavor         = args.flavor,
+                metadata_suffix = args.metadata_suffix,
             )
         log_fh.flush()
 

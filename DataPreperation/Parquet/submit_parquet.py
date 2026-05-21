@@ -67,8 +67,23 @@ def discover_i3_files(indir: str) -> int:
     return len([f for f in files if "gcd" not in os.path.basename(f).lower()])
 
 
-def outdir_from_pmt(pmt_path: str) -> str:
-    return pmt_path.replace("_PMT_Response", "_Parquet")
+def format_energy_suffix(max_energy: Optional[float]) -> Optional[str]:
+    if max_energy is None:
+        return None
+    mantissa, exponent = f"{max_energy:.6e}".split("e")
+    mantissa = mantissa.rstrip("0").rstrip(".").replace(".", "p")
+    return f"Emax{mantissa}e{int(exponent)}"
+
+
+def add_suffix(path: str, suffix: Optional[str]) -> str:
+    if suffix is None:
+        return path
+    p = Path(path)
+    return str(p.with_name(f"{p.name}_{suffix}"))
+
+
+def outdir_from_pmt(pmt_path: str, suffix: Optional[str] = None) -> str:
+    return add_suffix(pmt_path.replace("_PMT_Response", "_Parquet"), suffix)
 
 
 def parse_job_id(sbatch_output: str) -> Optional[str]:
@@ -88,24 +103,28 @@ def submit_convert(
     n_files: int,
     pulsemap: str,
     nworkers: int,
+    max_energy: Optional[float],
 ) -> Optional[str]:
+    export_vars = (
+        f"MC={mc},"
+        f"FLAVOR={flavor},"
+        f"GEOMETRY={geometry},"
+        f"INDIR={indir},"
+        f"GCD={gcd},"
+        f"OUTDIR={outdir},"
+        f"LOGDIR={logdir},"
+        f"PULSEMAP={pulsemap},"
+        f"NWORKERS={nworkers}"
+    )
+    if max_energy is not None:
+        export_vars += f",MAX_ENERGY={max_energy}"
+
     job_name = f"Parquet_{mc}_{geometry}_{flavor}"
     cmd = [
         "sbatch",
         f"--job-name={job_name}",
         f"--cpus-per-task={nworkers}",
-        (
-            "--export="
-            f"MC={mc},"
-            f"FLAVOR={flavor},"
-            f"GEOMETRY={geometry},"
-            f"INDIR={indir},"
-            f"GCD={gcd},"
-            f"OUTDIR={outdir},"
-            f"LOGDIR={logdir},"
-            f"PULSEMAP={pulsemap},"
-            f"NWORKERS={nworkers}"
-        ),
+        f"--export={export_vars}",
         str(WORKER_SH),
     ]
     result = subprocess.run(cmd, capture_output=True, text=True, check=True)
@@ -122,20 +141,24 @@ def submit_merge(
     outdir: str,
     logdir: str,
     convert_job_id: str,
+    metadata_suffix: Optional[str],
 ) -> None:
+    export_vars = (
+        f"MC={mc},"
+        f"FLAVOR={flavor},"
+        f"GEOMETRY={geometry},"
+        f"OUTDIR={outdir},"
+        f"LOGDIR={logdir}"
+    )
+    if metadata_suffix is not None:
+        export_vars += f",METADATA_SUFFIX={metadata_suffix}"
+
     job_name = f"merge_Parquet_{mc}_{geometry}_{flavor}"
     cmd = [
         "sbatch",
         f"--job-name={job_name}",
         f"--dependency=afterany:{convert_job_id}",
-        (
-            "--export="
-            f"MC={mc},"
-            f"FLAVOR={flavor},"
-            f"GEOMETRY={geometry},"
-            f"OUTDIR={outdir},"
-            f"LOGDIR={logdir}"
-        ),
+        f"--export={export_vars}",
         str(MERGE_SH),
     ]
     result = subprocess.run(cmd, capture_output=True, text=True, check=True)
@@ -156,6 +179,8 @@ def main() -> int:
     ap.add_argument("--pulsemap",  default="EventPulseSeries_nonoise")
     ap.add_argument("--nworkers", type=int, default=NWORKERS,
                     help=f"CPUs per job / parallel workers (default: {NWORKERS})")
+    ap.add_argument("--max-energy", type=float, default=None,
+                    help="Keep only frames with EventProperties.totalEnergy <= this value in GeV. If omitted, no energy filter is applied.")
     ap.add_argument("--dry-run",  action="store_true")
     args = ap.parse_args()
 
@@ -188,8 +213,12 @@ def main() -> int:
             print(f"  [skip] {flavor}: PMT path not set in paths.py")
             continue
 
-        outdir = outdir_from_pmt(pmt_path)
-        logdir = f"{SCRATCH_BASE}/{scratch}/Logs/{flavor}_{args.geometry}_Parquet"
+        metadata_suffix = format_energy_suffix(args.max_energy)
+        outdir = outdir_from_pmt(pmt_path, metadata_suffix)
+        logdir = add_suffix(
+            f"{SCRATCH_BASE}/{scratch}/Logs/{flavor}_{args.geometry}_Parquet",
+            metadata_suffix,
+        )
 
         try:
             n_files = discover_i3_files(pmt_path)
@@ -208,12 +237,18 @@ def main() -> int:
             print(f"    gcd      = {gcd}")
             print(f"    logdir   = {logdir}")
             print(f"    pulsemap = {args.pulsemap}")
+            if args.max_energy is None:
+                print("    max_energy = none")
+            else:
+                print(f"    max_energy = {args.max_energy:.6g} GeV")
+                print(f"    suffix   = {metadata_suffix}")
             continue
 
         convert_job_id = submit_convert(
             mc=mc, flavor=flavor, geometry=args.geometry,
             indir=pmt_path, gcd=gcd, outdir=outdir, logdir=logdir,
             n_files=n_files, pulsemap=args.pulsemap, nworkers=args.nworkers,
+            max_energy=args.max_energy,
         )
         if convert_job_id is None:
             print(f"  [error] {flavor}: could not parse job ID from sbatch output")
@@ -223,6 +258,7 @@ def main() -> int:
             mc=mc, flavor=flavor, geometry=args.geometry,
             outdir=outdir, logdir=logdir,
             convert_job_id=convert_job_id,
+            metadata_suffix=metadata_suffix,
         )
 
     return 0

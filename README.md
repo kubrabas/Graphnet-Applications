@@ -2,7 +2,7 @@
 
 1. Allocate a GPU node:
    ```bash
-   salloc --time=2:00:00 --account=def-nahee --mem=24G --gpus-per-node=nvidia_h100_80gb_hbm3_1g.10gb:1
+   salloc --time=1:00:00 --account=def-nahee --mem=24G --gpus-per-node=nvidia_h100_80gb_hbm3_1g.10gb:1
    ```
 2. Load modules:
    ```bash

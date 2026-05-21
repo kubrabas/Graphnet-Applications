@@ -37,7 +37,7 @@ from typing import List
 
 from graphnet.data.dataconverter import DataConverter
 from graphnet.data.extractors.icecube import I3FeatureExtractorPONE, I3TruthExtractorPONE
-from graphnet.data.extractors.icecube.utilities.i3_filters import NullSplitI3Filter
+from graphnet.data.extractors.icecube.utilities.i3_filters import I3Filter, NullSplitI3Filter
 from graphnet.data.readers import PONE_Reader
 from graphnet.data.writers import ParquetWriter
 
@@ -50,6 +50,21 @@ VALID_FLAVORS = {"Muon", "Electron", "Tau", "NC"}
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
+class EventPropertiesMaxEnergyFilter(I3Filter):
+    """Keep DAQ frames whose EventProperties.totalEnergy is below a limit."""
+
+    def __init__(self, max_energy: float):
+        self._max_energy = float(max_energy)
+
+    def _keep_frame(self, frame) -> bool:
+        if "EventProperties" not in frame:
+            return False
+        try:
+            return float(frame["EventProperties"].totalEnergy) <= self._max_energy
+        except AttributeError:
+            return False
+
 
 def discover_i3_files(indir: str) -> List[Path]:
     """Return sorted list of non-GCD I3 files in indir (recursive)."""
@@ -89,6 +104,8 @@ def main() -> int:
     ap.add_argument("--pulsemap",  default="EventPulseSeries_nonoise")
     ap.add_argument("--nworkers",  type=int, default=None,
                     help="Parallel workers (default: $SLURM_CPUS_PER_TASK or 4)")
+    ap.add_argument("--max-energy", type=float, default=None,
+                    help="Keep only frames with EventProperties.totalEnergy <= this value in GeV. If omitted, no energy filter is applied.")
     ap.add_argument("--overwrite", action="store_true",
                     help="Always re-run: pre-deletes existing outputs so skip check finds nothing")
     args = ap.parse_args()
@@ -133,6 +150,10 @@ def main() -> int:
     print(f"Total files        : {len(files)}")
     print(f"Already done (skip): {n_already_done}")
     print(f"To process         : {len(to_process)}")
+    if args.max_energy is None:
+        print("Max energy filter  : none")
+    else:
+        print(f"Max energy filter  : <= {args.max_energy:.6g} GeV")
 
     if not to_process:
         print("Nothing to do.")
@@ -162,10 +183,17 @@ def main() -> int:
         _glog(f"logdir   : {logdir}")
         _glog(f"total    : {len(files)}  (already_done={n_already_done}, to_process={len(to_process)})")
         _glog(f"workers  : {nworkers}")
+        if args.max_energy is None:
+            _glog("max_energy_filter : none")
+        else:
+            _glog(f"max_energy_filter : <= {args.max_energy:.6g} GeV")
         _glog()
+        i3_filters = [NullSplitI3Filter()]
+        if args.max_energy is not None:
+            i3_filters.append(EventPropertiesMaxEnergyFilter(max_energy=args.max_energy))
         reader = PONE_Reader(
             gcd_rescue=args.gcd,
-            i3_filters=[NullSplitI3Filter()],
+            i3_filters=i3_filters,
             pulsemap=args.pulsemap,
             skip_empty_pulses=True,
         )
