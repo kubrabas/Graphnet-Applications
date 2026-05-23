@@ -30,7 +30,7 @@ N \times P_E \times P_{\mathrm{direction}} \times P_{\mathrm{interaction}} \time
 ```
 
 This is the `oneweight` column in the CSV produced by
-`/project/def-nahee/kbas/Graphnet-Applications/DataPreperation/EventWeights/LIW/calculate_LIW.py`.
+`/project/def-nahee/kbas/Graphnet-Applications/DataPreperation/EventWeights/calculate_LIW.py`.
 
 
 
