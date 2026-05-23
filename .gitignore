@@ -234,3 +234,6 @@ Training/EventPulseSeries_nonoise/.DS_Store
 # Local reproducibility command logs for source-code archaeology
 Metadata/Documentation/LeptonInjectionVolumeMode_ReproCommands.md
 Metadata/Documentation/LeptonInjectionRangeMode_ReproCommands.md
+
+
+Metadata/CategoryInformation
