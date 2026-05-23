@@ -2,10 +2,16 @@
 Build category event-list CSVs and submit categorized Parquet split jobs.
 
 Example:
-    python3 submit_categorized_parquet.py \\
-        --mc 340StringMC \\
-        --geometry 102_string \\
-        --flavor Electron \\
+    python3 submit_categorized_parquet.py \
+        --mc 340StringMC \
+        --geometry 102_string_emax1e6 \
+        --flavor all \
+        --category-column category1
+
+    python3 submit_categorized_parquet.py \
+        --mc 340StringMC \
+        --geometry full_geometry_emax1e6 \
+        --flavor all \
         --category-column category1
 
 The script first reads the existing merged/*_reindexed/truth parquet files,
@@ -131,6 +137,16 @@ def category_value_label(value) -> str:
     return f"category{text}"
 
 
+def parquet_dataset_label(parquet_base: Path, flavor: str) -> str:
+    suffix = parquet_base.name
+    prefix = f"{flavor}_Parquet"
+    if suffix.startswith(prefix):
+        suffix = suffix[len(prefix):].lstrip("_")
+    return "_".join(
+        part for part in [parquet_base.parent.name, flavor, suffix] if part
+    )
+
+
 def read_split_events(
     split_dir: Path,
     split: str,
@@ -177,8 +193,15 @@ def write_event_list_csv(
     category_column: str,
     dry_run: bool,
 ) -> Tuple[Path, List[str]]:
-    out_dir = CATEGORY_INFO_BASE / MC_TABLE[mc]["results"] / geometry
-    out_path = out_dir / f"{flavor}_{category_column}_events.csv"
+    parquet_base = source_parquet_outdir(
+        paths=paths,
+        mc=mc,
+        geometry=geometry,
+        flavor=flavor,
+    )
+    dataset_label = parquet_dataset_label(parquet_base, flavor)
+    out_dir = CATEGORY_INFO_BASE / MC_TABLE[mc]["results"]
+    out_path = out_dir / f"{dataset_label}_{category_column}_events.csv"
 
     if dry_run:
         split_dirs = [
@@ -223,6 +246,7 @@ def write_event_list_csv(
 
 def submit_category_workflow(
     *,
+    paths,
     mc: str,
     geometry: str,
     flavor: str,
@@ -232,6 +256,25 @@ def submit_category_workflow(
     overwrite: bool,
     dry_run: bool,
 ) -> Optional[str]:
+    parquet_base = source_parquet_outdir(
+        paths=paths,
+        mc=mc,
+        geometry=geometry,
+        flavor=flavor,
+    )
+    parquet_label = parquet_base.name
+    if parquet_label.startswith(f"{flavor}_"):
+        parquet_label = parquet_label[len(flavor) + 1:]
+    geometry_label = parquet_base.parent.name.lower()
+    log_dir = (
+        SCRATCH_BASE
+        / MC_TABLE[mc]["scratch"]
+        / "Logs"
+        / f"{flavor}_{geometry_label}_{parquet_label}"
+    )
+    job_name = f"CatParquet_{mc}_{geometry}_{flavor}_{category_column}"
+    log_path = log_dir / f"categorization_{category_column}_%j.log"
+
     export_vars = (
         f"MC={mc},"
         f"FLAVOR={flavor},"
@@ -241,11 +284,12 @@ def submit_category_workflow(
         f"CATEGORY_COLUMN={category_column},"
         f"OVERWRITE={int(overwrite)}"
     )
-    job_name = f"CatParquet_{mc}_{geometry}_{flavor}_{category_column}"
     cmd = [
         "sbatch",
         f"--job-name={job_name}",
         f"--cpus-per-task={nworkers}",
+        f"--output={log_path}",
+        f"--error={log_path}",
         f"--export={export_vars}",
         str(WORKER_SH),
     ]
@@ -253,9 +297,11 @@ def submit_category_workflow(
         print(f"    [DRY-RUN] {' '.join(cmd)}")
         return None
 
+    log_dir.mkdir(parents=True, exist_ok=True)
     result = subprocess.run(cmd, capture_output=True, text=True, check=True)
     job_id = parse_job_id(result.stdout)
     print(f"  submitted {flavor}: job_id={job_id}")
+    print(f"    log: {log_path}")
     return job_id
 
 
@@ -303,6 +349,7 @@ def main() -> int:
     for flavor in flavors:
         print(f"\n  flavor={flavor}")
         submit_category_workflow(
+            paths=paths,
             mc=args.mc,
             geometry=args.geometry,
             flavor=flavor,

@@ -11,7 +11,6 @@ from pathlib import Path
 
 from submit_categorized_parquet import (
     MC_TABLE,
-    SCRATCH_BASE,
     SPLITS,
     category_parent,
     category_value_label,
@@ -59,14 +58,6 @@ def main() -> int:
         geometry=args.geometry,
         flavor=args.flavor,
     )
-    log_base = (
-        SCRATCH_BASE
-        / MC_TABLE[args.mc]["scratch"]
-        / "Logs"
-        / f"{args.flavor}_{args.geometry}_{args.category_column}"
-    )
-    log_base.mkdir(parents=True, exist_ok=True)
-
     for value in values:
         value_dir = category_value_label(value)
         print(f"category_value={value} -> {value_dir}")
