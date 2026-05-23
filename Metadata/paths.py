@@ -322,16 +322,48 @@ STRING340MC_PARQUET = {
         "NC":       {"train": None, "val": None, "test": None},
     },
     "full_geometry": {
-        "Muon":     {"train": None, "val": None, "test": None},
-        "Electron": {"train": None, "val": None, "test": None},
-        "Tau":      {"train": None, "val": None, "test": None},
-        "NC":       {"train": None, "val": None, "test": None},
+        "Muon": {
+            "train": "/home/kbas/scratch/String340MC/Full_Geometry/Muon_Parquet/merged/train_reindexed",
+            "val":   "/home/kbas/scratch/String340MC/Full_Geometry/Muon_Parquet/merged/val_reindexed",
+            "test":  "/home/kbas/scratch/String340MC/Full_Geometry/Muon_Parquet/merged/test_reindexed",
+        },
+        "Electron": {
+            "train": "/home/kbas/scratch/String340MC/Full_Geometry/Electron_Parquet/merged/train_reindexed",
+            "val":   "/home/kbas/scratch/String340MC/Full_Geometry/Electron_Parquet/merged/val_reindexed",
+            "test":  "/home/kbas/scratch/String340MC/Full_Geometry/Electron_Parquet/merged/test_reindexed",
+        },
+        "Tau": {
+            "train": "/home/kbas/scratch/String340MC/Full_Geometry/Tau_Parquet/merged/train_reindexed",
+            "val":   "/home/kbas/scratch/String340MC/Full_Geometry/Tau_Parquet/merged/val_reindexed",
+            "test":  "/home/kbas/scratch/String340MC/Full_Geometry/Tau_Parquet/merged/test_reindexed",
+        },
+        "NC": {
+            "train": "/home/kbas/scratch/String340MC/Full_Geometry/NC_Parquet/merged/train_reindexed",
+            "val":   "/home/kbas/scratch/String340MC/Full_Geometry/NC_Parquet/merged/val_reindexed",
+            "test":  "/home/kbas/scratch/String340MC/Full_Geometry/NC_Parquet/merged/test_reindexed",
+        },
     },
     "full_geometry_emax1e6": {
-        "Muon":     {"train": None, "val": None, "test": None},
-        "Electron": {"train": None, "val": None, "test": None},
-        "Tau":      {"train": None, "val": None, "test": None},
-        "NC":       {"train": None, "val": None, "test": None},
+        "Muon": {
+            "train": "/home/kbas/scratch/String340MC/Full_Geometry/Muon_Parquet_Emax1e6/merged/train_reindexed",
+            "val":   "/home/kbas/scratch/String340MC/Full_Geometry/Muon_Parquet_Emax1e6/merged/val_reindexed",
+            "test":  "/home/kbas/scratch/String340MC/Full_Geometry/Muon_Parquet_Emax1e6/merged/test_reindexed",
+        },
+        "Electron": {
+            "train": "/home/kbas/scratch/String340MC/Full_Geometry/Electron_Parquet/merged/train_reindexed",
+            "val":   "/home/kbas/scratch/String340MC/Full_Geometry/Electron_Parquet/merged/val_reindexed",
+            "test":  "/home/kbas/scratch/String340MC/Full_Geometry/Electron_Parquet/merged/test_reindexed",
+        },
+        "Tau": {
+            "train": "/home/kbas/scratch/String340MC/Full_Geometry/Tau_Parquet/merged/train_reindexed",
+            "val":   "/home/kbas/scratch/String340MC/Full_Geometry/Tau_Parquet/merged/val_reindexed",
+            "test":  "/home/kbas/scratch/String340MC/Full_Geometry/Tau_Parquet/merged/test_reindexed",
+        },
+        "NC": {
+            "train": "/home/kbas/scratch/String340MC/Full_Geometry/NC_Parquet/merged/train_reindexed",
+            "val":   "/home/kbas/scratch/String340MC/Full_Geometry/NC_Parquet/merged/val_reindexed",
+            "test":  "/home/kbas/scratch/String340MC/Full_Geometry/NC_Parquet/merged/test_reindexed",
+        },
     },
 }
 

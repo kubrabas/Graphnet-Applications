@@ -40,7 +40,7 @@ icetray.I3Logger.global_logger = icetray.I3NullLogger()
 # ---------------------------------------------------------------------------
 
 XS_PATH = "/project/6008051/pone_simulation/pone_offline/CrossSectionModels/csms_differential_v1.0/"
-PATHS_PY = Path(__file__).resolve().parents[3] / "Metadata" / "paths.py"
+PATHS_PY = Path(__file__).resolve().parents[2] / "Metadata" / "paths.py"
 DEFAULT_NUSQUIDS_WEIGHT_TABLE = (
     "/cvmfs/software.pacific-neutrino.org/pone_offline/v2.0/"
     "data/nsq_allneu_propagation_weight_gamma2.h5"

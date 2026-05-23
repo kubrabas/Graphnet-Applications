@@ -9,7 +9,7 @@ LeptonWeighter `get_oneweight(event)` calculation for volume mode.
 The relevant script in this repository is:
 
 ```text
-DataPreperation/EventWeights/LIW/calculate_LIW.py
+DataPreperation/EventWeights/calculate_LIW.py
 ```
 
 The LeptonWeighter object is built from two ingredients:
