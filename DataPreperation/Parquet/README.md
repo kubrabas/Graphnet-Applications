@@ -74,6 +74,27 @@ Per-file parquet outputs are written to `truth/` and `features/` under
 `--outdir`. Files that already have both outputs on disk are skipped on
 re-runs.
 
+### Truth Labels
+
+`I3TruthExtractorPONE` writes two numeric category columns to the truth table:
+
+```text
+category1
+  1 : NuMu/NuMuBar charged-current track
+  0 : all other events
+
+category2
+  0  : tau_CC
+  1  : all NC + electron CC
+  2  : muon_CC
+  -1 : padding / not assigned
+```
+
+`category1` is set to `1` only when `abs(pid) == 14` and
+`interaction_type == 1`; otherwise it is `0`. `category2` uses the
+three-class PONE target mapping, with unmatched cases left at the extractor's
+padding value.
+
 ## File Handling
 
 **DAQ-less files:** If `PONE_Reader` finds no DAQ (Q) frames in a file,
