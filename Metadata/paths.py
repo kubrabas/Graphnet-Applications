@@ -1119,6 +1119,13 @@ BAD_I3_FILES = {
 # Found under the tau raw directory, but EventProperties show NuE/NuEBar.
 # PMT-response files were manually moved from Tau_PMT_Response to
 # Electron_PMT_Response.
+#
+# This is safe for the Parquet workflow even when the moved files share same
+# RunID/EventID/SubEventID values with regular electron files. GraphNeT v1.8
+# DataConverter assigns a fresh sequential event_no during conversion using an
+# internal/global counter; it does not derive event_no from RunID/EventID or the
+# input file name. ParquetWriter then saves and merges rows by event_no, keeping
+# the source file name only to locate the per-file parquet shards during merge.
 
 STRING340MC_MISPLACED_RAW_I3 = {
     "Tau_to_Electron": [
