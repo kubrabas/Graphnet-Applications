@@ -120,25 +120,6 @@ SPRING2026MC_PARQUET = {
 }
 
 
-# ============================================================
-# Spring 2026 MC - Parquet (mixed / multi-flavor)
-# ============================================================
-
-SPRING2026MC_PARQUET_MIXED = {
-    "strings_102_40m": {
-        "train": None, "val": None, "test": None, "percentiles_csv": None,
-        "flavors": ["Muon", "Electron", "Tau", "NC"],
-    },
-    "strings_102_80m": {
-        "train": None, "val": None, "test": None, "percentiles_csv": None,
-        "flavors": ["Muon", "Electron", "Tau", "NC"],
-    },
-    "full_geometry": {
-        "train": None, "val": None, "test": None, "percentiles_csv": None,
-        "flavors": ["Muon", "Electron", "Tau", "NC"],
-    },
-}
-
 
 
 
@@ -262,7 +243,6 @@ STRING340MC_PMT = {
 # 340 String MC - Parquet (per flavor)
 # ============================================================
 # Each entry: train/val/test -> path to merged/*_reindexed dir
-#             percentiles_csv -> RobustScaler percentiles CSV
 
 STRING340MC_PARQUET = {
     "102_string": {
@@ -342,14 +322,31 @@ STRING340MC_PARQUET = {
             "test":  "/home/kbas/scratch/String340MC/102_string/Muon_Parquet_Emax1e6/merged/test_reindexed",
             "first_category": {
                 "0": {
-                    "train": None,
-                    "val": None,
-                    "test": None,
+                    "train": "does_not_exit",
+                    "val": "does_not_exit",
+                    "test": "does_not_exit",
                     },
                 "1": {
                     "train": "/home/kbas/scratch/String340MC/102_string/Muon_Parquet_Emax1e6/categorized/first_category/category1/train",
                     "val": "/home/kbas/scratch/String340MC/102_string/Muon_Parquet_Emax1e6/categorized/first_category/category1/val",
                     "test": "/home/kbas/scratch/String340MC/102_string/Muon_Parquet_Emax1e6/categorized/first_category/category1/test",
+                    },
+                    },
+            "second_category": {
+                "0": {
+                    "train": "does_not_exit",
+                    "val": "does_not_exit",
+                    "test": "does_not_exit",
+                    },
+                "1": {
+                    "train": "does_not_exit",
+                    "val": "does_not_exit",
+                    "test": "does_not_exit",
+                    },
+                "2": {
+                    "train": "/home/kbas/scratch/String340MC/102_string/Muon_Parquet_Emax1e6/categorized/second_category/category2/train",
+                    "val": "/home/kbas/scratch/String340MC/102_string/Muon_Parquet_Emax1e6/categorized/second_category/category2/val",
+                    "test": "/home/kbas/scratch/String340MC/102_string/Muon_Parquet_Emax1e6/categorized/second_category/category2/test",
                     },
                     },
         },
@@ -364,9 +361,26 @@ STRING340MC_PARQUET = {
                     "test": "/home/kbas/scratch/String340MC/102_string/Electron_Parquet/categorized/first_category/category0/test",
                     },
                 "1": {
-                    "train": None,
-                    "val": None,
-                    "test": None,
+                    "train": "does_not_exit",
+                    "val": "does_not_exit",
+                    "test": "does_not_exit",
+                    },
+                    },
+            "second_category": {
+                "0": {
+                    "train": "does_not_exit",
+                    "val": "does_not_exit",
+                    "test": "does_not_exit",
+                    },
+                "1": {
+                    "train": "/home/kbas/scratch/String340MC/102_string/Electron_Parquet/categorized/second_category/category1/train",
+                    "val": "/home/kbas/scratch/String340MC/102_string/Electron_Parquet/categorized/second_category/category1/val",
+                    "test": "/home/kbas/scratch/String340MC/102_string/Electron_Parquet/categorized/second_category/category1/test",
+                    },
+                "2": {
+                    "train": "does_not_exit",
+                    "val": "does_not_exit",
+                    "test": "does_not_exit",
                     },
                     },
         },
@@ -381,9 +395,26 @@ STRING340MC_PARQUET = {
                     "test": "/home/kbas/scratch/String340MC/102_string/Tau_Parquet/categorized/first_category/category0/test",
                     },
                 "1": {
-                    "train": None,
-                    "val": None,
-                    "test": None,
+                    "train": "does_not_exit",
+                    "val": "does_not_exit",
+                    "test": "does_not_exit",
+                    },
+                    },
+            "second_category": {
+                "0": {
+                    "train": "/home/kbas/scratch/String340MC/102_string/Tau_Parquet/categorized/second_category/category0/train",
+                    "val": "/home/kbas/scratch/String340MC/102_string/Tau_Parquet/categorized/second_category/category0/val",
+                    "test": "/home/kbas/scratch/String340MC/102_string/Tau_Parquet/categorized/second_category/category0/test",
+                    },
+                "1": {
+                    "train": "/home/kbas/scratch/String340MC/102_string/Tau_Parquet/categorized/second_category/category1/train",
+                    "val": "/home/kbas/scratch/String340MC/102_string/Tau_Parquet/categorized/second_category/category1/val",
+                    "test": "/home/kbas/scratch/String340MC/102_string/Tau_Parquet/categorized/second_category/category1/test",
+                    },
+                "2": {
+                    "train": "does_not_exit",
+                    "val": "does_not_exit",
+                    "test": "does_not_exit",
                     },
                     },
         },
@@ -398,9 +429,26 @@ STRING340MC_PARQUET = {
                     "test": "/home/kbas/scratch/String340MC/102_string/NC_Parquet/categorized/first_category/category0/test",
                     },
                 "1": {
-                    "train": None,
-                    "val": None,
-                    "test": None,
+                    "train": "does_not_exit",
+                    "val": "does_not_exit",
+                    "test": "does_not_exit",
+                    },
+                    },
+            "second_category": {
+                "0": {
+                    "train": "does_not_exit",
+                    "val": "does_not_exit",
+                    "test": "does_not_exit",
+                    },
+                "1": {
+                    "train": "/home/kbas/scratch/String340MC/102_string/NC_Parquet/categorized/second_category/category1/train",
+                    "val": "/home/kbas/scratch/String340MC/102_string/NC_Parquet/categorized/second_category/category1/val",
+                    "test": "/home/kbas/scratch/String340MC/102_string/NC_Parquet/categorized/second_category/category1/test",
+                    },
+                "2": {
+                    "train": "does_not_exit",
+                    "val": "does_not_exit",
+                    "test": "does_not_exit",
                     },
                     },
         },
@@ -581,6 +629,11 @@ ROBUST_SCALER = {
             "Tau": None,
             "NC": None,
             "mixed": "/project/def-nahee/kbas/Graphnet-Applications/Metadata/RobustScaler/340StringMC/102_string_emax1e6_mixed_muon_electron_tau_nc_train_feature_percentiles_p25_p50_p75.csv",
+            "first_category_mixed_0": None,
+            "first_category_mixed_1": None,
+            "second_category_mixed_0": None,
+            "second_category_mixed_1": None,
+            "second_category_mixed_2": None,
         },
         "160_string": {
             "Muon": None,
@@ -1057,6 +1110,30 @@ BAD_I3_FILES = {
             },
         },
     }
+}
+
+
+# ============================================================
+# Misplaced raw I3 files
+# ============================================================
+# Found under the tau raw directory, but EventProperties show NuE/NuEBar.
+# PMT-response files were manually moved from Tau_PMT_Response to
+# Electron_PMT_Response.
+
+STRING340MC_MISPLACED_RAW_I3 = {
+    "Tau_to_Electron": [
+        "/project/6008051/pone_simulation/MC000004-nu_tau-2_7-LeptonInjector_PROPOSAL_clsim-v10/Generator/gen_002.i3.zst",
+        "/project/6008051/pone_simulation/MC000004-nu_tau-2_7-LeptonInjector_PROPOSAL_clsim-v10/Generator/gen_008.i3.zst",
+        "/project/6008051/pone_simulation/MC000004-nu_tau-2_7-LeptonInjector_PROPOSAL_clsim-v10/Generator/gen_009.i3.zst",
+        "/project/6008051/pone_simulation/MC000004-nu_tau-2_7-LeptonInjector_PROPOSAL_clsim-v10/Generator/gen_011.i3.zst",
+        "/project/6008051/pone_simulation/MC000004-nu_tau-2_7-LeptonInjector_PROPOSAL_clsim-v10/Generator/gen_012.i3.zst",
+        "/project/6008051/pone_simulation/MC000004-nu_tau-2_7-LeptonInjector_PROPOSAL_clsim-v10/Generator/gen_208.i3.zst",
+        "/project/6008051/pone_simulation/MC000004-nu_tau-2_7-LeptonInjector_PROPOSAL_clsim-v10/Generator/gen_224.i3.zst",
+        "/project/6008051/pone_simulation/MC000004-nu_tau-2_7-LeptonInjector_PROPOSAL_clsim-v10/Generator/gen_326.i3.zst",
+        "/project/6008051/pone_simulation/MC000004-nu_tau-2_7-LeptonInjector_PROPOSAL_clsim-v10/Generator/gen_335.i3.zst",
+        "/project/6008051/pone_simulation/MC000004-nu_tau-2_7-LeptonInjector_PROPOSAL_clsim-v10/Generator/gen_707.i3.zst",
+        "/project/6008051/pone_simulation/MC000004-nu_tau-2_7-LeptonInjector_PROPOSAL_clsim-v10/Generator/gen_929.i3.zst",
+    ],
 }
 
 
