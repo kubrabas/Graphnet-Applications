@@ -542,14 +542,31 @@ STRING340MC_PARQUET = {
             "test":  "/home/kbas/scratch/String340MC/Full_Geometry/Muon_Parquet_Emax1e6/merged/test_reindexed",
             "first_category": {
                 "0": {
-                    "train": None,
-                    "val": None,
-                    "test": None,
+                    "train": "does_not_exit",
+                    "val": "does_not_exit",
+                    "test": "does_not_exit",
                     },
                 "1": {
-                    "train": None,
-                    "val": None,
-                    "test": None,
+                    "train": "/home/kbas/scratch/String340MC/Full_Geometry/Muon_Parquet_Emax1e6/categorized/first_category/category1/train",
+                    "val": "/home/kbas/scratch/String340MC/Full_Geometry/Muon_Parquet_Emax1e6/categorized/first_category/category1/val",
+                    "test": "/home/kbas/scratch/String340MC/Full_Geometry/Muon_Parquet_Emax1e6/categorized/first_category/category1/test",
+                    },
+                    },
+            "second_category": {
+                "0": {
+                    "train": "does_not_exit",
+                    "val": "does_not_exit",
+                    "test": "does_not_exit",
+                    },
+                "1": {
+                    "train": "does_not_exit",
+                    "val": "does_not_exit",
+                    "test": "does_not_exit",
+                    },
+                "2": {
+                    "train": "/home/kbas/scratch/String340MC/Full_Geometry/Muon_Parquet_Emax1e6/categorized/second_category/category2/train",
+                    "val": "/home/kbas/scratch/String340MC/Full_Geometry/Muon_Parquet_Emax1e6/categorized/second_category/category2/val",
+                    "test": "/home/kbas/scratch/String340MC/Full_Geometry/Muon_Parquet_Emax1e6/categorized/second_category/category2/test",
                     },
                     },
         },
@@ -559,14 +576,31 @@ STRING340MC_PARQUET = {
             "test":  "/home/kbas/scratch/String340MC/Full_Geometry/Electron_Parquet/merged/test_reindexed",
             "first_category": {
                 "0": {
-                    "train": None,
-                    "val": None,
-                    "test": None,
+                    "train": "/home/kbas/scratch/String340MC/Full_Geometry/Electron_Parquet/categorized/first_category/category0/train",
+                    "val": "/home/kbas/scratch/String340MC/Full_Geometry/Electron_Parquet/categorized/first_category/category0/val",
+                    "test": "/home/kbas/scratch/String340MC/Full_Geometry/Electron_Parquet/categorized/first_category/category0/test",
                     },
                 "1": {
-                    "train": None,
-                    "val": None,
-                    "test": None,
+                    "train": "does_not_exit",
+                    "val": "does_not_exit",
+                    "test": "does_not_exit",
+                    },
+                    },
+            "second_category": {
+                "0": {
+                    "train": "does_not_exit",
+                    "val": "does_not_exit",
+                    "test": "does_not_exit",
+                    },
+                "1": {
+                    "train": "/home/kbas/scratch/String340MC/Full_Geometry/Electron_Parquet/categorized/second_category/category1/train",
+                    "val": "/home/kbas/scratch/String340MC/Full_Geometry/Electron_Parquet/categorized/second_category/category1/val",
+                    "test": "/home/kbas/scratch/String340MC/Full_Geometry/Electron_Parquet/categorized/second_category/category1/test",
+                    },
+                "2": {
+                    "train": "does_not_exit",
+                    "val": "does_not_exit",
+                    "test": "does_not_exit",
                     },
                     },
         },
@@ -576,14 +610,31 @@ STRING340MC_PARQUET = {
             "test":  "/home/kbas/scratch/String340MC/Full_Geometry/Tau_Parquet/merged/test_reindexed",
             "first_category": {
                 "0": {
-                    "train": None,
-                    "val": None,
-                    "test": None,
+                    "train": "/home/kbas/scratch/String340MC/Full_Geometry/Tau_Parquet/categorized/first_category/category0/train",
+                    "val": "/home/kbas/scratch/String340MC/Full_Geometry/Tau_Parquet/categorized/first_category/category0/val",
+                    "test": "/home/kbas/scratch/String340MC/Full_Geometry/Tau_Parquet/categorized/first_category/category0/test",
                     },
                 "1": {
-                    "train": None,
-                    "val": None,
-                    "test": None,
+                    "train": "does_not_exit",
+                    "val": "does_not_exit",
+                    "test": "does_not_exit",
+                    },
+                    },
+            "second_category": {
+                "0": {
+                    "train": "/home/kbas/scratch/String340MC/Full_Geometry/Tau_Parquet/categorized/second_category/category0/train",
+                    "val": "/home/kbas/scratch/String340MC/Full_Geometry/Tau_Parquet/categorized/second_category/category0/val",
+                    "test": "/home/kbas/scratch/String340MC/Full_Geometry/Tau_Parquet/categorized/second_category/category0/test",
+                    },
+                "1": {
+                    "train": "does_not_exit",
+                    "val": "does_not_exit",
+                    "test": "does_not_exit",
+                    },
+                "2": {
+                    "train": "does_not_exit",
+                    "val": "does_not_exit",
+                    "test": "does_not_exit",
                     },
                     },
         },
@@ -593,14 +644,31 @@ STRING340MC_PARQUET = {
             "test":  "/home/kbas/scratch/String340MC/Full_Geometry/NC_Parquet/merged/test_reindexed",
             "first_category": {
                 "0": {
-                    "train": None,
-                    "val": None,
-                    "test": None,
+                    "train": "/home/kbas/scratch/String340MC/Full_Geometry/NC_Parquet/categorized/first_category/category0/train",
+                    "val": "/home/kbas/scratch/String340MC/Full_Geometry/NC_Parquet/categorized/first_category/category0/val",
+                    "test": "/home/kbas/scratch/String340MC/Full_Geometry/NC_Parquet/categorized/first_category/category0/test",
                     },
                 "1": {
-                    "train": None,
-                    "val": None,
-                    "test": None,
+                    "train": "does_not_exit",
+                    "val": "does_not_exit",
+                    "test": "does_not_exit",
+                    },
+                    },
+            "second_category": {
+                "0": {
+                    "train": "does_not_exit",
+                    "val": "does_not_exit",
+                    "test": "does_not_exit",
+                    },
+                "1": {
+                    "train": "/home/kbas/scratch/String340MC/Full_Geometry/NC_Parquet/categorized/second_category/category1/train",
+                    "val": "/home/kbas/scratch/String340MC/Full_Geometry/NC_Parquet/categorized/second_category/category1/val",
+                    "test": "/home/kbas/scratch/String340MC/Full_Geometry/NC_Parquet/categorized/second_category/category1/test",
+                    },
+                "2": {
+                    "train": "does_not_exit",
+                    "val": "does_not_exit",
+                    "test": "does_not_exit",
                     },
                     },
         },
