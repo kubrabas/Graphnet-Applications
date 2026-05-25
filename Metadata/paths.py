@@ -407,9 +407,9 @@ STRING340MC_PARQUET = {
                     "test": "/home/kbas/scratch/String340MC/102_string/Tau_Parquet/categorized/second_category/category0/test",
                     },
                 "1": {
-                    "train": "/home/kbas/scratch/String340MC/102_string/Tau_Parquet/categorized/second_category/category1/train",
-                    "val": "/home/kbas/scratch/String340MC/102_string/Tau_Parquet/categorized/second_category/category1/val",
-                    "test": "/home/kbas/scratch/String340MC/102_string/Tau_Parquet/categorized/second_category/category1/test",
+                    "train": "does_not_exit",
+                    "val": "does_not_exit",
+                    "test": "does_not_exit",
                     },
                 "2": {
                     "train": "does_not_exit",
