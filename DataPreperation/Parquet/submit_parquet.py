@@ -4,7 +4,7 @@ Submit Parquet conversion jobs to SLURM — single node, parallel execution.
 Usage:
     python3 submit_parquet.py --mc 340StringMC --geometry 102_string --flavor Electron
     python3 submit_parquet.py --mc 340StringMC --geometry 102_string --flavor Muon Electron Tau NC
-    python3 submit_parquet.py --mc 340StringMC --geometry 102_string --flavor all
+    python3 submit_parquet.py --mc 340StringMC --geometry full_geometry --flavor all
     python3 submit_parquet.py --dry-run --mc 340StringMC --geometry 102_string --flavor Muon
 
 For each flavor:

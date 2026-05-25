@@ -3,12 +3,19 @@ Compute p25/p50/p75 feature percentiles from the combined (mixed) training set
 of multiple flavors, for use as RobustScaler normalization in classification.
 
 Reads per-flavor train_reindexed/features/ directories from paths.py,
-scans them lazily with Polars, and saves a single CSV to:
+loads all matching feature Parquet files eagerly with Polars, and saves a
+single CSV to:
   METADATA_ROBUSTSCALER/<mc>/<geometry>_mixed_train_feature_percentiles_p25_p50_p75.csv
+
+If --category is provided, computes one mixed percentile CSV per category id.
+For each category id, the script combines train/features directories across
+all requested flavors, skips paths marked "does_not_exit", and errors on None
+category train paths.
 
 Usage:
     python3 compute_mixed_percentiles.py --mc 340StringMC --geometry 102_string
     python3 compute_mixed_percentiles.py --mc 340StringMC --geometry full_geometry --flavors Muon Electron Tau NC
+    python3 compute_mixed_percentiles.py --mc 340StringMC --geometry 102_string_emax1e6 --category first_category
 """
 
 import argparse
@@ -44,39 +51,7 @@ def load_paths():
     return mod
 
 
-# ---------------------------------------------------------------------------
-# Main
-# ---------------------------------------------------------------------------
-
-def main() -> int:
-    ap = argparse.ArgumentParser(description="Compute mixed-flavor RobustScaler percentiles.")
-    ap.add_argument("--mc",       required=True, choices=list(PARQUET_TABLE))
-    ap.add_argument("--geometry", required=True)
-    ap.add_argument("--flavors",  nargs="+", default=ALL_FLAVORS,
-                    help=f"Flavors to include (default: {ALL_FLAVORS})")
-    args = ap.parse_args()
-
-    paths = load_paths()
-    table = getattr(paths, PARQUET_TABLE[args.mc])
-
-    feature_dirs = []
-    for flavor in args.flavors:
-        entry = table.get(args.geometry, {}).get(flavor, {})
-        train_path = entry.get("train")
-        if train_path is None:
-            print(f"[skip] {flavor}: train path not set in paths.py")
-            continue
-        feat_dir = Path(train_path) / "features"
-        if not feat_dir.exists():
-            print(f"[skip] {flavor}: {feat_dir} does not exist")
-            continue
-        feature_dirs.append((flavor, feat_dir))
-        print(f"[found] {flavor}: {feat_dir}")
-
-    if not feature_dirs:
-        print("ERROR: No feature directories found.")
-        return 1
-
+def compute_percentiles(feature_dirs, csv_path: Path) -> int:
     all_files = []
     for _, d in feature_dirs:
         all_files.extend(sorted(d.glob("*.parquet")))
@@ -106,16 +81,107 @@ def main() -> int:
         "p75": [q75[c][0] for c in num_cols],
     })
 
-    out_dir = Path(METADATA_ROBUSTSCALER) / args.mc
-    out_dir.mkdir(parents=True, exist_ok=True)
-
-    flavors_tag = "_".join(args.flavors).lower()
-    csv_name    = f"{args.geometry}_mixed_{flavors_tag}_train_feature_percentiles_p25_p50_p75.csv"
-    csv_path    = out_dir / csv_name
+    csv_path.parent.mkdir(parents=True, exist_ok=True)
     result.to_csv(str(csv_path), index=False, float_format="%.16f")
 
     print(f"\nmixed percentiles -> {csv_path}")
     print(result.to_string(index=False))
+    return 0
+
+
+# ---------------------------------------------------------------------------
+# Main
+# ---------------------------------------------------------------------------
+
+def main() -> int:
+    ap = argparse.ArgumentParser(description="Compute mixed-flavor RobustScaler percentiles.")
+    ap.add_argument("--mc",       required=True, choices=list(PARQUET_TABLE))
+    ap.add_argument("--geometry", required=True)
+    ap.add_argument("--flavors",  nargs="+", default=ALL_FLAVORS,
+                    help=f"Flavors to include (default: {ALL_FLAVORS})")
+    ap.add_argument("--category", default=None,
+                    help="Optional category key, e.g. first_category. If set, computes one mixed percentile CSV per category id.")
+    args = ap.parse_args()
+
+    paths = load_paths()
+    table = getattr(paths, PARQUET_TABLE[args.mc])
+    geometry_entry = table.get(args.geometry, {})
+    out_dir = Path(METADATA_ROBUSTSCALER) / args.mc
+
+    if args.category is None:
+        feature_dirs = []
+        for flavor in args.flavors:
+            entry = geometry_entry.get(flavor, {})
+            train_path = entry.get("train")
+            if train_path is None:
+                print(f"[skip] {flavor}: train path not set in paths.py")
+                continue
+            feat_dir = Path(train_path) / "features"
+            if not feat_dir.exists():
+                print(f"[skip] {flavor}: {feat_dir} does not exist")
+                continue
+            feature_dirs.append((flavor, feat_dir))
+            print(f"[found] {flavor}: {feat_dir}")
+
+        if not feature_dirs:
+            print("ERROR: No feature directories found.")
+            return 1
+
+        flavors_tag = "_".join(args.flavors).lower()
+        csv_name    = f"{args.geometry}_mixed_{flavors_tag}_train_feature_percentiles_p25_p50_p75.csv"
+        return compute_percentiles(feature_dirs, out_dir / csv_name)
+
+    category_ids = set()
+    for flavor in args.flavors:
+        entry = geometry_entry.get(flavor, {})
+        category_entry = entry.get(args.category)
+        if category_entry is None:
+            print(f"ERROR: {flavor}: {args.category} is not set in paths.py")
+            return 1
+        category_ids.update(category_entry.keys())
+
+    if not category_ids:
+        print(f"ERROR: No category ids found for {args.category}.")
+        return 1
+
+    for category_id in sorted(category_ids, key=str):
+        feature_dirs = []
+        for flavor in args.flavors:
+            entry = geometry_entry.get(flavor, {})
+            category_entry = entry.get(args.category)
+            if category_entry is None:
+                print(f"ERROR: {flavor}: {args.category} is not set in paths.py")
+                return 1
+
+            split_entry = category_entry.get(category_id)
+            if split_entry is None:
+                print(f"ERROR: {flavor}: {args.category}[{category_id}] is not set in paths.py")
+                return 1
+
+            train_path = split_entry.get("train")
+            if train_path is None:
+                print(f"ERROR: {flavor}: {args.category}[{category_id}].train is not set in paths.py")
+                return 1
+            if train_path == "does_not_exit":
+                print(f"[skip] {flavor}: {args.category}[{category_id}].train = does_not_exit")
+                continue
+
+            feat_dir = Path(train_path) / "features"
+            if not feat_dir.exists():
+                print(f"ERROR: {flavor}: {feat_dir} does not exist")
+                return 1
+            feature_dirs.append((flavor, feat_dir))
+            print(f"[found] {flavor}: {args.category}[{category_id}]: {feat_dir}")
+
+        if not feature_dirs:
+            print(f"[skip] {args.category}[{category_id}]: no feature directories found")
+            continue
+
+        csv_name = f"{args.geometry}_{args.category}_mixed_{category_id}_train_feature_percentiles_p25_p50_p75.csv"
+        rc = compute_percentiles(feature_dirs, out_dir / csv_name)
+        if rc != 0:
+            return rc
+
     return 0
 
 
