@@ -1,43 +1,42 @@
 # PMT response algorithm
 
-Bu not sadece fiziksel / detector-response anlamina odaklanir.
+This note focuses only on the physical / detector-response meaning. The parts I
+am not sure about are separated at the bottom. What is written here is based on
+the behavior I observed in the P-ONE offline v2 modules and in your
+`apply_pmt_response_with_first_3_layers.py` tray configuration.
 
-Emin olmadigim yerleri en altta ayirdim. Burada yazilanlar P-ONE offline v2
-modullerinde ve senin `apply_pmt_response_with_first_3_layers.py` tray
-konfigurasyonunda gordugum davranisa dayaniyor.
+## Physical flow
 
-## Fiziksel akis
+The general chain for a DAQ frame:
 
-Bir DAQ frame icin genel zincir:
+1. `I3Photons` coming from CLSim are passed through the P-OM/PMT acceptance model.
+2. Accepted photons are converted into per-PMT photoelectron candidates (`I3MCPE`).
+3. Dark noise and K40 noise are added on top of the accepted signal hits.
+4. PMT time, charge, dead-time, late-pulse and afterpulse response is applied on top of signal + noise, producing `PMT_Response`.
+5. The same PMT response is applied to the signal-only version, producing `PMT_Response_nonoise`.
+6. The trigger is built on top of the noisy response.
+7. For frames that pass the trigger, an `EventPulseSeries` is written with a length of 10000 ns and trigger time reset to 2000 ns.
 
-1. CLSim'den gelen `I3Photons` fotonlari P-OM/PMT acceptance modelinden geciyor.
-2. Kabul edilen fotonlar per-PMT photoelectron adaylarina (`I3MCPE`) cevriliyor.
-3. Accepted signal hit'lerine dark noise ve K40 noise ekleniyor.
-4. Signal + noise uzerine PMT zaman, charge, dead-time, late-pulse ve afterpulse response'u uygulanip `PMT_Response` uretiliyor.
-5. Signal-only versiyona ayni PMT response uygulanip `PMT_Response_nonoise` uretiliyor.
-6. Trigger noisy response uzerinden kuruluyor.
-7. Trigger gecen frame'lerde 10000 ns uzunlugunda, trigger zamani 2000 ns'e resetlenmis `EventPulseSeries` yaziliyor.
+## Acceptance model
 
-## Acceptance modeli
+The physical meaning of the acceptance model: model which PMT inside the P-OM
+the CLSim photon falls onto, and whether that photon will be detected as a
+photoelectron.
 
-Acceptance modelinin fiziksel anlami: CLSim fotonunun P-OM icindeki hangi PMT'ye
-denk geldigini ve o fotonun photoelectron olarak algilanip algilanmayacagini
-modellemek.
+P-OM model:
 
-P-OM modeli:
-
-- 16 PMT var.
-- Modul radius: `0.2159 m`.
+- 16 PMTs.
+- Module radius: `0.2159 m`.
 - PMT radius: `0.055 m`.
-- Her PMT'nin yonu hard-coded PMT acilariyla tanimlaniyor.
+- The direction of each PMT is defined by hard-coded PMT angles.
 
-Her foton icin:
+For each photon:
 
-1. Foton pozisyonu P-OM coordinate sistemine getirmek icin x ekseni etrafinda 90 derece rotate ediliyor.
-2. Geometrik olarak hangi PMT'ye dustugu bulunuyor.
-3. Foton sadece tam olarak bir PMT aperture'una dusuyorsa devam ediyor.
-4. Hic PMT'ye dusmezse reddediliyor.
-5. Birden fazla PMT'ye dusmesi kodda hata olarak ele aliniyor.
+1. The photon position is rotated 90 degrees around the x axis to bring it into the P-OM coordinate system.
+2. The PMT it geometrically falls onto is determined.
+3. The photon continues only if it falls onto exactly one PMT aperture.
+4. If it does not fall onto any PMT, it is rejected.
+5. Falling onto more than one PMT is treated as an error in the code.
 
 Detection probability:
 
@@ -50,71 +49,72 @@ P_detect =
   * collection_efficiency
 ```
 
-Burada `collection_efficiency = 0.9`.
+Here `collection_efficiency = 0.9`.
 
-Sonra stochastic acceptance yapiliyor:
+Then stochastic acceptance is applied:
 
 ```text
 random_uniform(0, 1) <= P_detect
 ```
 
-ise foton kabul ediliyor. Kabul edilen her foton, ilgili PMT icin bir
-photoelectron adayi gibi yaziliyor:
+If this holds, the photon is accepted. Each accepted photon is written as a
+photoelectron candidate for the relevant PMT:
 
 ```text
 time = photon.time
 npe  = 1
 ```
 
-Acceptance tablolarinin fiziksel icerigi su dosyalardan geliyor:
+The physical content of the acceptance tables comes from these files:
 
-- `qe.csv`: wavelength'e bagli quantum efficiency
+- `qe.csv`: wavelength-dependent quantum efficiency
 - `aa-0.csv`: angular acceptance
-- `glass.csv`: wavelength'e bagli glass transmission
+- `glass.csv`: wavelength-dependent glass transmission
 
-## Noise modeli
+## Noise model
 
-Noise, accepted signal zaman araligi etrafina ekleniyor. Manual bounds
-kullanilmadigi icin pencere:
+Noise is added around the time interval of the accepted signal. Since manual
+bounds are not used, the window is:
 
 ```text
-ilk accepted hit zamani - 2000 ns
-son accepted hit zamani + 10000 ns
+first accepted hit time - 2000 ns
+last accepted hit time + 10000 ns
 ```
 
 ### Dark noise
 
-Dark noise PMT basina bagimsiz Poisson sureci gibi uretiliyor.
+Dark noise is generated as an independent Poisson process per PMT.
 
 - Rate: `0.000001 pulses/ns`.
-- Her PMT icin exponential inter-arrival time sample ediliyor.
-- Her dark hit bir `I3MCPE` olarak `npe = 1` ile yaziliyor.
+- Exponential inter-arrival times are sampled for each PMT.
+- Each dark hit is written as an `I3MCPE` with `npe = 1`.
 
-Fiziksel anlam: termal / elektronik dark count benzeri, signal'dan bagimsiz
-tek-PMT noise hit'leri.
+Physical meaning: thermal / electronic dark count-like single-PMT noise hits
+that are independent of the signal.
 
 ### K40 noise
 
-K40 noise, karakterizasyon dosyasindan gelen rate, fold fraction ve PMT
-kombinasyon dagilimlariyla uretiliyor.
+K40 noise is generated using the rate, fold fraction and PMT combination
+distributions coming from the characterization file.
 
-Fiziksel anlam: potasyum-40 decay kaynakli, bazen tek PMT'ye bazen ayni
-modulde birden fazla PMT'ye yakin-zamanli hit ureten correlated background.
+Physical meaning: correlated background originating from potassium-40 decays,
+which sometimes produces hits on a single PMT and sometimes near-coincident
+hits on multiple PMTs in the same module.
 
-Kod davranisi:
+Code behavior:
 
-- K40 event time'lari exponential process ile uretiliyor.
-- Event single-fold veya multi-fold olarak seciliyor.
-- Multi-fold eventlerde PMT kombinasyonlari karakterizasyon histogramindan sample ediliyor.
-- PMT kombinasyonu modulle simetrik dagilsin diye random flip ve 0/90/180/270 derece rotation uygulanabiliyor.
-- Arrival-time spread karakterizasyonundan zaman offsetleri sample ediliyor.
+- K40 event times are generated by an exponential process.
+- Each event is selected as single-fold or multi-fold.
+- For multi-fold events, PMT combinations are sampled from the characterization histogram.
+- Random flip and 0/90/180/270 degree rotation can be applied to the PMT combination so that it is distributed symmetrically over the module.
+- Time offsets are sampled from the arrival-time spread characterization.
 
-## PMT response modeli
+## PMT response model
 
-`DOMSimulation`, accepted signal ile dark + K40 noise'u birlestirip PMT pulse
-response'a ceviriyor.
+`DOMSimulation` merges the accepted signal with dark + K40 noise and converts
+them into PMT pulse response.
 
-Kullanilan ana parametreler:
+Main parameters used:
 
 - Transit-time spread: `3 ns`
 - PMT transit time: `25 ns`
@@ -130,110 +130,113 @@ Kullanilan ana parametreler:
 - PE saturation: `100.0`
 - Pulse merge separation in this worker: `0.2 ns`
 
-Signal hit'leri icin:
+For signal hits:
 
-- Zaman transit-time spread ile smear ediliyor.
-- `1%` olasilikla late pulse ekleniyor.
-- `6%` olasilikla afterpulse ekleniyor.
+- The time is smeared with transit-time spread.
+- A late pulse is added with `1%` probability.
+- An afterpulse is added with `6%` probability.
 
-Dark/K40 noise hit'leri icin:
+For dark/K40 noise hits:
 
-- Zaman transit-time spread ile smear ediliyor.
-- Afterpulse uygulanabiliyor.
-- Late pulse kapali gorunuyor (`late_pulses=False`).
+- The time is smeared with transit-time spread.
+- Afterpulses can be applied.
+- Late pulses appear to be disabled (`late_pulses=False`).
 
-Sonra signal-only map ve signal+noise map ayri isleniyor:
+Then the signal-only map and the signal+noise map are processed separately:
 
-- `PMT_Response_nonoise`: sadece signal'dan gelen pulse'lar.
-- `PMT_Response`: signal + dark + K40 pulse'lari.
-- `triggerpulsemap`: trigger icin kullanilan signal + dark + K40 pulse'lari.
+- `PMT_Response_nonoise`: pulses originating only from the signal.
+- `PMT_Response`: signal + dark + K40 pulses.
+- `triggerpulsemap`: signal + dark + K40 pulses used for the trigger.
 
-Pulse olusumu sirasinda:
+During pulse formation:
 
-1. Ayni PMT'de 10 ns dead time icindeki ardil hit'ler atiliyor.
-2. Her kalan hit icin charge Gaussian sample ediliyor: mean `1.0`, sigma `0.3`.
-3. Cok yakin pulse'lar birlestirilebiliyor.
-4. Charge `< 0.25` ise pulse atiliyor.
-5. Charge buyukse saturation modeli uygulanarak charge sinirlaniyor.
+1. Subsequent hits within the 10 ns dead time on the same PMT are dropped.
+2. For each remaining hit, the charge is sampled from a Gaussian: mean `1.0`, sigma `0.3`.
+3. Very close pulses may be merged.
+4. If the charge is `< 0.25`, the pulse is dropped.
+5. If the charge is large, the saturation model is applied to cap the charge.
 
-## Trigger kosulu
+## Trigger condition
 
-Bu kisim fiziksel olarak en kritik nokta.
+This is the physically most critical point.
 
-Frame'in yazilabilmesi icin iki kosul var:
+There are two conditions for a frame to be written:
 
 ```text
-1. PMT_Response icinde en az 5 farkli OM hit olmali.
-2. Noisy response uzerinden en az bir DOM 3-PMT coincidence trigger vermeli.
+1. PMT_Response must contain hits on at least 5 distinct OMs.
+2. At least one DOM must give a 3-PMT coincidence trigger on the noisy response.
 ```
 
-Birinci kosul `HitCountCheck(NHits=5)`:
+The first condition is `HitCountCheck(NHits=5)`:
 
 ```text
 unique (string, om) count >= 5
 ```
 
-Ikinci kosul DOM-level trigger:
+The second condition is the DOM-level trigger:
 
 ```text
-ayni DOM icinde
-10 ns pencere icinde
-en az 3 farkli PMT hit'i
+within the same DOM
+inside a 10 ns window
+hits on at least 3 distinct PMTs
 ```
 
-Bu trigger noisy map uzerinden hesaplandigi icin dark noise ve K40 noise
-trigger'a katkida bulunabilir.
+Since this trigger is computed on the noisy map, dark noise and K40 noise can
+contribute to the trigger.
 
-`DetectorTrigger` konfigurasyonunda isim `_3PMT_1DOM`; burada
-`FullDetectorCoincidenceN=1` verilmis. Ancak bu konfigurasyonda detector/string
-coincidence branch'i pratikte devre disi kaliyor, cunku default
-`SingleOMTriggerCoince=3` ve `OMPMTCoinc=3` oldugunda kod `DoCoincTriggers=False`
-yapiyor. Bu nedenle efektif trigger, single-DOM 3-PMT trigger olarak calisiyor.
+In the `DetectorTrigger` configuration the name is `_3PMT_1DOM`, and
+`FullDetectorCoincidenceN=1` is given. However, in this configuration the
+detector/string coincidence branch is in practice disabled, because by default
+`SingleOMTriggerCoince=3` and when `OMPMTCoinc=3` the code sets
+`DoCoincTriggers=False`. For this reason the effective trigger acts as a
+single-DOM 3-PMT trigger.
 
-Kisa hali:
+Short form:
 
 ```text
-writer'a giden DAQ frame =
-    >= 5 unique OM
+DAQ frame sent to writer =
+    >= 5 unique OMs
 AND >= 1 DOM with >= 3 distinct PMTs inside 10 ns
 ```
 
-## EventPulseSeries nasil uretiliyor?
+## How is EventPulseSeries produced?
 
-Trigger gecen frame'de en erken trigger zamani bulunuyor. Bu konfigurasyonda
-ilgili trigger zamani single-DOM trigger zamanindan geliyor.
+In a frame that passes the trigger, the earliest trigger time is found. In
+this configuration the relevant trigger time comes from the single-DOM
+trigger time.
 
-Sonra `PMT_Response` pulse'lari su pencereye gore seciliyor:
+Then `PMT_Response` pulses are selected by the following window:
 
 ```text
 min_trigger_time - 2000 ns < pulse.time < min_trigger_time + 8000 ns
 ```
 
-Secilen pulse'larin zamani resetleniyor:
+The times of the selected pulses are reset:
 
 ```text
 new_time = pulse.time - min_trigger_time + 2000 ns
 ```
 
-Yani event penceresi:
+So the event window is:
 
-- toplam uzunluk: `10000 ns`
-- trigger'in yerlestirildigi zaman: `2000 ns`
-- trigger oncesi pencere: `2000 ns`
-- trigger sonrasi pencere: `8000 ns`
+- total length: `10000 ns`
+- time at which the trigger is placed: `2000 ns`
+- pre-trigger window: `2000 ns`
+- post-trigger window: `8000 ns`
 
-`EventPulseSeries` noisy pulse'lardan uretiliyor.
+`EventPulseSeries` is produced from the noisy pulses.
 
-`EventPulseSeries_nonoise` ise `PMT_Response_nonoise` pulse'larindan uretiliyor,
-ama frame zaten daha once noisy trigger ile hayatta kalmis oluyor. Yani
-`EventPulseSeries_nonoise` kendi basina ayri bir no-noise trigger kosulu koymuyor.
+`EventPulseSeries_nonoise` is produced from `PMT_Response_nonoise` pulses, but
+the frame has already survived the noisy trigger earlier. So
+`EventPulseSeries_nonoise` does not impose a separate no-noise trigger
+condition on its own.
 
-## Fiziksel yorum
+## Physical interpretation
 
-Bu algoritma, photon propagation sonucu gelen ideal photon hit'lerini daha
-detector-like pulse'lara ceviriyor:
+This algorithm converts ideal photon hits coming from photon propagation into
+more detector-like pulses:
 
-- geometrik PMT acceptance,
+- geometric PMT acceptance,
 - wavelength-dependent QE,
 - angular acceptance,
 - glass transmission,
@@ -249,26 +252,27 @@ detector-like pulse'lara ceviriyor:
 - threshold/saturation,
 - 3-PMT-in-1-DOM local trigger.
 
-Bu nedenle final `EventPulseSeries`, saf photon simulation degil; trigger ve
-readout penceresi uygulanmis, noise dahil detector response seviyesindeki pulse
-serisi.
+For this reason the final `EventPulseSeries` is not a pure photon simulation;
+it is a pulse series at the detector-response level with trigger and readout
+window applied, noise included.
 
-## Emin olmadigim / yorum yapmadigim yerler
+## Things I am not sure about / did not comment on
 
-- `qe.csv`, `aa-0.csv`, `glass.csv` ve `k40-characterization.hdf5` dosyalarinin
-  deneysel / kalibrasyon kokenini dogrulamadim. Sadece algoritmada nasil
-  kullanildiklarini dogruladim.
-- `I3MCPE.npe` alaninin `DOMSimulation` icinde gecici olarak PMT numarasi
-  tasimasi fiziksel bir `npe` yorumu degil; bu sadece kod davranisi.
-- Detector/string coincidence branch'inin kapali olmasinin fiziksel olarak
-  kasitli olup olmadigini bilmiyorum. Sadece bu konfigurasyonda efektif trigger
-  single-DOM 3-PMT olarak calisiyor.
-- Bu not full IceTray job calistirilarak degil, source-code inspection ile
-  yazildi.
+- I did not verify the experimental / calibration origin of the `qe.csv`,
+  `aa-0.csv`, `glass.csv` and `k40-characterization.hdf5` files. I only
+  verified how they are used in the algorithm.
+- The `I3MCPE.npe` field temporarily carrying the PMT number inside
+  `DOMSimulation` is not a physical `npe` interpretation; this is only code
+  behavior.
+- I do not know whether the detector/string coincidence branch being disabled
+  is physically intentional. I only know that in this configuration the
+  effective trigger acts as a single-DOM 3-PMT trigger.
+- This note was written by source-code inspection, not by running a full
+  IceTray job.
 
-## Kod kaynaklari
+## Code sources
 
-Fiziksel model icin baktigim kaynaklar:
+Sources I looked at for the physical model:
 
 - `DataPreperation/PmtResponse/apply_pmt_response_with_first_3_layers.py`
 - `/cvmfs/software.pacific-neutrino.org/pone_offline/v2.0/DOM/OMAcceptance.py`
