@@ -256,19 +256,7 @@ For this reason the final `EventPulseSeries` is not a pure photon simulation;
 it is a pulse series at the detector-response level with trigger and readout
 window applied, noise included.
 
-## Things I am not sure about / did not comment on
 
-- I did not verify the experimental / calibration origin of the `qe.csv`,
-  `aa-0.csv`, `glass.csv` and `k40-characterization.hdf5` files. I only
-  verified how they are used in the algorithm.
-- The `I3MCPE.npe` field temporarily carrying the PMT number inside
-  `DOMSimulation` is not a physical `npe` interpretation; this is only code
-  behavior.
-- I do not know whether the detector/string coincidence branch being disabled
-  is physically intentional. I only know that in this configuration the
-  effective trigger acts as a single-DOM 3-PMT trigger.
-- This note was written by source-code inspection, not by running a full
-  IceTray job.
 
 ## Code sources
 
