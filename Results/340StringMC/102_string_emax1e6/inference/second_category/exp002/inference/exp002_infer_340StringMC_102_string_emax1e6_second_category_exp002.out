@@ -440,3 +440,9 @@ Cannot use healpy functionality. Install healpy, if you need to do entropy scann
 [Reconstruction] class2 zenith: rows=21666
 [Checkpoint] loaded reconstruction class2 azimuth: /project/def-nahee/kbas/Graphnet-Applications/Results/340StringMC/102_string_emax1e6/reconstruction/second_category/class2/exp002/train_and_val/azimuth/best_model.pth
 [Reconstruction] class2 azimuth: rows=21666
+[Output] wrote /project/def-nahee/kbas/Graphnet-Applications/Results/340StringMC/102_string_emax1e6/inference/second_category/exp002/inference/inference_predictions.csv
+[Notebook] executing report: /project/def-nahee/kbas/Graphnet-Applications/Results/340StringMC/102_string_emax1e6/inference/second_category/exp002/inference/inference_report.ipynb
+[Notebook] nbconvert failed: [Errno 2] No such file or directory: 'jupyter'
+[Notebook] falling back to in-process notebook execution
+[Notebook] executed report with fallback: /project/def-nahee/kbas/Graphnet-Applications/Results/340StringMC/102_string_emax1e6/inference/second_category/exp002/inference/inference_report.ipynb
+--- run_inference finished (rc=0)
