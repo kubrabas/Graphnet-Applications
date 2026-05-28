@@ -1,0 +1,14 @@
+epoch,elapsed_min,epoch_duration_min,rss_gb,cpu_load_pct,gpu_util_pct,gpu_mem_used_gb,gpu_mem_total_gb,gpu_mem_util_pct
+0,26.415,26.415,2.439,99.73,nan,nan,nan,nan
+1,52.131,25.716,2.445,82.94,nan,nan,nan,nan
+2,77.835,25.704,2.546,96.76,nan,nan,nan,nan
+3,103.687,25.852,2.551,91.97,nan,nan,nan,nan
+4,129.644,25.957,2.552,94.29,nan,nan,nan,nan
+5,155.710,26.066,2.553,107.38,nan,nan,nan,nan
+6,181.112,25.401,2.553,102.30,nan,nan,nan,nan
+7,206.614,25.502,2.556,113.07,nan,nan,nan,nan
+8,232.213,25.599,2.557,101.98,nan,nan,nan,nan
+9,257.823,25.610,2.564,105.20,nan,nan,nan,nan
+10,283.304,25.481,2.564,109.09,nan,nan,nan,nan
+11,308.874,25.570,2.564,102.08,nan,nan,nan,nan
+12,334.178,25.304,2.564,104.27,nan,nan,nan,nan

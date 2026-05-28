@@ -1,0 +1,66 @@
+arguments:
+  backbone:
+    ModelConfig:
+      arguments:
+        active_strings: 70
+        add_global_variables_after_pooling: true
+        add_norm_layer: false
+        aux_feature_indices: [5]
+        charge_feature_index: 4
+        gate_mode: straight_through_topk
+        gate_on: charge
+        global_pooling_schemes: [min, max, mean, sum]
+        initial_logit: 0.0
+        max_string_id: 340
+        nb_inputs: 5
+        nb_neighbours: 8
+        skip_readout: false
+        string_feature: string_number
+      class_name: StringGatedDynEdge
+  budget_lambda: 0.001
+  budget_target: 70
+  data_representation:
+    ModelConfig:
+      arguments:
+        columns: [0, 1, 2]
+        detector:
+          ModelConfig:
+            arguments:
+              identity_features: [string_number]
+              percentiles_csv: 
+                /project/def-nahee/kbas/Graphnet-Applications/Metadata/RobustScaler/340StringMC/full_geometry_emax1e6_first_category_mixed_1_train_feature_percentiles_p25_p50_p75.csv
+              selected_features: [pmt_x, pmt_y, pmt_z, dom_time, charge, 
+                  string_number]
+            class_name: PONEWithIdentityAux
+        distance_as_edge_feature: false
+        dtype: torch.float32
+        input_feature_names: [pmt_x, pmt_y, pmt_z, dom_time, charge, 
+            string_number]
+        nb_nearest_neighbours: 8
+        node_definition:
+          ModelConfig:
+            arguments: {input_feature_names: null}
+            class_name: NodesAsPulses
+        perturbation_dict: null
+        seed: null
+      class_name: KNNGraph
+  optimizer_class: '!class torch.optim.adam Adam'
+  optimizer_kwargs: {lr: 1e-05}
+  scheduler_class: '!class graphnet.training.callbacks PiecewiseLinearLR'
+  scheduler_config: {interval: step}
+  scheduler_kwargs:
+    factors: [1.0, 200.0, 1.0]
+    milestones: [0, 84, 5040]
+  tasks:
+    ModelConfig:
+      arguments:
+        hidden_size: 128
+        loss_function:
+          ModelConfig:
+            arguments: {}
+            class_name: VonMisesFisher2DLoss
+        loss_weight: null
+        prediction_labels: [zenith_pred, zenith_kappa]
+        target_labels: [zenith]
+      class_name: ZenithReconstructionWithKappa
+class_name: GeometrySelectionModel
