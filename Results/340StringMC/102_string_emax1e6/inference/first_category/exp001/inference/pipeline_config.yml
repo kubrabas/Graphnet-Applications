@@ -72,8 +72,6 @@ data:
     - stopping_track
     - through_going
     - missed_track
-    - category1
-    - category2
   # If null, classification uses ROBUST_SCALER[mc][geometry]["mixed"] and
   # reconstruction uses ROBUST_SCALER[mc][geometry]["<routing>_mixed_<class>"].
   percentiles_csv: null
@@ -84,9 +82,17 @@ inference:
   multiprocessing_context: spawn
   pin_memory: true
 
+notebook:
+  enabled: true
+  template: /project/def-nahee/kbas/graphnet/examples/08_pone/inference_scripts/inference_report_template.ipynb
+  output_name: inference_report.ipynb
+  timeout_seconds: 1800
+  allow_failure: false
+  command: jupyter
+
 slurm:
   account: def-nahee
-  time: "12:00:00"
+  time: "3:00:00"
   mem: 48G
   cpus_per_task: 8
   gpus_per_node: nvidia_h100_80gb_hbm3_3g.40gb:1
