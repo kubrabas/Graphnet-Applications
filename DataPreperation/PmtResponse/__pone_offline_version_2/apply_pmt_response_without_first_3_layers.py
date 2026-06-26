@@ -1,6 +1,7 @@
 # =============================================================================
 # Notes
 # =============================================================================
+# triggering is after pmt response. but still, both will be online, right? I m
 
 # =============================================================================
 # Standard library
@@ -28,10 +29,6 @@ from icecube import phys_services, sim_services
 # P-ONE offline modules
 # =============================================================================
 from DOM.PONEDOMLauncher import DOMSimulation
-from DOM.OMAcceptance import OMAcceptance
-
-from NoiseGenerators.DarkNoise import DarkNoise
-from NoiseGenerators.K40Noise import K40Noise
 
 from Trigger.DOMTrigger import DOMTrigger
 from Trigger.DetectorTrigger import DetectorTrigger
@@ -51,8 +48,8 @@ from copy import deepcopy
 
 print("[CHECKPOINT 0] Libraries imported successfully")
 
-MODE = "with_first_3_layers"
-PATHS_PY = Path(__file__).resolve().parents[2] / "Metadata" / "paths.py"
+MODE = "without_first_3_layers"
+PATHS_PY = Path(__file__).resolve().parents[3] / "Metadata" / "paths.py"
 BERLIN_TZ = ZoneInfo("Europe/Berlin")
 
 
@@ -146,12 +143,6 @@ class FixTriggerMap(icetray.I3Module):
         self.PushFrame(frame)
 
 
-def drop_stale_keys(frame):
-    for key in ["Accepted_PulseMap", "Noise_Dark", "Noise_K40"]:
-        if key in frame:
-            frame.Delete(key)
-
-
 class DAQFrameLimiter(icetray.I3ConditionalModule):
     def __init__(self, ctx):
         super(DAQFrameLimiter, self).__init__(ctx)
@@ -200,7 +191,7 @@ def _process_one(infile: Path, outfile: Path, logfile: Path, cfg: dict) -> tuple
         sys.stdout = log_fh
         sys.stderr = log_fh
 
-        print("=== PMT RESPONSE JOB STARTED (with_first_3_layers) ===")
+        print("=== PMT RESPONSE JOB STARTED (without_first_3_layers) ===")
         print(f"started  : {datetime.now(BERLIN_TZ).strftime('%Y-%m-%d %H:%M:%S %Z')}")
         print(f"infile   : {infile}")
         print(f"outfile  : {outfile}")
@@ -246,24 +237,7 @@ def _process_one(infile: Path, outfile: Path, logfile: Path, cfg: dict) -> tuple
         tray.AddModule("I3Reader", "reader", FilenameList=[cfg['gcd'], str(infile)])
         tray.AddModule(DAQFrameLimiter, "DAQFrameLimiter", MaxDAQFrames=max_daq_frames)
 
-        tray.AddModule(drop_stale_keys, "DropStaleKeys", Streams=[icetray.I3Frame.DAQ])
-
-        print("[CHECKPOINT 3] Tray initialized, I3Reader and DropStaleKeys added successfully")
-
-        tray.AddModule(OMAcceptance, 'OMAcceptance',
-                       input_map="I3Photons", output_map='Accepted_PulseMap',
-                       random_service=randomService,
-                       drop_empty=True)
-
-        tray.AddModule(DarkNoise, 'AddDarkNoise',
-                       input_map='Accepted_PulseMap', output_map='Noise_Dark',
-                       random_service=randomService, gcd_file=cfg['gcd'])
-
-        tray.AddModule(K40Noise, 'AddK40Noise',
-                       input_map='Accepted_PulseMap', output_map='Noise_K40',
-                       random_service=randomService, gcd_file=cfg['gcd'])
-
-        print("[CHECKPOINT 4] OMAcceptance, DarkNoise, K40Noise added successfully")
+        print("[CHECKPOINT 3] Tray initialized, I3Reader added successfully")
 
         tray.AddModule(DOMSimulation, 'DOMLauncher',
                        input_map='Accepted_PulseMap',
@@ -273,12 +247,12 @@ def _process_one(infile: Path, outfile: Path, logfile: Path, cfg: dict) -> tuple
 
         tray.AddModule(HitCountCheck, "hitcheck", NHits=5)
 
-        print("[CHECKPOINT 5] DOMSimulation and HitCountCheck added successfully")
+        print("[CHECKPOINT 5] HitCountCheck filter added successfully")
 
         tray.AddModule(FixTriggerMap, "FixTriggerMap")
         tray.AddModule(DOMTrigger, "DOMTrigger", trigger_map="triggerpulsemap")
 
-        print("[CHECKPOINT 6] FixTriggerMap and DOMTrigger added successfully")
+        print("[CHECKPOINT 6] DOMTrigger added successfully")
 
         tray.AddModule(
             DetectorTrigger, "PONE_Trigger",
@@ -383,7 +357,7 @@ def _process_one(infile: Path, outfile: Path, logfile: Path, cfg: dict) -> tuple
 
 def main() -> int:
     ap = argparse.ArgumentParser(
-        description="Apply PMT response (with first 3 layers) — parallel, single SLURM node"
+        description="Apply PMT response (without first 3 layers) — parallel, single SLURM node"
     )
     ap.add_argument("--flavor",   required=True, help="Particle flavor (e.g. Muon, Electron, Tau, NC)")
     ap.add_argument("--geometry", required=True, help="Geometry key (e.g. strings_102_40m)")

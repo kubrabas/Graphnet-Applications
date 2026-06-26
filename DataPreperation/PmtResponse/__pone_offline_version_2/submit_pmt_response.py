@@ -36,7 +36,7 @@ from pathlib import Path
 # ---------------------------------------------------------------------------
 
 PATHS_PY     = "/project/def-nahee/kbas/Graphnet-Applications/Metadata/paths.py"
-WORKER_SH    = Path("/home/kbas/SlurmScripts/DataPreperation/submit_pmt_response.sh")
+WORKER_SH    = Path("/home/kbas/SlurmScripts/DataPreperation/submit_pmt_response__pone_offline_version_2.sh")
 SCRATCH_BASE = "/home/kbas/scratch"
 NWORKERS     = 12    # CPUs per job (parallel files processed simultaneously)
 
