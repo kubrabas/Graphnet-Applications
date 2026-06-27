@@ -87,25 +87,168 @@ def bad_file_rule(infile: Path):
 # Custom modules
 # =============================================================================
 
-class HitCountCheck(icetray.I3Module):
-    def __init__(self, context):
-        super(HitCountCheck, self).__init__(context)
-        self.AddParameter("NHits", "Minimum number of unique OMs required to pass frame", 5)
+GEO_DIR = Path(__file__).resolve().parents[3] / "Metadata" / "GeometryFiles"
 
-    def Configure(self):
-        self.NHits = self.GetParameter("NHits")
 
-    def DAQ(self, frame):
-        unique_oms = set((k.string, k.om) for k in frame['PMT_Response'].keys())
-        if len(unique_oms) < self.NHits:
-            return False
-        self.PushFrame(frame)
+def load_string_set(path):
+    text = Path(path).read_text().strip()
+    if not text:
+        return set()
+
+    lines = text.splitlines()
+    strings = set()
+
+    if len(lines) > 1 and lines[0].lower().startswith("string,"):
+        for line in lines[1:]:
+            strings.add(int(line.split(",", 1)[0].strip()))
+        return strings
+
+    for token in text.replace("\n", ",").split(","):
+        token = token.strip()
+        if token:
+            strings.add(int(token))
+    return strings
+
+
+LAYOUT_STRINGS = {
+    "102_string": load_string_set(GEO_DIR / "340StringMC" / "102_string.csv"),
+    "160_string": load_string_set(GEO_DIR / "340StringMC" / "160_string.csv"),
+    "340_string": load_string_set(GEO_DIR / "string_coordinates_340_string_mc.csv"),
+}
+
+LAYOUT_OUTPUT_LABELS = {
+    "102_string": "102_String",
+    "160_string": "160_String",
+    "340_string": "340_String",
+}
+
+FULL_LAYOUT = "340_string"
+SUB_LAYOUTS = ["160_string", "102_string"]
+ACCEPTED_MAP_340 = "Accepted_PulseMap_340String"
+
+
+def first_dom_trigger_time(pulse_map, strings, coincidence_n=3, coincidence_window=10.0):
+    dom_hits = {}
+
+    for omkey in pulse_map.keys():
+        if omkey.string not in strings:
+            continue
+
+        dom_key = (omkey.string, omkey.om)
+        pmt = int(omkey.pmt)
+
+        if dom_key not in dom_hits:
+            dom_hits[dom_key] = []
+
+        for pulse in pulse_map[omkey]:
+            dom_hits[dom_key].append((float(pulse.time), pmt))
+
+    trigger_times = []
+
+    for hits in dom_hits.values():
+        hits.sort(key=lambda item: item[0])
+        lookback = 0
+
+        for i, (time, _) in enumerate(hits):
+            while lookback < i and hits[lookback][0] < time - coincidence_window:
+                lookback += 1
+
+            pmts_in_window = {pmt for _, pmt in hits[lookback:i + 1]}
+            if len(pmts_in_window) >= coincidence_n:
+                trigger_times.append(int(time))
+                break
+
+    if not trigger_times:
+        return None
+
+    return min(trigger_times)
+
+
+def add_trigger_flags(frame):
+    if frame.Stop != icetray.I3Frame.DAQ:
+        return True
+
+    for layout, strings in LAYOUT_STRINGS.items():
+        pmt_response = frame[f"PMT_Response_{LAYOUT_OUTPUT_LABELS[layout]}"]
+        trigger_time = first_dom_trigger_time(pmt_response, strings)
+        triggered = trigger_time is not None
+
+        frame[f"triggered_{layout}"] = dataclasses.I3Double(float(triggered))
+        frame[f"trigger_time_{layout}"] = dataclasses.I3Double(
+            float(trigger_time) if triggered else -1.0
+        )
+
+    return True
 
 
 def drop_stale_keys(frame):
-    for key in ["Accepted_PulseMap", "Noise_Dark", "Noise_K40"]:
+    keys = [
+        "Accepted_PulseMap",
+        ACCEPTED_MAP_340,
+        "Noise_Dark",
+        "Noise_K40",
+        "PMT_Response",
+        "PMT_Response_nonoise",
+    ]
+    for label in LAYOUT_OUTPUT_LABELS.values():
+        keys.extend([
+            f"Noise_Dark_{label}",
+            f"Noise_K40_{label}",
+            f"PMT_Response_{label}",
+            f"PMT_Response_{label}_nonoise",
+            f"PMT_Response_nonoise_{label}",
+        ])
+
+    for key in keys:
         if key in frame:
             frame.Delete(key)
+
+
+def rename_nonoise_response_maps(frame):
+    if frame.Stop != icetray.I3Frame.DAQ:
+        return True
+
+    for label in LAYOUT_OUTPUT_LABELS.values():
+        old_key = f"PMT_Response_{label}_nonoise"
+        new_key = f"PMT_Response_nonoise_{label}"
+        if old_key in frame:
+            frame[new_key] = frame[old_key]
+            frame.Delete(old_key)
+
+    return True
+
+
+def subset_map_by_strings(source_map, strings):
+    output_map = source_map.__class__()
+
+    for omkey in source_map.keys():
+        if omkey.string in strings:
+            output_map[omkey] = source_map[omkey]
+
+    return output_map
+
+
+def add_subgeometry_maps(frame):
+    if frame.Stop != icetray.I3Frame.DAQ:
+        return True
+
+    source_keys = [
+        "Noise_Dark",
+        "Noise_K40",
+        "PMT_Response",
+        "PMT_Response_nonoise",
+    ]
+
+    for layout in SUB_LAYOUTS:
+        strings = LAYOUT_STRINGS[layout]
+        label = LAYOUT_OUTPUT_LABELS[layout]
+
+        for source_key in source_keys:
+            source_full_key = f"{source_key}_{LAYOUT_OUTPUT_LABELS[FULL_LAYOUT]}"
+            target_key = f"{source_key}_{label}"
+            frame[target_key] = subset_map_by_strings(frame[source_full_key], strings)
+
+    return True
 
 
 class DAQFrameLimiter(icetray.I3ConditionalModule):
@@ -204,30 +347,37 @@ def _process_one(infile: Path, outfile: Path, logfile: Path, cfg: dict) -> tuple
 
         print("[CHECKPOINT 3] Tray initialized, I3Reader and DropStaleKeys added successfully")
 
-        tray.AddModule(OMAcceptance, 'OMAcceptance',
-                       input_map="I3Photons", output_map='Accepted_PulseMap',
+        full_label = LAYOUT_OUTPUT_LABELS[FULL_LAYOUT]
+        dark_map_340 = f"Noise_Dark_{full_label}"
+        k40_map_340 = f"Noise_K40_{full_label}"
+        response_map_340 = f"PMT_Response_{full_label}"
+
+        tray.AddModule(OMAcceptance, f"OMAcceptance_{full_label}",
+                       input_map="I3Photons", output_map=ACCEPTED_MAP_340,
                        random_service=randomService,
-                       drop_empty=True)
+                       drop_empty=False)
 
-        tray.AddModule(DarkNoise, 'AddDarkNoise',
-                       input_map='Accepted_PulseMap', output_map='Noise_Dark',
+        tray.AddModule(DarkNoise, f"AddDarkNoise_{full_label}",
+                       input_map=ACCEPTED_MAP_340, output_map=dark_map_340,
                        random_service=randomService, gcd_file=cfg['gcd'])
 
-        tray.AddModule(K40Noise, 'AddK40Noise',
-                       input_map='Accepted_PulseMap', output_map='Noise_K40',
+        tray.AddModule(K40Noise, f"AddK40Noise_{full_label}",
+                       input_map=ACCEPTED_MAP_340, output_map=k40_map_340,
                        random_service=randomService, gcd_file=cfg['gcd'])
 
-        print("[CHECKPOINT 4] OMAcceptance, DarkNoise, K40Noise added successfully")
-
-        tray.AddModule(DOMSimulation, 'DOMLauncher',
-                       input_map='Accepted_PulseMap',
-                       output_map='PMT_Response',
+        tray.AddModule(DOMSimulation, f"DOMLauncher_{full_label}",
+                       input_map=ACCEPTED_MAP_340,
+                       output_map=response_map_340,
                        random_service=randomService, min_time_sep=pulsesep, split_doms=True,
-                       use_dark=True, dark_map='Noise_Dark', use_k40=True, k40_map='Noise_K40')
+                       use_dark=True, dark_map=dark_map_340, use_k40=True, k40_map=k40_map_340)
 
-        tray.AddModule(HitCountCheck, "hitcheck", NHits=5)
+        print("[CHECKPOINT 4] OMAcceptance, DarkNoise, K40Noise, DOMSimulation added for full 340-string layout")
 
-        print("[CHECKPOINT 5] DOMSimulation and HitCountCheck added successfully")
+        tray.AddModule(rename_nonoise_response_maps, "RenameNonoiseResponseMaps", Streams=[icetray.I3Frame.DAQ])
+        tray.AddModule(add_subgeometry_maps, "AddSubgeometryMaps", Streams=[icetray.I3Frame.DAQ])
+        tray.AddModule(add_trigger_flags, "AddTriggerFlags", Streams=[icetray.I3Frame.DAQ])
+
+        print("[CHECKPOINT 5] Subgeometry maps, response map names, and trigger flags added successfully")
 
         def count_output_frames(frame):
             if frame.Stop == icetray.I3Frame.DAQ:
