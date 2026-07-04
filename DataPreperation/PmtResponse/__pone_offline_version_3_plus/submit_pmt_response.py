@@ -36,7 +36,7 @@ PATHS_PY     = "/project/def-nahee/kbas/Graphnet-Applications/Metadata/paths.py"
 WORKER_SH    = Path("/home/kbas/SlurmScripts/DataPreperation/submit_pmt_response__pone_offline_version_3_plus.sh")
 SCRATCH_BASE = "/home/kbas/scratch"
 STRING340_V3_BASE = f"{SCRATCH_BASE}/String340MC_pone_offline_version3_plus"
-NWORKERS     = 12    # CPUs per job (parallel files processed simultaneously)
+NWORKERS     = 24    # CPUs per job (parallel files processed simultaneously)
 
 # ---------------------------------------------------------------------------
 # MC lookup table
@@ -109,10 +109,15 @@ def submit_one(*, mc: str, mc_folder: str, geometry: str, geo_folder: str,
         logdir = f"{SCRATCH_BASE}/{mc_folder}/Logs/{flavor}_pmt_response_{geo_folder}_pone_offline_version_3"
     job_name = f"pmt_{mc}_{geometry}_{flavor}"
 
+    time_limit = "48:00:00" if flavor == "Muon" else None
     cmd = [
         "sbatch",
         f"--job-name={job_name}",
         f"--cpus-per-task={nworkers}",
+    ]
+    if time_limit is not None:
+        cmd.append(f"--time={time_limit}")
+    cmd.extend([
         (
             "--export="
             f"FLAVOR={flavor},"
@@ -127,9 +132,10 @@ def submit_one(*, mc: str, mc_folder: str, geometry: str, geo_folder: str,
             f"NWORKERS={nworkers}"
         ),
         str(WORKER_SH),
-    ]
+    ])
 
-    print(f"  {'[DRY-RUN] ' if dry_run else ''}submitting: {job_name}  ({n} files, {nworkers} workers)")
+    time_msg = f", time={time_limit}" if time_limit is not None else ""
+    print(f"  {'[DRY-RUN] ' if dry_run else ''}submitting: {job_name}  ({n} files, {nworkers} workers{time_msg})")
     if dry_run:
         print("  cmd:", " ".join(cmd))
         return

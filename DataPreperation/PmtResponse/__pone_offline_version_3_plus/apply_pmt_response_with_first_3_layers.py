@@ -113,18 +113,46 @@ def load_string_set(path):
 LAYOUT_STRINGS = {
     "102_string": load_string_set(GEO_DIR / "340StringMC" / "102_string.csv"),
     "160_string": load_string_set(GEO_DIR / "340StringMC" / "160_string.csv"),
+    "compact": load_string_set(GEO_DIR / "340StringMC" / "compact.csv"),
+    "default": load_string_set(GEO_DIR / "340StringMC" / "default.csv"),
+    "expanded": load_string_set(GEO_DIR / "340StringMC" / "expanded.csv"),
+    "large": load_string_set(GEO_DIR / "340StringMC" / "large.csv"),
+    "modified": load_string_set(GEO_DIR / "340StringMC" / "modified.csv"),
     "340_string": load_string_set(GEO_DIR / "string_coordinates_340_string_mc.csv"),
 }
 
 LAYOUT_OUTPUT_LABELS = {
     "102_string": "102_String",
     "160_string": "160_String",
+    "compact": "Compact",
+    "default": "Default",
+    "expanded": "Expanded",
+    "large": "Large",
+    "modified": "Modified",
     "340_string": "340_String",
 }
 
 FULL_LAYOUT = "340_string"
-SUB_LAYOUTS = ["160_string", "102_string"]
+SUB_LAYOUTS = [
+    "160_string",
+    "102_string",
+    # "compact",
+    # "default",
+    # "expanded",
+    # "large",
+    # "modified",
+]
 ACCEPTED_MAP_340 = "Accepted_PulseMap_340String"
+ACCEPTED_SUBGEOMETRY_MAPS = {
+    "160_string": "Accepted_PulseMap_160_String",
+    "102_string": "Accepted_PulseMap_102_String",
+    "compact": "Accepted_PulseMap_Compact",
+    "default": "Accepted_PulseMap_Default",
+    "expanded": "Accepted_PulseMap_Expanded",
+    "large": "Accepted_PulseMap_Large",
+    "modified": "Accepted_PulseMap_Modified",
+}
+NOISE_TIME_BOUNDS = [-2000.0, 10000.0]
 
 
 def first_dom_trigger_time(pulse_map, strings, coincidence_n=3, coincidence_window=10.0):
@@ -168,8 +196,15 @@ def add_trigger_flags(frame):
     if frame.Stop != icetray.I3Frame.DAQ:
         return True
 
-    for layout, strings in LAYOUT_STRINGS.items():
-        pmt_response = frame[f"PMT_Response_{LAYOUT_OUTPUT_LABELS[layout]}"]
+    for layout in [FULL_LAYOUT] + SUB_LAYOUTS:
+        strings = LAYOUT_STRINGS[layout]
+        response_key = f"PMT_Response_{LAYOUT_OUTPUT_LABELS[layout]}"
+        if response_key not in frame:
+            frame[f"triggered_{layout}"] = dataclasses.I3Double(0.0)
+            frame[f"trigger_time_{layout}"] = dataclasses.I3Double(-1.0)
+            continue
+
+        pmt_response = frame[response_key]
         trigger_time = first_dom_trigger_time(pmt_response, strings)
         triggered = trigger_time is not None
 
@@ -190,6 +225,7 @@ def drop_stale_keys(frame):
         "PMT_Response",
         "PMT_Response_nonoise",
     ]
+    keys.extend(ACCEPTED_SUBGEOMETRY_MAPS.values())
     for label in LAYOUT_OUTPUT_LABELS.values():
         keys.extend([
             f"Noise_Dark_{label}",
@@ -233,8 +269,6 @@ def add_subgeometry_maps(frame):
         return True
 
     source_keys = [
-        "Noise_Dark",
-        "Noise_K40",
         "PMT_Response",
         "PMT_Response_nonoise",
     ]
@@ -242,6 +276,10 @@ def add_subgeometry_maps(frame):
     for layout in SUB_LAYOUTS:
         strings = LAYOUT_STRINGS[layout]
         label = LAYOUT_OUTPUT_LABELS[layout]
+
+        frame[ACCEPTED_SUBGEOMETRY_MAPS[layout]] = subset_map_by_strings(
+            frame[ACCEPTED_MAP_340], strings
+        )
 
         for source_key in source_keys:
             source_full_key = f"{source_key}_{LAYOUT_OUTPUT_LABELS[FULL_LAYOUT]}"
@@ -292,7 +330,7 @@ def _process_one(infile: Path, outfile: Path, logfile: Path, cfg: dict) -> tuple
     orig_stderr = sys.stderr
     log_fh = None
     t_start = time.time()
-    frame_counts = {"daq": 0, "simulation": 0}
+    frame_counts = {"daq": 0, "simulation": 0, "trayinfo": 0}
 
     try:
         log_fh = open(logfile, "w")
@@ -359,11 +397,15 @@ def _process_one(infile: Path, outfile: Path, logfile: Path, cfg: dict) -> tuple
 
         tray.AddModule(DarkNoise, f"AddDarkNoise_{full_label}",
                        input_map=ACCEPTED_MAP_340, output_map=dark_map_340,
-                       random_service=randomService, gcd_file=cfg['gcd'])
+                       random_service=randomService, gcd_file=cfg['gcd'],
+                       use_manual_noise_bounds=True,
+                       manual_noise_bounds=NOISE_TIME_BOUNDS)
 
         tray.AddModule(K40Noise, f"AddK40Noise_{full_label}",
                        input_map=ACCEPTED_MAP_340, output_map=k40_map_340,
-                       random_service=randomService, gcd_file=cfg['gcd'])
+                       random_service=randomService, gcd_file=cfg['gcd'],
+                       use_manual_noise_bounds=True,
+                       manual_noise_bounds=NOISE_TIME_BOUNDS)
 
         tray.AddModule(DOMSimulation, f"DOMLauncher_{full_label}",
                        input_map=ACCEPTED_MAP_340,
@@ -384,17 +426,19 @@ def _process_one(infile: Path, outfile: Path, logfile: Path, cfg: dict) -> tuple
                 frame_counts["daq"] += 1
             elif frame.Stop == icetray.I3Frame.Simulation:
                 frame_counts["simulation"] += 1
+            elif frame.Stop == icetray.I3Frame.TrayInfo:
+                frame_counts["trayinfo"] += 1
             return True
 
         tray.AddModule(
             count_output_frames, "OutputFrameCounter",
-            Streams=[icetray.I3Frame.DAQ, icetray.I3Frame.Simulation],
+            Streams=[icetray.I3Frame.DAQ, icetray.I3Frame.Simulation, icetray.I3Frame.TrayInfo],
         )
 
         tray.AddModule(
             "I3Writer", "writer",
             Filename=str(outfile),
-            Streams=[icetray.I3Frame.DAQ, icetray.I3Frame.Simulation],
+            Streams=[icetray.I3Frame.DAQ, icetray.I3Frame.Simulation, icetray.I3Frame.TrayInfo],
         )
 
         print("[CHECKPOINT 6] Writer added successfully")
@@ -404,11 +448,11 @@ def _process_one(infile: Path, outfile: Path, logfile: Path, cfg: dict) -> tuple
 
         elapsed = time.time() - t_start
         print(status_line("SUCCESS", elapsed))
-        print(f"frames_to_writer : DAQ={frame_counts['daq']}  Simulation={frame_counts['simulation']}")
+        print(f"frames_to_writer : DAQ={frame_counts['daq']}  Simulation={frame_counts['simulation']}  TrayInfo={frame_counts['trayinfo']}")
         print(f"outfile : {outfile}")
         log_fh.flush()
 
-        return ("success", infile.name, time.time() - t_start, frame_counts["daq"], frame_counts["simulation"])
+        return ("success", infile.name, time.time() - t_start, frame_counts["daq"], frame_counts["simulation"], frame_counts["trayinfo"])
 
     except Exception as e:
         import traceback as _tb
@@ -417,7 +461,7 @@ def _process_one(infile: Path, outfile: Path, logfile: Path, cfg: dict) -> tuple
             try:
                 print(status_line("FAILED", elapsed))
                 print(f"ERROR: {e}")
-                print(f"frames_to_writer_before_failure : DAQ={frame_counts['daq']}  Simulation={frame_counts['simulation']}")
+                print(f"frames_to_writer_before_failure : DAQ={frame_counts['daq']}  Simulation={frame_counts['simulation']}  TrayInfo={frame_counts['trayinfo']}")
                 _tb.print_exc()
                 log_fh.flush()
             except Exception:
@@ -438,7 +482,7 @@ def _process_one(infile: Path, outfile: Path, logfile: Path, cfg: dict) -> tuple
             except Exception:
                 pass
 
-        return ("failed", infile.name, str(e), elapsed, frame_counts["daq"], frame_counts["simulation"])
+        return ("failed", infile.name, str(e), elapsed, frame_counts["daq"], frame_counts["simulation"], frame_counts["trayinfo"])
 
     finally:
         if log_fh is not None and not log_fh.closed:
@@ -577,8 +621,9 @@ def main() -> int:
                     elapsed = result[2] if len(result) > 2 else 0.0
                     daq = result[3] if len(result) > 3 else 0
                     sim = result[4] if len(result) > 4 else 0
+                    trayinfo = result[5] if len(result) > 5 else 0
                     print(f"[ok]     {fname}")
-                    _glog(f"[{ts}] [ok]     {fname}  ({elapsed:.1f}s)  frames_to_writer: DAQ={daq} Simulation={sim}")
+                    _glog(f"[{ts}] [ok]     {fname}  ({elapsed:.1f}s)  frames_to_writer: DAQ={daq} Simulation={sim} TrayInfo={trayinfo}")
                 elif status == "skipped":
                     n_skipped += 1
                     elapsed = result[2] if len(result) > 2 else 0.0
@@ -591,8 +636,9 @@ def main() -> int:
                     elapsed = result[3] if len(result) > 3 else 0.0
                     daq = result[4] if len(result) > 4 else 0
                     sim = result[5] if len(result) > 5 else 0
+                    trayinfo = result[6] if len(result) > 6 else 0
                     print(f"[failed] {fname}  ({err})")
-                    _glog(f"[{ts}] [failed] {fname}  ({elapsed:.1f}s)  frames_to_writer_before_failure: DAQ={daq} Simulation={sim} -- {err}")
+                    _glog(f"[{ts}] [failed] {fname}  ({elapsed:.1f}s)  frames_to_writer_before_failure: DAQ={daq} Simulation={sim} TrayInfo={trayinfo} -- {err}")
                 sys.stdout.flush()
 
         total_elapsed = time.time() - t_job_start
