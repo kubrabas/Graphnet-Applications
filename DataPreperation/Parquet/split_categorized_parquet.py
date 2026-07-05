@@ -2,7 +2,7 @@
 Split existing merged parquet datasets into category-specific parquet outputs.
 
 This script does not read I3 files. It filters truth rows by a category column,
-then filters the matching features rows by event_no.
+then filters the matching feature rows by event_no.
 """
 
 import argparse
@@ -12,11 +12,8 @@ import time
 import traceback
 from datetime import datetime
 from pathlib import Path
-from typing import List, Tuple
+from typing import Dict, List, Tuple
 from zoneinfo import ZoneInfo
-
-TABLES = ("truth", "features")
-
 
 def category_value_label(value: str) -> str:
     text = str(value).replace("-", "minus").replace(".", "p")
@@ -30,9 +27,23 @@ def batch_id(path: Path) -> int:
     return int(match.group(1))
 
 
-def prepare_output(outdir: Path, overwrite: bool) -> bool:
+def parquet_tables(source_split_dir: Path) -> List[str]:
+    tables = [
+        p.name
+        for p in source_split_dir.iterdir()
+        if p.is_dir()
+    ]
+    if "truth" not in tables:
+        raise FileNotFoundError(f"Missing truth table in {source_split_dir}")
+    feature_tables = sorted(t for t in tables if t.startswith("features"))
+    if not feature_tables:
+        raise FileNotFoundError(f"Missing feature table(s) in {source_split_dir}")
+    return ["truth"] + feature_tables
+
+
+def prepare_output(outdir: Path, tables: List[str], overwrite: bool) -> bool:
     existing = []
-    for table in TABLES:
+    for table in tables:
         table_dir = outdir / table
         table_dir.mkdir(parents=True, exist_ok=True)
         existing.extend(table_dir.glob("*.parquet"))
@@ -47,21 +58,35 @@ def prepare_output(outdir: Path, overwrite: bool) -> bool:
     return True
 
 
-def pop_event_batch(truth_buffer, features_buffer, events_per_batch: int):
+def pop_event_batch(truth_buffer, feature_buffers: Dict[str, object], events_per_batch: int):
     event_batch = truth_buffer.head(events_per_batch).select("event_no")
     truth_batch = truth_buffer.join(event_batch, on="event_no", how="inner")
-    features_batch = features_buffer.join(event_batch, on="event_no", how="inner")
+    feature_batches = {
+        table: features.join(event_batch, on="event_no", how="inner")
+        for table, features in feature_buffers.items()
+    }
     truth_buffer = truth_buffer.join(event_batch, on="event_no", how="anti")
-    features_buffer = features_buffer.join(event_batch, on="event_no", how="anti")
-    return truth_batch, features_batch, truth_buffer, features_buffer
+    feature_buffers = {
+        table: features.join(event_batch, on="event_no", how="anti")
+        for table, features in feature_buffers.items()
+    }
+    return truth_batch, feature_batches, truth_buffer, feature_buffers
 
 
-def write_batch(outdir: Path, out_batch: int, truth_batch, features_batch) -> Tuple[int, int]:
+def write_batch(
+    outdir: Path,
+    out_batch: int,
+    truth_batch,
+    feature_batches: Dict[str, object],
+) -> Tuple[int, Dict[str, int]]:
     truth_out = outdir / "truth" / f"truth_{out_batch}.parquet"
-    features_out = outdir / "features" / f"features_{out_batch}.parquet"
     truth_batch.write_parquet(truth_out)
-    features_batch.write_parquet(features_out)
-    return truth_batch.height, features_batch.height
+    feature_rows = {}
+    for table, features_batch in feature_batches.items():
+        features_out = outdir / table / f"{table}_{out_batch}.parquet"
+        features_batch.write_parquet(features_out)
+        feature_rows[table] = features_batch.height
+    return truth_batch.height, feature_rows
 
 
 def split_category(
@@ -74,32 +99,39 @@ def split_category(
 ) -> dict:
     import polars as pl
 
+    tables = parquet_tables(source_split_dir)
+    feature_table_names = [t for t in tables if t != "truth"]
     truth_dir = source_split_dir / "truth"
-    feature_dir = source_split_dir / "features"
     truth_files = sorted(truth_dir.glob("truth_*.parquet"), key=batch_id)
     if not truth_files:
         raise FileNotFoundError(f"No truth parquet files found in {truth_dir}")
 
-    if not prepare_output(outdir, overwrite):
+    if not prepare_output(outdir, tables, overwrite):
         return {
             "source_truth_files": len(truth_files),
             "output_batches": 0,
             "truth_rows": 0,
-            "feature_rows": 0,
+            "feature_rows": {table: 0 for table in feature_table_names},
             "skipped_existing": True,
         }
 
     out_batch = 0
     truth_rows = 0
-    feature_rows = 0
+    feature_rows = {table: 0 for table in feature_table_names}
     buffer_truth: List[pl.DataFrame] = []
-    buffer_features: List[pl.DataFrame] = []
+    buffer_features: Dict[str, List[pl.DataFrame]] = {
+        table: [] for table in feature_table_names
+    }
 
     for truth_file in truth_files:
         bid = batch_id(truth_file)
-        feature_file = feature_dir / f"features_{bid}.parquet"
-        if not feature_file.exists():
-            raise FileNotFoundError(f"Missing matching features file: {feature_file}")
+        feature_files = {
+            table: source_split_dir / table / f"{table}_{bid}.parquet"
+            for table in feature_table_names
+        }
+        missing = [str(path) for path in feature_files.values() if not path.exists()]
+        if missing:
+            raise FileNotFoundError(f"Missing matching feature file(s): {missing}")
 
         truth = pl.read_parquet(truth_file)
         if category_column not in truth.columns:
@@ -114,50 +146,63 @@ def split_category(
             continue
 
         event_ids = truth_filtered.select("event_no").unique()
-        features = pl.read_parquet(feature_file)
-        if "event_no" not in features.columns:
-            raise ValueError(f"Missing event_no in {feature_file}")
-        features_filtered = features.join(event_ids, on="event_no", how="inner")
+        features_filtered = {}
+        for table, feature_file in feature_files.items():
+            features = pl.read_parquet(feature_file)
+            if "event_no" not in features.columns:
+                raise ValueError(f"Missing event_no in {feature_file}")
+            features_filtered[table] = features.join(event_ids, on="event_no", how="inner")
 
         buffer_truth.append(truth_filtered)
-        buffer_features.append(features_filtered)
+        for table, features in features_filtered.items():
+            buffer_features[table].append(features)
 
         truth_buffer = pl.concat(buffer_truth)
-        features_buffer = pl.concat(buffer_features)
+        feature_buffers = {
+            table: pl.concat(parts) for table, parts in buffer_features.items()
+        }
         while truth_buffer.height >= events_per_batch:
-            truth_batch, features_batch, truth_buffer, features_buffer = pop_event_batch(
+            truth_batch, feature_batches, truth_buffer, feature_buffers = pop_event_batch(
                 truth_buffer=truth_buffer,
-                features_buffer=features_buffer,
+                feature_buffers=feature_buffers,
                 events_per_batch=events_per_batch,
             )
             n_truth, n_features = write_batch(
                 outdir=outdir,
                 out_batch=out_batch,
                 truth_batch=truth_batch,
-                features_batch=features_batch,
+                feature_batches=feature_batches,
             )
             truth_rows += n_truth
-            feature_rows += n_features
+            for table, n_rows in n_features.items():
+                feature_rows[table] += n_rows
             out_batch += 1
 
         buffer_truth = [truth_buffer] if not truth_buffer.is_empty() else []
-        buffer_features = [features_buffer] if not features_buffer.is_empty() else []
+        buffer_features = {
+            table: [features] if not features.is_empty() else []
+            for table, features in feature_buffers.items()
+        }
 
     if buffer_truth:
         truth_buffer = pl.concat(buffer_truth)
-        features_buffer = pl.concat(buffer_features)
+        feature_buffers = {
+            table: pl.concat(parts) for table, parts in buffer_features.items()
+        }
         n_truth, n_features = write_batch(
             outdir=outdir,
             out_batch=out_batch,
             truth_batch=truth_buffer,
-            features_batch=features_buffer,
+            feature_batches=feature_buffers,
         )
         truth_rows += n_truth
-        feature_rows += n_features
+        for table, n_rows in n_features.items():
+            feature_rows[table] += n_rows
         out_batch += 1
 
     return {
         "source_truth_files": len(truth_files),
+        "tables": tables,
         "output_batches": out_batch,
         "events_per_batch": events_per_batch,
         "truth_rows": truth_rows,

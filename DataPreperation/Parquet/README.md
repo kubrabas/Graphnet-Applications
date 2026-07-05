@@ -76,24 +76,29 @@ re-runs.
 
 ### Truth Labels
 
-`I3TruthExtractorPONE` writes two numeric category columns to the truth table:
+`I3TruthExtractorPONE` writes three numeric category columns to the truth table:
 
 ```text
-category1
+category1_isMuonCC
   1 : NuMu/NuMuBar charged-current track
   0 : all other events
 
-category2
+category2_tauCC_others_muonCC
   0  : tau_CC
   1  : all NC + electron CC
   2  : muon_CC
   -1 : padding / not assigned
+
+category_3_contains_muon
+  1 : post-propagation event contains a muon
+  0 : no post-propagation muon found
 ```
 
-`category1` is set to `1` only when `abs(pid) == 14` and
-`interaction_type == 1`; otherwise it is `0`. `category2` uses the
+`category1_isMuonCC` is set to `1` only when `abs(pid) == 14` and
+`is_CC == 1`; otherwise it is `0`. `category2_tauCC_others_muonCC` uses the
 three-class PONE target mapping, with unmatched cases left at the extractor's
-padding value.
+padding value. `category_3_contains_muon` is set from the post-propagation
+particle tree and is used as the third category split.
 
 ## File Handling
 

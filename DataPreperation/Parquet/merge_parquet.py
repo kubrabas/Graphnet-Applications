@@ -2,7 +2,7 @@
 Merge per-batch Parquet files into a single shuffled dataset with train/val/test splits.
 
 After all convert_parquet.py SLURM array tasks finish, this script:
-  1. Merges per-batch truth/ and features/ parquet files into shuffled batches.
+  1. Merges per-batch truth/ and feature parquet files into shuffled batches.
   2. Renames merged/ -> merged_raw/ (immutable source; never modified).
   3. Builds 80/10/10 train/val/test splits as symlinks into merged_raw/.
   4. Builds *_reindexed/ dirs (sequential 0,1,2,... symlinks for ParquetDataset).
@@ -43,7 +43,6 @@ METADATA_BASE          = "/project/def-nahee/kbas/Graphnet-Applications/Metadata
 METADATA_ROBUSTSCALER  = "/project/def-nahee/kbas/Graphnet-Applications/Metadata/RobustScaler"
 ALL_FLAVORS   = ["Muon", "Electron", "Tau", "NC"]
 EVENT_ID_COLS = ["RunID", "SubrunID", "EventID", "SubEventID"]
-TABLES        = ["truth", "features"]
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -62,7 +61,23 @@ def link_or_copy(src: Path, dst: Path) -> None:
             shutil.copy2(src, dst)
 
 
-def reindex_split(split_dir: Path, reindexed_dir: Path) -> None:
+def parquet_tables(dataset_dir: Path) -> List[str]:
+    ignored = {"merged", "merged_raw", "categorized"}
+    tables = [
+        p.name
+        for p in dataset_dir.iterdir()
+        if p.is_dir() and p.name not in ignored
+    ]
+    if "truth" not in tables:
+        raise RuntimeError(f"Missing truth table directory under {dataset_dir}")
+    return ["truth"] + sorted(t for t in tables if t != "truth")
+
+
+def feature_tables(tables: List[str]) -> List[str]:
+    return [table for table in tables if table.startswith("features")]
+
+
+def reindex_split(split_dir: Path, reindexed_dir: Path, tables: List[str]) -> None:
     """Create sequential 0,1,2,... symlinks in reindexed_dir pointing into split_dir."""
     rx = re.compile(r"_(\d+)\.parquet$")
     ids = sorted(
@@ -70,10 +85,10 @@ def reindex_split(split_dir: Path, reindexed_dir: Path) -> None:
         for p in (split_dir / "truth").glob("truth_*.parquet")
         if rx.search(p.name)
     )
-    for table in TABLES:
+    for table in tables:
         (reindexed_dir / table).mkdir(parents=True, exist_ok=True)
     for new_id, old_id in enumerate(ids):
-        for table in TABLES:
+        for table in tables:
             src = (split_dir / table / f"{table}_{old_id}.parquet").resolve()
             dst =  reindexed_dir / table / f"{table}_{new_id}.parquet"
             if dst.exists():
@@ -81,7 +96,12 @@ def reindex_split(split_dir: Path, reindexed_dir: Path) -> None:
             dst.symlink_to(src)
 
 
-def build_splits(merged_raw: Path, merged_dir: Path, seed: int = 42) -> Dict[str, List[int]]:
+def build_splits(
+    merged_raw: Path,
+    merged_dir: Path,
+    tables: List[str],
+    seed: int = 42,
+) -> Dict[str, List[int]]:
     pat = re.compile(r"^truth_(\d+)\.parquet$")
     batch_ids = sorted(
         int(pat.match(p.name).group(1))
@@ -107,7 +127,7 @@ def build_splits(merged_raw: Path, merged_dir: Path, seed: int = 42) -> Dict[str
     }
 
     for split_name, ids in splits.items():
-        for table in TABLES:
+        for table in tables:
             for bid in ids:
                 src = merged_raw / table / f"{table}_{bid}.parquet"
                 dst = merged_dir / split_name / table / f"{table}_{bid}.parquet"
@@ -173,8 +193,15 @@ def summarize_conversion_logs(logdir: Path, flavor: str, geometry: str) -> None:
     print(f"  pulsemap_does_not_exist : {total_absent}")
 
 
-def dataset_name(geometry: str, flavor: str, metadata_suffix: str = "") -> str:
+def dataset_name(
+    geometry: str,
+    flavor: str,
+    metadata_suffix: str = "",
+    feature_table: str = "",
+) -> str:
     parts = [geometry, flavor.lower()]
+    if feature_table and feature_table != "features":
+        parts.append(feature_table)
     if metadata_suffix:
         parts.append(metadata_suffix)
     return "_".join(parts)
@@ -213,9 +240,10 @@ def compute_feature_percentiles(
     mc: str,
     geometry: str,
     flavor: str,
+    feature_table: str = "features",
     metadata_suffix: str = "",
 ) -> None:
-    pattern = str(train_feat_dir / "features_*.parquet")
+    pattern = str(train_feat_dir / f"{feature_table}_*.parquet")
     lf = pl.scan_parquet(pattern)
     schema = lf.collect_schema()
     exclude = {"event_no", "global_event_no"}
@@ -238,7 +266,10 @@ def compute_feature_percentiles(
 
     out_dir = Path(METADATA_ROBUSTSCALER) / mc
     out_dir.mkdir(parents=True, exist_ok=True)
-    csv_name = f"{dataset_name(geometry, flavor, metadata_suffix)}_train_feature_percentiles_p25_p50_p75.csv"
+    csv_name = (
+        f"{dataset_name(geometry, flavor, metadata_suffix, feature_table)}"
+        "_train_feature_percentiles_p25_p50_p75.csv"
+    )
     csv_path = out_dir / csv_name
     result.to_csv(str(csv_path), index=False, float_format="%.16f")
     print(f"feature percentiles -> {csv_path}")
@@ -320,18 +351,26 @@ def main() -> int:
         if args.dry_run:
             print("[DRY-RUN] would build train/val/test split dirs")
         else:
-            splits = build_splits(merged_raw=merged_raw_dir, merged_dir=merged_dir)
+            tables = parquet_tables(merged_raw_dir)
+            splits = build_splits(
+                merged_raw=merged_raw_dir,
+                merged_dir=merged_dir,
+                tables=tables,
+            )
             print(f"splits: { {k: len(v) for k, v in splits.items()} }")
+            print(f"tables: {tables}")
         log_fh.flush()
 
         # ----------------------------------------------------------------
         # 3. Build *_reindexed dirs
         # ----------------------------------------------------------------
         if not args.dry_run:
+            tables = parquet_tables(merged_raw_dir)
             for split_name in ["train", "val", "test"]:
                 reindex_split(
                     split_dir     = merged_dir / split_name,
                     reindexed_dir = merged_dir / f"{split_name}_reindexed",
+                    tables        = tables,
                 )
             print("reindexed splits: done")
         log_fh.flush()
@@ -353,13 +392,16 @@ def main() -> int:
         # 5. Feature percentiles for RobustScaler
         # ----------------------------------------------------------------
         if not args.dry_run:
-            compute_feature_percentiles(
-                train_feat_dir = merged_dir / "train" / "features",
-                mc             = args.mc,
-                geometry       = args.geometry,
-                flavor         = args.flavor,
-                metadata_suffix = args.metadata_suffix,
-            )
+            tables = parquet_tables(merged_raw_dir)
+            for feature_table in feature_tables(tables):
+                compute_feature_percentiles(
+                    train_feat_dir = merged_dir / "train" / feature_table,
+                    mc             = args.mc,
+                    geometry       = args.geometry,
+                    flavor         = args.flavor,
+                    feature_table  = feature_table,
+                    metadata_suffix = args.metadata_suffix,
+                )
         log_fh.flush()
 
         elapsed = time.time() - t_start

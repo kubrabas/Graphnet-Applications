@@ -5,7 +5,7 @@ Usage:
     python3 submit_parquet.py --mc 340StringMC --geometry 102_string --flavor Electron
     python3 submit_parquet.py --mc 340StringMC --geometry 102_string --flavor Muon Electron Tau NC
     python3 submit_parquet.py --mc 340StringMC --geometry full_geometry --flavor all
-    python3 submit_parquet.py --dry-run --mc 340StringMC --geometry 102_string --flavor Muon
+    python3 submit_parquet.py --dry-run --mc 340StringMC --geometry common_events --flavor Muon
 
 For each flavor:
   1. Reads PMT-response path and GCD from paths.py.
@@ -43,11 +43,27 @@ SCRATCH_BASE = "/home/kbas/scratch"
 NWORKERS     = 16   # CPUs per job (parallel files processed simultaneously)
 
 MC_TABLE = {
-    "340StringMC":  {"pmt_attr": "STRING340MC_PMT",  "gcd_key": "340StringMC",  "scratch": "String340MC"},
-    "Spring2026MC": {"pmt_attr": "SPRING2026MC_PMT", "gcd_key": "Spring2026MC", "scratch": "Spring2026MC"},
+    "340StringMC": {
+        "pmt_attr": "STRING340MC_PMT",
+        "gcd_key": "340StringMC",
+        "scratch": "String340MC_pone_offline_version3_plus",
+    },
+    "Spring2026MC": {
+        "pmt_attr": "SPRING2026MC_PMT",
+        "gcd_key": "Spring2026MC",
+        "scratch": "Spring2026MC",
+    },
 }
 
 ALL_FLAVORS = ["Muon", "Electron", "Tau", "NC"]
+
+PULSEMAP_BY_GEOMETRY = {
+    "common_events": "PMT_Response_nonoise_340_String",
+    "full_geometry": "PMT_Response_nonoise_340_String",
+    "340_string": "PMT_Response_nonoise_340_String",
+    "160_string": "PMT_Response_nonoise_160_String",
+    "102_string": "PMT_Response_nonoise_102_String",
+}
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -82,13 +98,61 @@ def add_suffix(path: str, suffix: Optional[str]) -> str:
     return str(p.with_name(f"{p.name}_{suffix}"))
 
 
-def outdir_from_pmt(pmt_path: str, suffix: Optional[str] = None) -> str:
-    return add_suffix(pmt_path.replace("_PMT_Response", "_Parquet"), suffix)
+def geometry_output_folder(mc: str, geometry: str, pmt_path: str) -> str:
+    if mc == "340StringMC":
+        if geometry == "common_events":
+            return "common_events"
+        if geometry == "full_geometry":
+            return "Full_Geometry"
+        return geometry
+    return Path(pmt_path).parent.name or geometry
+
+
+def outdir_from_geometry(
+    *,
+    mc: str,
+    scratch_base: str,
+    scratch: str,
+    geometry: str,
+    flavor: str,
+    pmt_path: str,
+    suffix: Optional[str] = None,
+) -> str:
+    folder = geometry_output_folder(mc, geometry, pmt_path)
+    if mc == "340StringMC":
+        outdir = f"{scratch_base}/{scratch}/Parquet/{folder}/{flavor}_Parquet"
+    else:
+        outdir = f"{scratch_base}/{scratch}/{folder}/{flavor}_Parquet"
+    return add_suffix(outdir, suffix)
 
 
 def parse_job_id(sbatch_output: str) -> Optional[str]:
     m = re.search(r"Submitted batch job (\d+)", sbatch_output)
     return m.group(1) if m else None
+
+
+def pulsemap_for_geometry(geometry: str, pulsemap: Optional[str]) -> str:
+    if pulsemap is not None:
+        return pulsemap
+    try:
+        return PULSEMAP_BY_GEOMETRY[geometry]
+    except KeyError as e:
+        raise ValueError(
+            f"No default pulsemap known for geometry={geometry}. "
+            "Pass --pulsemap explicitly."
+        ) from e
+
+
+def pmt_lookup_geometry(geometry: str) -> str:
+    if geometry == "common_events":
+        return "full_geometry"
+    return geometry
+
+
+def gcd_for_geometry(paths, mc: str, geometry: str) -> Optional[str]:
+    if geometry in {"full_geometry", "common_events"}:
+        return getattr(paths, "GCD")[mc]
+    return getattr(paths, "GCD_TRIMMED").get(mc, {}).get(geometry)
 
 
 def submit_convert(
@@ -173,14 +237,18 @@ def submit_merge(
 def main() -> int:
     ap = argparse.ArgumentParser(description="Submit Parquet jobs (single node, parallel) + auto merge")
     ap.add_argument("--mc",       required=True, choices=list(MC_TABLE))
-    ap.add_argument("--geometry", required=True, help="Sub-geometry key, e.g. 102_string")
+    ap.add_argument("--geometry", required=True, help="Dataset/geometry key, e.g. common_events or 102_string")
     ap.add_argument("--flavor",   required=True, nargs="+",
                     help=f"Flavor(s) or 'all'. Choices: {ALL_FLAVORS}")
-    ap.add_argument("--pulsemap",  default="EventPulseSeries_nonoise")
+    ap.add_argument(
+        "--pulsemap",
+        default=None,
+        help="Override pulsemap. If omitted, selected automatically from --geometry.",
+    )
     ap.add_argument("--nworkers", type=int, default=NWORKERS,
                     help=f"CPUs per job / parallel workers (default: {NWORKERS})")
-    ap.add_argument("--max-energy", type=float, default=None,
-                    help="Keep only frames with EventProperties.totalEnergy <= this value in GeV. If omitted, no energy filter is applied.")
+    ap.add_argument("--max-energy", type=float, default=1e6,
+                    help="Keep only frames with EventProperties.totalEnergy <= this value in GeV. Default: 1e6.")
     ap.add_argument("--dry-run",  action="store_true")
     args = ap.parse_args()
 
@@ -195,18 +263,21 @@ def main() -> int:
     pmt_table = getattr(paths, MC_TABLE[mc]["pmt_attr"])
     scratch   = MC_TABLE[mc]["scratch"]
 
-    if args.geometry == "full_geometry":
-        gcd = getattr(paths, "GCD")[mc]
-    else:
-        gcd = getattr(paths, "GCD_TRIMMED").get(mc, {}).get(args.geometry)
-        if gcd is None:
-            print(f"ERROR: No trimmed GCD found for mc={mc}, geometry={args.geometry} in paths.py")
-            return 1
+    gcd = gcd_for_geometry(paths, mc, args.geometry)
+    if gcd is None:
+        print(f"ERROR: No GCD found for mc={mc}, geometry={args.geometry} in paths.py")
+        return 1
+    try:
+        pulsemap = pulsemap_for_geometry(args.geometry, args.pulsemap)
+    except ValueError as e:
+        print(f"ERROR: {e}")
+        return 1
 
     print(f"\n[{mc}]  geometry={args.geometry}  nworkers={args.nworkers}")
 
     for flavor in flavors:
-        entry    = pmt_table.get(args.geometry, {}).get(flavor, {})
+        pmt_geometry = pmt_lookup_geometry(args.geometry)
+        entry    = pmt_table.get(pmt_geometry, {}).get(flavor, {})
         pmt_path = entry.get("path")
 
         if pmt_path is None:
@@ -214,7 +285,15 @@ def main() -> int:
             continue
 
         metadata_suffix = format_energy_suffix(args.max_energy)
-        outdir = outdir_from_pmt(pmt_path, metadata_suffix)
+        outdir = outdir_from_geometry(
+            mc=mc,
+            scratch_base=SCRATCH_BASE,
+            scratch=scratch,
+            geometry=args.geometry,
+            flavor=flavor,
+            pmt_path=pmt_path,
+            suffix=metadata_suffix,
+        )
         logdir = add_suffix(
             f"{SCRATCH_BASE}/{scratch}/Logs/{flavor}_{args.geometry}_Parquet",
             metadata_suffix,
@@ -236,18 +315,19 @@ def main() -> int:
             print(f"    outdir   = {outdir}")
             print(f"    gcd      = {gcd}")
             print(f"    logdir   = {logdir}")
-            print(f"    pulsemap = {args.pulsemap}")
+            print(f"    pulsemap = {pulsemap}")
             if args.max_energy is None:
                 print("    max_energy = none")
             else:
                 print(f"    max_energy = {args.max_energy:.6g} GeV")
                 print(f"    suffix   = {metadata_suffix}")
+            print("    trigger_mode = common")
             continue
 
         convert_job_id = submit_convert(
             mc=mc, flavor=flavor, geometry=args.geometry,
             indir=pmt_path, gcd=gcd, outdir=outdir, logdir=logdir,
-            n_files=n_files, pulsemap=args.pulsemap, nworkers=args.nworkers,
+            n_files=n_files, pulsemap=pulsemap, nworkers=args.nworkers,
             max_energy=args.max_energy,
         )
         if convert_job_id is None:

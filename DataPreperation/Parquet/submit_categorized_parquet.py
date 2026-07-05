@@ -6,13 +6,13 @@ Example:
         --mc 340StringMC \
         --geometry 102_string_emax1e6 \
         --flavor all \
-        --category-column category1
+        --category-column category1_isMuonCC
 
     python3 submit_categorized_parquet.py \
         --mc 340StringMC \
         --geometry full_geometry_emax1e6 \
         --flavor all \
-        --category-column category1
+        --category-column category1_isMuonCC
 
 The script first reads the existing merged/*_reindexed/truth parquet files,
 writes one CSV per flavor/category column, then submits one SLURM job for each
@@ -45,7 +45,7 @@ MC_TABLE = {
         "parquet_attr": "STRING340MC_PARQUET",
         "gcd_key": "340StringMC",
         "results": "String340MC",
-        "scratch": "String340MC",
+        "scratch": "String340MC_pone_offline_version3_plus",
     },
     "Spring2026MC": {
         "pmt_attr": "SPRING2026MC_PMT",
@@ -60,8 +60,9 @@ ALL_FLAVORS = ["Muon", "Electron", "Tau", "NC"]
 SPLITS = ["train", "val", "test"]
 EVENT_COLUMNS = ["event_no", "RunID", "SubrunID", "EventID", "SubEventID"]
 CATEGORY_DIRS = {
-    "category1": "first_category",
-    "category2": "second_category",
+    "category1_isMuonCC": "first_category",
+    "category2_tauCC_others_muonCC": "second_category",
+    "category_3_contains_muon": "third_category",
 }
 
 
@@ -324,8 +325,8 @@ def main() -> int:
     ap.add_argument("--geometry", required=True, help="Geometry key, e.g. 102_string")
     ap.add_argument("--flavor", required=True, nargs="+",
                     help=f"Flavor(s) or 'all'. Choices: {ALL_FLAVORS}")
-    ap.add_argument("--category-column", default="category1",
-                    help="Truth-table category column to split on, e.g. category1")
+    ap.add_argument("--category-column", default="category1_isMuonCC",
+                    help="Truth-table category column to split on, e.g. category1_isMuonCC")
     ap.add_argument("--nworkers", type=int, default=NWORKERS)
     ap.add_argument("--events-per-batch", type=int, default=1024)
     ap.add_argument("--overwrite", action="store_true",
