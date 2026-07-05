@@ -14,6 +14,7 @@ GCD_TRIMMED = {
     },
     "340StringMC": {
         "102_string": "/project/def-nahee/kbas/Graphnet-Applications/Metadata/GCD/340StringMC/102_string.i3.gz",
+        "160_string": "/project/def-nahee/kbas/Graphnet-Applications/Metadata/GCD/340StringMC/160_string.i3.gz",
     },
 }
 
@@ -189,22 +190,22 @@ STRING340MC_I3 = {
 
 STRING340MC_PMT = {
     "full_geometry": {
-        "Muon":     {"path": "/home/kbas/scratch/String340MC/Full_Geometry/Muon_PMT_Response", "format": "gz"},
-        "Electron": {"path": "/home/kbas/scratch/String340MC/Full_Geometry/Electron_PMT_Response", "format": "gz"},
-        "Tau":      {"path": "/home/kbas/scratch/String340MC/Full_Geometry/Tau_PMT_Response", "format": "gz"},
-        "NC":       {"path": "/home/kbas/scratch/String340MC/Full_Geometry/NC_PMT_Response", "format": "gz"},
+        "Muon":     {"path": "/home/kbas/scratch/String340MC_pone_offline_version3_plus/Muon_PMT_Response", "format": "gz"},
+        "Electron": {"path": "/home/kbas/scratch/String340MC_pone_offline_version3_plus/Electron_PMT_Response", "format": "gz"},
+        "Tau":      {"path": "/home/kbas/scratch/String340MC_pone_offline_version3_plus/Tau_PMT_Response", "format": "gz"},
+        "NC":       {"path": "/home/kbas/scratch/String340MC_pone_offline_version3_plus/NC_PMT_Response", "format": "gz"},
     },
     "102_string": {
-        "Muon":     {"path": "/home/kbas/scratch/String340MC/102_string/Muon_PMT_Response", "format": "gz"},
-        "Electron": {"path": "/home/kbas/scratch/String340MC/102_string/Electron_PMT_Response", "format": "gz"},
-        "Tau":      {"path": "/home/kbas/scratch/String340MC/102_string/Tau_PMT_Response", "format": "gz"},
-        "NC":       {"path": "/home/kbas/scratch/String340MC/102_string/NC_PMT_Response", "format": "gz"},
+        "Muon":     {"path": "/home/kbas/scratch/String340MC_pone_offline_version3_plus/Muon_PMT_Response", "format": "gz"},
+        "Electron": {"path": "/home/kbas/scratch/String340MC_pone_offline_version3_plus/Electron_PMT_Response", "format": "gz"},
+        "Tau":      {"path": "/home/kbas/scratch/String340MC_pone_offline_version3_plus/Tau_PMT_Response", "format": "gz"},
+        "NC":       {"path": "/home/kbas/scratch/String340MC_pone_offline_version3_plus/NC_PMT_Response", "format": "gz"},
     },
     "160_string": {
-        "Muon":     {"path": None, "format": None},
-        "Electron": {"path": None, "format": None},
-        "Tau":      {"path": None, "format": None},
-        "NC":       {"path": None, "format": None},
+        "Muon":     {"path": "/home/kbas/scratch/String340MC_pone_offline_version3_plus/Muon_PMT_Response", "format": "gz"},
+        "Electron": {"path": "/home/kbas/scratch/String340MC_pone_offline_version3_plus/Electron_PMT_Response", "format": "gz"},
+        "Tau":      {"path": "/home/kbas/scratch/String340MC_pone_offline_version3_plus/Tau_PMT_Response", "format": "gz"},
+        "NC":       {"path": "/home/kbas/scratch/String340MC_pone_offline_version3_plus/NC_PMT_Response", "format": "gz"},
     },
     "compact": {
         "Muon":     {"path": None, "format": None},

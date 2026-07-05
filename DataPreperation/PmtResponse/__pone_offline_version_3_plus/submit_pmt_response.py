@@ -37,6 +37,13 @@ WORKER_SH    = Path("/home/kbas/SlurmScripts/DataPreperation/submit_pmt_response
 SCRATCH_BASE = "/home/kbas/scratch"
 STRING340_V3_BASE = f"{SCRATCH_BASE}/String340MC_pone_offline_version3_plus"
 NWORKERS     = 24    # CPUs per job (parallel files processed simultaneously)
+FLAVOR_OVERRIDES = {
+    "Muon": {
+        "nworkers": 12,
+        "mem": "256G",
+        "time": "48:00:00",
+    },
+}
 
 # ---------------------------------------------------------------------------
 # MC lookup table
@@ -109,12 +116,17 @@ def submit_one(*, mc: str, mc_folder: str, geometry: str, geo_folder: str,
         logdir = f"{SCRATCH_BASE}/{mc_folder}/Logs/{flavor}_pmt_response_{geo_folder}_pone_offline_version_3"
     job_name = f"pmt_{mc}_{geometry}_{flavor}"
 
-    time_limit = "48:00:00" if flavor == "Muon" else None
+    overrides = FLAVOR_OVERRIDES.get(flavor, {})
+    effective_nworkers = overrides.get("nworkers", nworkers)
+    mem = overrides.get("mem")
+    time_limit = overrides.get("time")
     cmd = [
         "sbatch",
         f"--job-name={job_name}",
-        f"--cpus-per-task={nworkers}",
+        f"--cpus-per-task={effective_nworkers}",
     ]
+    if mem is not None:
+        cmd.append(f"--mem={mem}")
     if time_limit is not None:
         cmd.append(f"--time={time_limit}")
     cmd.extend([
@@ -129,13 +141,14 @@ def submit_one(*, mc: str, mc_folder: str, geometry: str, geo_folder: str,
             f"OUTDIR={outdir},"
             f"LOGDIR={logdir},"
             f"WITH_FIRST_3_LAYERS={'1' if with_first_3_layers else '0'},"
-            f"NWORKERS={nworkers}"
+            f"NWORKERS={effective_nworkers}"
         ),
         str(WORKER_SH),
     ])
 
+    mem_msg = f", mem={mem}" if mem is not None else ""
     time_msg = f", time={time_limit}" if time_limit is not None else ""
-    print(f"  {'[DRY-RUN] ' if dry_run else ''}submitting: {job_name}  ({n} files, {nworkers} workers{time_msg})")
+    print(f"  {'[DRY-RUN] ' if dry_run else ''}submitting: {job_name}  ({n} files, {effective_nworkers} workers{mem_msg}{time_msg})")
     if dry_run:
         print("  cmd:", " ".join(cmd))
         return
