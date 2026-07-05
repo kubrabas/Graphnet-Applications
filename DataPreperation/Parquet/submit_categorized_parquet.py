@@ -14,10 +14,10 @@ Example:
         --flavor all \
         --category-column category1_isMuonCC
 
-The script first reads the existing merged/*_reindexed/truth parquet files,
-writes one CSV per flavor/category column, then submits one SLURM job for each
-observed category value and split. The worker filters existing parquet files;
-it does not re-read I3 files.
+The script first reads the existing raw truth parquet files, writes one CSV per
+flavor/category column, then submits one SLURM job per flavor. The worker
+filters by category before computing train/val/test splits; it does not re-read
+I3 files.
 """
 
 import argparse
@@ -38,6 +38,7 @@ CATEGORY_INFO_BASE = Path(
 WORKER_SH = Path("/home/kbas/SlurmScripts/DataPreperation/submit_categorized_parquet.sh")
 SCRATCH_BASE = Path("/home/kbas/scratch")
 NWORKERS = 16
+DEFAULT_EVENTS_PER_BATCH = 256
 
 MC_TABLE = {
     "340StringMC": {
@@ -148,9 +149,8 @@ def parquet_dataset_label(parquet_base: Path, flavor: str) -> str:
     )
 
 
-def read_split_events(
-    split_dir: Path,
-    split: str,
+def read_dataset_events(
+    parquet_base: Path,
     category_column: str,
 ):
     try:
@@ -162,28 +162,30 @@ def read_split_events(
             "(for example after loading scipy-stack/2023b on the cluster)."
         ) from e
 
-    truth_dir = split_dir / "truth"
+    truth_dir = parquet_base / "truth"
     truth_files = sorted(truth_dir.glob("*.parquet"))
     if not truth_files:
         raise FileNotFoundError(f"No truth parquet files found in {truth_dir}")
 
-    schema = pl.scan_parquet(str(truth_dir / "*.parquet")).collect_schema()
-    missing = [c for c in EVENT_COLUMNS + [category_column] if c not in schema]
+    first_truth = pl.read_parquet(truth_files[0], n_rows=0)
+    missing = [c for c in EVENT_COLUMNS + [category_column] if c not in first_truth.columns]
     if missing:
         raise ValueError(f"Missing columns {missing} in {truth_dir}")
 
-    return (
-        pl.scan_parquet(str(truth_dir / "*.parquet"))
-        .select(
-            [pl.col(c) for c in EVENT_COLUMNS]
-            + [
-                pl.lit(split).alias("split"),
+    columns = EVENT_COLUMNS + [category_column]
+    parts = []
+    for truth_file in truth_files:
+        part = (
+            pl.read_parquet(truth_file, columns=columns)
+            .with_columns(
                 pl.lit(category_column).alias("category_column"),
                 pl.col(category_column).alias("category_value"),
-            ]
+            )
+            .drop(category_column)
         )
-        .collect()
-    )
+        parts.append(part)
+
+    return pl.concat(parts, how="vertical")
 
 
 def write_event_list_csv(
@@ -205,13 +207,7 @@ def write_event_list_csv(
     out_path = out_dir / f"{dataset_label}_{category_column}_events.csv"
 
     if dry_run:
-        split_dirs = [
-            split_dir_from_paths(paths, mc, geometry, flavor, split)
-            for split in SPLITS
-        ]
-        print(f"  [DRY-RUN] would read split dirs:")
-        for split, split_dir in zip(SPLITS, split_dirs):
-            print(f"    {split}: {split_dir}")
+        print(f"  [DRY-RUN] would read truth dir: {parquet_base / 'truth'}")
         print(f"  [DRY-RUN] would write event CSV: {out_path}")
         print("  [DRY-RUN] category values will be read from the generated CSV")
         return out_path, []
@@ -225,16 +221,11 @@ def write_event_list_csv(
             "(for example after loading scipy-stack/2023b on the cluster)."
         ) from e
 
-    split_frames = [
-        read_split_events(
-            split_dir=split_dir_from_paths(paths, mc, geometry, flavor, split),
-            split=split,
-            category_column=category_column,
-        )
-        for split in SPLITS
-    ]
-    combined = pl.concat(split_frames).unique(
-        subset=["RunID", "SubrunID", "EventID", "SubEventID", "split"],
+    combined = read_dataset_events(
+        parquet_base=parquet_base,
+        category_column=category_column,
+    ).unique(
+        subset=["RunID", "SubrunID", "EventID", "SubEventID"],
         maintain_order=True,
     )
 
@@ -255,6 +246,8 @@ def submit_category_workflow(
     nworkers: int,
     events_per_batch: int,
     overwrite: bool,
+    dependency: Optional[str],
+    exclude_nodes: Optional[str],
     dry_run: bool,
 ) -> Optional[str]:
     parquet_base = source_parquet_outdir(
@@ -294,6 +287,10 @@ def submit_category_workflow(
         f"--export={export_vars}",
         str(WORKER_SH),
     ]
+    if dependency:
+        cmd.insert(2, f"--dependency={dependency}")
+    if exclude_nodes:
+        cmd.insert(2, f"--exclude={exclude_nodes}")
     if dry_run:
         print(f"    [DRY-RUN] {' '.join(cmd)}")
         return None
@@ -328,9 +325,13 @@ def main() -> int:
     ap.add_argument("--category-column", default="category1_isMuonCC",
                     help="Truth-table category column to split on, e.g. category1_isMuonCC")
     ap.add_argument("--nworkers", type=int, default=NWORKERS)
-    ap.add_argument("--events-per-batch", type=int, default=1024)
+    ap.add_argument("--events-per-batch", type=int, default=DEFAULT_EVENTS_PER_BATCH)
     ap.add_argument("--overwrite", action="store_true",
                     help="Overwrite existing categorized parquet outputs.")
+    ap.add_argument("--dependency", default=None,
+                    help="Optional SLURM dependency, e.g. afterok:123456.")
+    ap.add_argument("--exclude-nodes", default=None,
+                    help="Optional comma-separated SLURM node exclude list, e.g. fc30564.")
     ap.add_argument("--dry-run", action="store_true")
     args = ap.parse_args()
 
@@ -358,6 +359,8 @@ def main() -> int:
             nworkers=args.nworkers,
             events_per_batch=args.events_per_batch,
             overwrite=args.overwrite,
+            dependency=args.dependency,
+            exclude_nodes=args.exclude_nodes,
             dry_run=args.dry_run,
         )
 

@@ -30,7 +30,12 @@ import re
 import subprocess
 from glob import glob
 from pathlib import Path
-from typing import Optional
+from typing import List, Optional
+
+from submit_categorized_parquet import (
+    DEFAULT_EVENTS_PER_BATCH,
+    submit_category_workflow,
+)
 
 # ---------------------------------------------------------------------------
 # Paths / tables
@@ -56,6 +61,11 @@ MC_TABLE = {
 }
 
 ALL_FLAVORS = ["Muon", "Electron", "Tau", "NC"]
+DEFAULT_CATEGORY_COLUMNS = [
+    "category1_isMuonCC",
+    "category2_tauCC_others_muonCC",
+    "category_3_contains_muon",
+]
 
 PULSEMAP_BY_GEOMETRY = {
     "common_events": "PMT_Response_nonoise_340_String",
@@ -96,6 +106,19 @@ def add_suffix(path: str, suffix: Optional[str]) -> str:
         return path
     p = Path(path)
     return str(p.with_name(f"{p.name}_{suffix}"))
+
+
+def paths_suffix(suffix: Optional[str]) -> str:
+    if suffix is None:
+        return ""
+    return suffix[:1].lower() + suffix[1:]
+
+
+def categorized_geometry_key(geometry: str, metadata_suffix: Optional[str]) -> str:
+    suffix = paths_suffix(metadata_suffix)
+    if not suffix:
+        return geometry
+    return f"{geometry}_{suffix}"
 
 
 def geometry_output_folder(mc: str, geometry: str, pmt_path: str) -> str:
@@ -206,7 +229,7 @@ def submit_merge(
     logdir: str,
     convert_job_id: str,
     metadata_suffix: Optional[str],
-) -> None:
+) -> Optional[str]:
     export_vars = (
         f"MC={mc},"
         f"FLAVOR={flavor},"
@@ -221,13 +244,46 @@ def submit_merge(
     cmd = [
         "sbatch",
         f"--job-name={job_name}",
-        f"--dependency=afterany:{convert_job_id}",
+        f"--dependency=afterok:{convert_job_id}",
         f"--export={export_vars}",
         str(MERGE_SH),
     ]
     result = subprocess.run(cmd, capture_output=True, text=True, check=True)
     merge_job_id = parse_job_id(result.stdout)
     print(f"  chained:   {job_name}  job_id={merge_job_id}  (runs after completion of {convert_job_id})")
+    return merge_job_id
+
+
+def submit_categories_after_dependency(
+    *,
+    paths,
+    mc: str,
+    flavor: str,
+    geometry: str,
+    metadata_suffix: Optional[str],
+    dependency_job_id: str,
+    category_columns: List[str],
+    nworkers: int,
+    events_per_batch: int,
+    overwrite: bool,
+    dry_run: bool,
+) -> None:
+    category_geometry = categorized_geometry_key(geometry, metadata_suffix)
+    dependency = f"afterok:{dependency_job_id}"
+    for category_column in category_columns:
+        submit_category_workflow(
+            paths=paths,
+            mc=mc,
+            geometry=category_geometry,
+            flavor=flavor,
+            category_column=category_column,
+            nworkers=nworkers,
+            events_per_batch=events_per_batch,
+            overwrite=overwrite,
+            dependency=dependency,
+            exclude_nodes=None,
+            dry_run=dry_run,
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -235,7 +291,7 @@ def submit_merge(
 # ---------------------------------------------------------------------------
 
 def main() -> int:
-    ap = argparse.ArgumentParser(description="Submit Parquet jobs (single node, parallel) + auto merge")
+    ap = argparse.ArgumentParser(description="Submit Parquet conversion jobs and optional categorized splits")
     ap.add_argument("--mc",       required=True, choices=list(MC_TABLE))
     ap.add_argument("--geometry", required=True, help="Dataset/geometry key, e.g. common_events or 102_string")
     ap.add_argument("--flavor",   required=True, nargs="+",
@@ -249,6 +305,16 @@ def main() -> int:
                     help=f"CPUs per job / parallel workers (default: {NWORKERS})")
     ap.add_argument("--max-energy", type=float, default=1e6,
                     help="Keep only frames with EventProperties.totalEnergy <= this value in GeV. Default: 1e6.")
+    ap.add_argument("--with-categories", action="store_true",
+                    help="After conversion succeeds, submit categorized parquet jobs.")
+    ap.add_argument("--with-merge", action="store_true",
+                    help="Also submit the old merged_raw/merged train-val-test workflow.")
+    ap.add_argument("--category-columns", nargs="+", default=DEFAULT_CATEGORY_COLUMNS,
+                    help="Category columns to build when --with-categories is set.")
+    ap.add_argument("--category-events-per-batch", type=int, default=DEFAULT_EVENTS_PER_BATCH,
+                    help=f"Categorized output events per batch (default: {DEFAULT_EVENTS_PER_BATCH}).")
+    ap.add_argument("--category-overwrite", action="store_true",
+                    help="Overwrite existing categorized parquet outputs.")
     ap.add_argument("--dry-run",  action="store_true")
     args = ap.parse_args()
 
@@ -322,6 +388,11 @@ def main() -> int:
                 print(f"    max_energy = {args.max_energy:.6g} GeV")
                 print(f"    suffix   = {metadata_suffix}")
             print("    trigger_mode = common")
+            if args.with_categories:
+                category_geometry = categorized_geometry_key(args.geometry, metadata_suffix)
+                print(f"    with_categories = {args.category_columns}")
+                print(f"    category_geometry = {category_geometry}")
+                print(f"    category_events_per_batch = {args.category_events_per_batch}")
             continue
 
         convert_job_id = submit_convert(
@@ -334,12 +405,30 @@ def main() -> int:
             print(f"  [error] {flavor}: could not parse job ID from sbatch output")
             return 1
 
-        submit_merge(
-            mc=mc, flavor=flavor, geometry=args.geometry,
-            outdir=outdir, logdir=logdir,
-            convert_job_id=convert_job_id,
-            metadata_suffix=metadata_suffix,
-        )
+        if args.with_categories:
+            submit_categories_after_dependency(
+                paths=paths,
+                mc=mc,
+                flavor=flavor,
+                geometry=args.geometry,
+                metadata_suffix=metadata_suffix,
+                dependency_job_id=convert_job_id,
+                category_columns=args.category_columns,
+                nworkers=args.nworkers,
+                events_per_batch=args.category_events_per_batch,
+                overwrite=args.category_overwrite,
+                dry_run=args.dry_run,
+            )
+        if args.with_merge or not args.with_categories:
+            merge_job_id = submit_merge(
+                mc=mc, flavor=flavor, geometry=args.geometry,
+                outdir=outdir, logdir=logdir,
+                convert_job_id=convert_job_id,
+                metadata_suffix=metadata_suffix,
+            )
+            if merge_job_id is None:
+                print(f"  [error] {flavor}: could not parse merge job ID from sbatch output")
+                return 1
 
     return 0
 

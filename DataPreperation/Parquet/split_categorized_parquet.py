@@ -6,6 +6,8 @@ then filters the matching feature rows by event_no.
 """
 
 import argparse
+import json
+import random
 import re
 import sys
 import time
@@ -14,6 +16,10 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Tuple
 from zoneinfo import ZoneInfo
+
+SPLITS = ["train", "val", "test"]
+EVENT_ID_COLS = ["RunID", "SubrunID", "EventID", "SubEventID"]
+
 
 def category_value_label(value: str) -> str:
     text = str(value).replace("-", "minus").replace(".", "p")
@@ -25,6 +31,27 @@ def batch_id(path: Path) -> int:
     if match is None:
         raise ValueError(f"Could not parse batch id from {path}")
     return int(match.group(1))
+
+
+def truth_stem(path: Path) -> str:
+    if not path.name.endswith("_truth.parquet"):
+        raise ValueError(f"Unexpected truth parquet name: {path}")
+    return path.name[: -len("_truth.parquet")]
+
+
+def truth_files_in(truth_dir: Path) -> List[Path]:
+    files = sorted(truth_dir.glob("*_truth.parquet"))
+    if files:
+        return files
+    return sorted(truth_dir.glob("truth_*.parquet"), key=batch_id)
+
+
+def feature_file_for_truth(source_dataset_dir: Path, table: str, truth_file: Path) -> Path:
+    if truth_file.name.startswith("truth_"):
+        bid = batch_id(truth_file)
+        return source_dataset_dir / table / f"{table}_{bid}.parquet"
+    stem = truth_stem(truth_file)
+    return source_dataset_dir / table / f"{stem}_{table}.parquet"
 
 
 def parquet_tables(source_split_dir: Path) -> List[str]:
@@ -50,6 +77,24 @@ def prepare_output(outdir: Path, tables: List[str], overwrite: bool) -> bool:
 
     if existing and not overwrite:
         print(f"Output already exists, skipping: {outdir}")
+        return False
+
+    if overwrite:
+        for path in existing:
+            path.unlink()
+    return True
+
+
+def prepare_dataset_output(outbase: Path, tables: List[str], overwrite: bool) -> bool:
+    existing = []
+    for split in SPLITS:
+        for table in tables:
+            table_dir = outbase / split / table
+            table_dir.mkdir(parents=True, exist_ok=True)
+            existing.extend(table_dir.glob("*.parquet"))
+
+    if existing and not overwrite:
+        print(f"Output already exists, skipping: {outbase}")
         return False
 
     if overwrite:
@@ -87,6 +132,229 @@ def write_batch(
         features_batch.write_parquet(features_out)
         feature_rows[table] = features_batch.height
     return truth_batch.height, feature_rows
+
+
+def event_key_columns(truth) -> List[str]:
+    if all(c in truth.columns for c in EVENT_ID_COLS):
+        return EVENT_ID_COLS
+    if "event_no" in truth.columns:
+        return ["event_no"]
+    raise ValueError(f"Missing event identifiers. Need {EVENT_ID_COLS} or event_no.")
+
+
+def split_event_keys(keys, seed: int = 42) -> Dict[str, object]:
+    import polars as pl
+
+    key_cols = keys.columns
+    schema = keys.schema
+
+    def empty_keys():
+        return pl.DataFrame({
+            col: pl.Series(col, [], dtype=schema[col])
+            for col in key_cols
+        })
+
+    rows = keys.unique(maintain_order=True).sort(key_cols).to_dicts()
+    rng = random.Random(seed)
+    rng.shuffle(rows)
+
+    n = len(rows)
+    n_train = int(0.8 * n)
+    n_val = int(0.1 * n)
+    split_rows = {
+        "train": rows[:n_train],
+        "val": rows[n_train:n_train + n_val],
+        "test": rows[n_train + n_val:],
+    }
+    return {
+        split: pl.DataFrame(split_rows[split], schema=schema)
+        if split_rows[split]
+        else empty_keys()
+        for split in SPLITS
+    }
+
+
+def write_split_batches(
+    outdir: Path,
+    truth_split,
+    feature_splits: Dict[str, object],
+    events_per_batch: int,
+) -> Tuple[int, Dict[str, int], int]:
+    import polars as pl
+
+    event_ids = truth_split.select("event_no").unique(maintain_order=True)
+    truth_rows = 0
+    feature_rows = {table: 0 for table in feature_splits}
+    out_batch = 0
+
+    for start in range(0, event_ids.height, events_per_batch):
+        event_batch = event_ids.slice(start, events_per_batch)
+        truth_batch = truth_split.join(event_batch, on="event_no", how="inner")
+        feature_batches = {
+            table: features.join(event_batch, on="event_no", how="inner")
+            for table, features in feature_splits.items()
+        }
+        n_truth, n_features = write_batch(
+            outdir=outdir,
+            out_batch=out_batch,
+            truth_batch=truth_batch,
+            feature_batches=feature_batches,
+        )
+        truth_rows += n_truth
+        for table, n_rows in n_features.items():
+            feature_rows[table] += n_rows
+        out_batch += 1
+
+    return truth_rows, feature_rows, out_batch
+
+
+def split_category_dataset(
+    source_dataset_dir: Path,
+    outbase: Path,
+    category_column: str,
+    category_value: str,
+    events_per_batch: int,
+    overwrite: bool,
+    seed: int = 42,
+) -> dict:
+    import polars as pl
+
+    tables = parquet_tables(source_dataset_dir)
+    feature_table_names = [t for t in tables if t != "truth"]
+    truth_dir = source_dataset_dir / "truth"
+    truth_files = truth_files_in(truth_dir)
+    if not truth_files:
+        raise FileNotFoundError(f"No truth parquet files found in {truth_dir}")
+
+    if not prepare_dataset_output(outbase, tables, overwrite):
+        return {
+            "source_truth_files": len(truth_files),
+            "tables": tables,
+            "events_per_batch": events_per_batch,
+            "skipped_existing": True,
+        }
+
+    truth_parts = []
+    feature_parts: Dict[str, List[pl.DataFrame]] = {
+        table: [] for table in feature_table_names
+    }
+
+    for truth_file in truth_files:
+        feature_files = {
+            table: feature_file_for_truth(source_dataset_dir, table, truth_file)
+            for table in feature_table_names
+        }
+        missing = [str(path) for path in feature_files.values() if not path.exists()]
+        if missing:
+            raise FileNotFoundError(f"Missing matching feature file(s): {missing}")
+
+        truth = pl.read_parquet(truth_file)
+        if category_column not in truth.columns:
+            raise ValueError(f"Missing column {category_column} in {truth_file}")
+        if "event_no" not in truth.columns:
+            raise ValueError(f"Missing event_no in {truth_file}")
+
+        truth_filtered = truth.filter(
+            pl.col(category_column).cast(pl.Utf8) == str(category_value)
+        )
+        if truth_filtered.is_empty():
+            continue
+
+        event_ids = truth_filtered.select("event_no").unique()
+        truth_parts.append(truth_filtered)
+        for table, feature_file in feature_files.items():
+            features = pl.read_parquet(feature_file)
+            if "event_no" not in features.columns:
+                raise ValueError(f"Missing event_no in {feature_file}")
+            feature_parts[table].append(features.join(event_ids, on="event_no", how="inner"))
+
+    if not truth_parts:
+        manifest = {
+            "seed": seed,
+            "fractions": {"train": 0.8, "val": 0.1, "test": 0.1},
+            "category_column": category_column,
+            "category_value": str(category_value),
+            "events_per_batch": events_per_batch,
+            "split_event_counts": {split: 0 for split in SPLITS},
+            "output_batches": {split: 0 for split in SPLITS},
+        }
+        with open(outbase / "split_manifest.json", "w") as f:
+            json.dump(manifest, f, indent=2)
+        return {
+            "source_truth_files": len(truth_files),
+            "tables": tables,
+            "events_per_batch": events_per_batch,
+            "truth_rows": {split: 0 for split in SPLITS},
+            "feature_rows": {
+                split: {table: 0 for table in feature_table_names}
+                for split in SPLITS
+            },
+            "output_batches": {split: 0 for split in SPLITS},
+            "skipped_existing": False,
+        }
+
+    truth_all = pl.concat(truth_parts)
+    feature_all = {
+        table: pl.concat(parts) if parts else pl.DataFrame()
+        for table, parts in feature_parts.items()
+    }
+    key_cols = event_key_columns(truth_all)
+    split_keys = split_event_keys(truth_all.select(key_cols), seed=seed)
+
+    truth_rows = {}
+    feature_rows = {}
+    output_batches = {}
+    split_event_counts = {}
+
+    for split in SPLITS:
+        keys = split_keys[split]
+        split_event_counts[split] = keys.height
+        split_outdir = outbase / split
+        if keys.is_empty():
+            truth_rows[split] = 0
+            feature_rows[split] = {table: 0 for table in feature_table_names}
+            output_batches[split] = 0
+            continue
+
+        truth_split = truth_all.join(keys, on=key_cols, how="inner")
+        event_ids = truth_split.select("event_no").unique()
+        feature_splits = {
+            table: features.join(event_ids, on="event_no", how="inner")
+            for table, features in feature_all.items()
+        }
+        n_truth, n_features, n_batches = write_split_batches(
+            outdir=split_outdir,
+            truth_split=truth_split,
+            feature_splits=feature_splits,
+            events_per_batch=events_per_batch,
+        )
+        truth_rows[split] = n_truth
+        feature_rows[split] = n_features
+        output_batches[split] = n_batches
+
+    manifest = {
+        "seed": seed,
+        "fractions": {"train": 0.8, "val": 0.1, "test": 0.1},
+        "category_column": category_column,
+        "category_value": str(category_value),
+        "event_key_columns": key_cols,
+        "events_per_batch": events_per_batch,
+        "split_event_counts": split_event_counts,
+        "output_batches": output_batches,
+    }
+    with open(outbase / "split_manifest.json", "w") as f:
+        json.dump(manifest, f, indent=2)
+
+    return {
+        "source_truth_files": len(truth_files),
+        "tables": tables,
+        "event_key_columns": key_cols,
+        "events_per_batch": events_per_batch,
+        "truth_rows": truth_rows,
+        "feature_rows": feature_rows,
+        "output_batches": output_batches,
+        "skipped_existing": False,
+    }
 
 
 def split_category(
@@ -224,7 +492,7 @@ def main() -> int:
     ap.add_argument("--split", required=True, choices=["train", "val", "test"])
     ap.add_argument("--category-column", required=True)
     ap.add_argument("--category-value", required=True)
-    ap.add_argument("--events-per-batch", type=int, default=1024)
+    ap.add_argument("--events-per-batch", type=int, default=256)
     ap.add_argument("--overwrite", action="store_true")
     args = ap.parse_args()
 

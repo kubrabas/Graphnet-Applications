@@ -1,9 +1,9 @@
 """
 Run the full categorized parquet workflow for one flavor inside SLURM.
 
-This worker runs in the IceTray/GraphNeT container. It reads existing merged
-parquet splits, writes the event-list CSV, then writes categorized parquet
-outputs for all category values and train/val/test splits.
+This worker runs in the IceTray/GraphNeT container. It reads existing raw
+per-file parquet files, writes the event-list CSV, then writes categorized
+parquet outputs. Category filtering happens before train/val/test splitting.
 """
 
 import argparse
@@ -11,15 +11,13 @@ from pathlib import Path
 
 from submit_categorized_parquet import (
     MC_TABLE,
-    SPLITS,
     category_parent,
     category_value_label,
     load_paths,
     source_parquet_outdir,
-    split_dir_from_paths,
     write_event_list_csv,
 )
-from split_categorized_parquet import split_category
+from split_categorized_parquet import split_category_dataset
 
 
 def main() -> int:
@@ -30,7 +28,7 @@ def main() -> int:
     ap.add_argument("--geometry", required=True)
     ap.add_argument("--flavor", required=True)
     ap.add_argument("--category-column", required=True)
-    ap.add_argument("--events-per-batch", type=int, default=1024)
+    ap.add_argument("--events-per-batch", type=int, default=256)
     ap.add_argument("--overwrite", action="store_true")
     args = ap.parse_args()
 
@@ -58,33 +56,25 @@ def main() -> int:
         geometry=args.geometry,
         flavor=args.flavor,
     )
+    source_dataset_dir = parquet_base
     for value in values:
         value_dir = category_value_label(value)
         print(f"category_value={value} -> {value_dir}")
 
-        for split in SPLITS:
-            source_split_dir = split_dir_from_paths(
-                paths=paths,
-                mc=args.mc,
-                geometry=args.geometry,
-                flavor=args.flavor,
-                split=split,
-            )
-            outdir = parquet_base / "categorized" / category_root / value_dir / split
-            outdir.mkdir(parents=True, exist_ok=True)
+        outbase = parquet_base / "categorized" / category_root / value_dir
+        outbase.mkdir(parents=True, exist_ok=True)
 
-            print(f"  split={split}")
-            print(f"    source={source_split_dir}")
-            print(f"    outdir={outdir}")
-            stats = split_category(
-                source_split_dir=source_split_dir,
-                outdir=outdir,
-                category_column=args.category_column,
-                category_value=value,
-                events_per_batch=args.events_per_batch,
-                overwrite=args.overwrite,
-            )
-            print(f"    stats={stats}")
+        print(f"  source={source_dataset_dir}")
+        print(f"  outbase={outbase}")
+        stats = split_category_dataset(
+            source_dataset_dir=source_dataset_dir,
+            outbase=outbase,
+            category_column=args.category_column,
+            category_value=value,
+            events_per_batch=args.events_per_batch,
+            overwrite=args.overwrite,
+        )
+        print(f"  stats={stats}")
 
     print(f"event CSV -> {event_csv}")
     print("done")
