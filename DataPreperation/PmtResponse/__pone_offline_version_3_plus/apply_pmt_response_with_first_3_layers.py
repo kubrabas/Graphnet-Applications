@@ -196,22 +196,33 @@ def add_trigger_flags(frame):
     if frame.Stop != icetray.I3Frame.DAQ:
         return True
 
+    response_sources = [
+        ("_noisy", "PMT_Response"),
+        ("_nonoise", "PMT_Response_nonoise"),
+    ]
+
     for layout in [FULL_LAYOUT] + SUB_LAYOUTS:
         strings = LAYOUT_STRINGS[layout]
-        response_key = f"PMT_Response_{LAYOUT_OUTPUT_LABELS[layout]}"
-        if response_key not in frame:
-            frame[f"triggered_{layout}"] = dataclasses.I3Double(0.0)
-            frame[f"trigger_time_{layout}"] = dataclasses.I3Double(-1.0)
-            continue
+        label = LAYOUT_OUTPUT_LABELS[layout]
 
-        pmt_response = frame[response_key]
-        trigger_time = first_dom_trigger_time(pmt_response, strings)
-        triggered = trigger_time is not None
+        for key_suffix, response_prefix in response_sources:
+            response_key = f"{response_prefix}_{label}"
+            triggered_key = f"triggered{key_suffix}_{layout}"
+            trigger_time_key = f"trigger_time{key_suffix}_{layout}"
 
-        frame[f"triggered_{layout}"] = dataclasses.I3Double(float(triggered))
-        frame[f"trigger_time_{layout}"] = dataclasses.I3Double(
-            float(trigger_time) if triggered else -1.0
-        )
+            if response_key not in frame:
+                frame[triggered_key] = dataclasses.I3Double(0.0)
+                frame[trigger_time_key] = dataclasses.I3Double(-1.0)
+                continue
+
+            pmt_response = frame[response_key]
+            trigger_time = first_dom_trigger_time(pmt_response, strings)
+            triggered = trigger_time is not None
+
+            frame[triggered_key] = dataclasses.I3Double(float(triggered))
+            frame[trigger_time_key] = dataclasses.I3Double(
+                float(trigger_time) if triggered else -1.0
+            )
 
     return True
 

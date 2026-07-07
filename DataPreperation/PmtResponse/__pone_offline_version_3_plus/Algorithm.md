@@ -40,7 +40,7 @@ PMT_Response_nonoise_340_String
 7. The 160-string and 102-string maps are derived by string subselection from
    the full 340-string maps.
 8. Trigger flags and trigger times are computed separately for the 340, 160 and
-   102 string layouts.
+   102 string layouts, both for signal+noise and signal-only PMT response maps.
 9. The DAQ and Simulation frames are written to the output I3 file.
 
 ## Output frame keys
@@ -231,7 +231,8 @@ Metadata/GeometryFiles/string_coordinates_340_string_mc.csv
 
 ## Trigger calculation
 
-Triggering is computed independently for each geometry:
+Triggering is computed independently for each geometry. The original trigger
+keys use the signal+noise PMT response maps:
 
 ```text
 340_string trigger uses PMT_Response_340_String
@@ -239,17 +240,40 @@ Triggering is computed independently for each geometry:
 102_string trigger uses PMT_Response_102_String
 ```
 
-So yes: each geometry uses its own noisy PMT response map.
-
-The no-noise maps are not used for the trigger:
+These keys are written:
 
 ```text
-PMT_Response_nonoise_340_String
-PMT_Response_nonoise_160_String
-PMT_Response_nonoise_102_String
+triggered_noisy_340_string
+trigger_time_noisy_340_string
+
+triggered_noisy_160_string
+trigger_time_noisy_160_string
+
+triggered_noisy_102_string
+trigger_time_noisy_102_string
 ```
 
-are signal-only diagnostic maps, not trigger inputs.
+The worker also computes the same trigger condition on the signal-only response
+maps:
+
+```text
+340_string nonoise trigger uses PMT_Response_nonoise_340_String
+160_string nonoise trigger uses PMT_Response_nonoise_160_String
+102_string nonoise trigger uses PMT_Response_nonoise_102_String
+```
+
+These signal-only trigger keys are written:
+
+```text
+triggered_nonoise_340_string
+trigger_time_nonoise_340_string
+
+triggered_nonoise_160_string
+trigger_time_nonoise_160_string
+
+triggered_nonoise_102_string
+trigger_time_nonoise_102_string
+```
 
 The trigger condition is:
 
@@ -260,33 +284,24 @@ hits on at least 3 distinct PMTs
 ```
 
 The first time at which this condition is satisfied becomes the trigger time
-for that geometry.
-
-The worker writes:
-
-```text
-triggered_340_string
-trigger_time_340_string
-
-triggered_160_string
-trigger_time_160_string
-
-triggered_102_string
-trigger_time_102_string
-```
+for that geometry and response type.
 
 If no DOM satisfies the trigger condition:
 
 ```text
-triggered_<layout> = 0.0
-trigger_time_<layout> = -1.0
+triggered_noisy_<layout> = 0.0
+trigger_time_noisy_<layout> = -1.0
+triggered_nonoise_<layout> = 0.0
+trigger_time_nonoise_<layout> = -1.0
 ```
 
 If at least one DOM satisfies the trigger condition:
 
 ```text
-triggered_<layout> = 1.0
-trigger_time_<layout> = earliest trigger time
+triggered_noisy_<layout> = 1.0
+trigger_time_noisy_<layout> = earliest signal+noise trigger time
+triggered_nonoise_<layout> = 1.0
+trigger_time_nonoise_<layout> = earliest signal-only trigger time
 ```
 
 ## Frame writing behavior

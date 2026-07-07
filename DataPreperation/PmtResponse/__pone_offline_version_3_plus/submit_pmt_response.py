@@ -36,10 +36,10 @@ PATHS_PY     = "/project/def-nahee/kbas/Graphnet-Applications/Metadata/paths.py"
 WORKER_SH    = Path("/home/kbas/SlurmScripts/DataPreperation/submit_pmt_response__pone_offline_version_3_plus.sh")
 SCRATCH_BASE = "/home/kbas/scratch"
 STRING340_V3_BASE = f"{SCRATCH_BASE}/String340MC_pone_offline_version3_plus"
-NWORKERS     = 24    # CPUs per job (parallel files processed simultaneously)
+NWORKERS     = 32    # CPUs per job (parallel files processed simultaneously)
 FLAVOR_OVERRIDES = {
     "Muon": {
-        "nworkers": 12,
+        "nworkers": 20,
         "mem": "256G",
         "time": "48:00:00",
     },
