@@ -5,6 +5,7 @@ import argparse
 import csv
 import importlib.util
 import os
+import shutil
 import sys
 import time
 from concurrent.futures import ProcessPoolExecutor, as_completed
@@ -214,9 +215,7 @@ def main() -> int:
     indir = Path(args.indir).resolve()
     out = Path(args.out).resolve() if args.out else (DEFAULT_OUTDIR / f"{args.flavor}.csv").resolve()
     logdir = Path(args.logdir).resolve() if args.logdir else out.parent
-    chunks = logdir / "chunks"
     logdir.mkdir(parents=True, exist_ok=True)
-    chunks.mkdir(parents=True, exist_ok=True)
 
     gcd_file = args.gcd or paths.GCD["340StringMC"]
     inputs = discover_inputs(indir, args.pattern)
@@ -226,6 +225,8 @@ def main() -> int:
 
     nworkers = args.nworkers or int(os.environ.get("SLURM_CPUS_PER_TASK", 4))
     job_id = os.environ.get("SLURM_JOB_ID", "local")
+    chunks = logdir / "chunks" / f"{args.flavor}_{job_id}"
+    chunks.mkdir(parents=True, exist_ok=True)
     started = datetime.now(BERLIN_TZ)
     summary_log = logdir / f"truth_level_statistics_{args.flavor}_{job_id}.log"
 
@@ -274,6 +275,7 @@ def main() -> int:
                 )
 
         merge_chunks(results, out)
+        shutil.rmtree(chunks)
 
         n_success = sum(result["status"] == "success" for result in results)
         n_skipped = sum(result["status"] == "skipped" for result in results)
