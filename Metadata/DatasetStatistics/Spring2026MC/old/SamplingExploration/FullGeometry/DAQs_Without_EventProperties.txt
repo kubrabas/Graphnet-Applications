@@ -1,1 +1,0 @@
-# flavor_file_path	daq_index
