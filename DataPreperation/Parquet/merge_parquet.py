@@ -7,8 +7,7 @@ After all convert_parquet.py SLURM array tasks finish, this script:
   3. Builds 80/10/10 train/val/test splits as symlinks into merged_raw/.
   4. Builds *_reindexed/ dirs (sequential 0,1,2,... symlinks for ParquetDataset).
   5. Writes split_manifest.json.
-  6. Extracts unique event IDs from truth table -> saves triggered_events.csv.
-  7. Computes p25/p50/p75 feature percentiles from training set -> saves CSV for RobustScaler.
+  6. Computes p25/p50/p75 feature percentiles from training set -> saves CSV for RobustScaler.
 
 Usage:
     python3 merge_parquet.py --mc 340StringMC --flavor Electron --geometry 102_string \\
@@ -39,10 +38,8 @@ from graphnet.data.writers import ParquetWriter
 # Constants
 # ---------------------------------------------------------------------------
 
-METADATA_BASE          = "/project/def-nahee/kbas/Graphnet-Applications/Metadata/TriggeredEventList"
 METADATA_ROBUSTSCALER  = "/project/def-nahee/kbas/Graphnet-Applications/Metadata/RobustScaler"
 ALL_FLAVORS   = ["Muon", "Electron", "Tau", "NC"]
-EVENT_ID_COLS = ["RunID", "SubrunID", "EventID", "SubEventID"]
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -207,34 +204,6 @@ def dataset_name(
     return "_".join(parts)
 
 
-def save_triggered_event_list(
-    merged_raw: Path,
-    mc: str,
-    geometry: str,
-    flavor: str,
-    metadata_suffix: str = "",
-) -> None:
-    truth_files = sorted((merged_raw / "truth").glob("truth_*.parquet"))
-    if not truth_files:
-        print(f"[WARN] No truth files in {merged_raw / 'truth'} — skipping event list.")
-        return
-
-    probe = pl.read_parquet(truth_files[0], n_rows=1)
-    available_id_cols = [c for c in EVENT_ID_COLS if c in probe.columns]
-    if not available_id_cols:
-        print(f"[WARN] No event ID columns found in truth table. Columns: {probe.columns}")
-        return
-
-    dfs = [pl.read_parquet(f, columns=available_id_cols) for f in truth_files]
-    combined = pl.concat(dfs).unique()
-
-    out_dir = Path(METADATA_BASE) / mc
-    out_dir.mkdir(parents=True, exist_ok=True)
-    out_path = out_dir / f"{dataset_name(geometry, flavor, metadata_suffix)}_triggered_events.csv"
-    combined.write_csv(str(out_path))
-    print(f"triggered event list -> {out_path}  ({len(combined)} unique events)")
-
-
 def compute_feature_percentiles(
     train_feat_dir: Path,
     mc: str,
@@ -376,20 +345,7 @@ def main() -> int:
         log_fh.flush()
 
         # ----------------------------------------------------------------
-        # 4. Save triggered event list
-        # ----------------------------------------------------------------
-        if not args.dry_run:
-            save_triggered_event_list(
-                merged_raw = merged_raw_dir,
-                mc         = args.mc,
-                geometry   = args.geometry,
-                flavor     = args.flavor,
-                metadata_suffix = args.metadata_suffix,
-            )
-        log_fh.flush()
-
-        # ----------------------------------------------------------------
-        # 5. Feature percentiles for RobustScaler
+        # 4. Feature percentiles for RobustScaler
         # ----------------------------------------------------------------
         if not args.dry_run:
             tables = parquet_tables(merged_raw_dir)

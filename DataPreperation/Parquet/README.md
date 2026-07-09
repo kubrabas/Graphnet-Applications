@@ -1,60 +1,165 @@
 # Parquet Conversion
 
-This directory converts PMT-response i3.gz files into GraphNeT-compatible Parquet
-files, then merges them into train/val/test datasets.
+This directory converts PMT-response `.i3` files into GraphNeT-compatible
+Parquet datasets. The default submission workflow now builds the three standard
+geometries, merges each dataset into train/val/test splits, writes RobustScaler
+percentile CSVs, and builds categorized Parquet splits.
 
 ## Quick Run
 
-Submit one flavor:
+Submit one flavor for all default geometries:
 
 ```bash
 python3 DataPreperation/Parquet/submit_parquet.py \
   --mc 340StringMC \
-  --geometry 102_string \
-  --flavor NC
+  --flavor Electron
 ```
 
-Submit all flavors:
+Submit all flavors for all default geometries:
 
 ```bash
 python3 DataPreperation/Parquet/submit_parquet.py \
   --mc 340StringMC \
-  --geometry 102_string \
   --flavor all
 ```
 
-`submit_parquet.py` submits one conversion job per flavor and chains one merge
-job after conversion finishes.
+By default, omitting `--geometry` runs:
+
+```text
+full_geometry
+160_string
+102_string
+```
+
+You can still submit only one geometry, for example:
+
+```bash
+python3 DataPreperation/Parquet/submit_parquet.py \
+  --mc 340StringMC \
+  --geometry 102_string \
+  --flavor Electron
+```
+
+Check the planned jobs without submitting them:
+
+```bash
+python3 DataPreperation/Parquet/submit_parquet.py \
+  --dry-run \
+  --mc 340StringMC \
+  --flavor Electron
+```
+
+## Default Workflow
+
+For each selected geometry/flavor, `submit_parquet.py` does all of this:
+
+1. Submits one conversion job running `convert_parquet.py`.
+2. Chains one merge job after conversion succeeds.
+3. Chains categorized Parquet jobs after conversion succeeds for the default
+   category columns.
+
+Merge and categorized outputs are not optional in this workflow. There is no
+`--with-merge` or `--with-categories` flag.
+
+The default category columns are:
+
+```text
+category1_isMuonCC
+category2_tauCC_others_muonCC
+category_3_contains_muon
+```
+
+## Geometry Filters
+
+Each geometry is filtered independently with its own nonoise trigger flag:
+
+```text
+full_geometry -> triggered_nonoise_340_string == 1
+160_string    -> triggered_nonoise_160_string == 1
+102_string    -> triggered_nonoise_102_string == 1
+```
+
+The pulsemap used for each geometry is:
+
+```text
+full_geometry -> PMT_Response_nonoise_340_String
+160_string    -> PMT_Response_nonoise_160_String
+102_string    -> PMT_Response_nonoise_102_String
+```
+
+`340_string` is also understood by `convert_parquet.py` and maps to
+`triggered_nonoise_340_string`, but it is not part of the default submit list.
+
+The old `common_events` behavior has been removed. The pipeline no longer
+builds `features_340/`, `features_160/`, or `features_102/` inside one dataset.
+Each geometry writes one normal `features/` table.
+
+## Energy Filter
+
+The default max-energy filter is enabled:
+
+```text
+EventProperties.totalEnergy <= 1e6 GeV
+```
+
+This adds the suffix `Emax1e6` to output and log directories. For example:
+
+```text
+Electron_Parquet_Emax1e6
+Electron_102_string_Parquet_Emax1e6
+```
 
 ## Output Layout
 
-For an input PMT directory like:
+For `340StringMC`, `Electron`, and `102_string`, conversion writes raw per-file
+Parquet outputs under:
 
 ```text
-/home/kbas/scratch/String340MC/102_string/Electron_PMT_Response
-```
-
-conversion writes:
-
-```text
-/home/kbas/scratch/String340MC/102_string/Electron_Parquet/
+/home/kbas/scratch/String340MC_pone_offline_version3_plus/Parquet/102_string/Electron_Parquet_Emax1e6/
   truth/
   features/
-  merged_raw/
-  merged/
 ```
 
-Conversion and merge logs are written to:
+The merge job then writes:
 
 ```text
-/home/kbas/scratch/String340MC/Logs/Electron_102_string_Parquet/
+  merged_raw/
+  merged/train/
+  merged/val/
+  merged/test/
+  merged/train_reindexed/
+  merged/val_reindexed/
+  merged/test_reindexed/
+  merged/split_manifest.json
+```
+
+The categorized jobs write one dataset per category column/value:
+
+```text
+  categorized/<category_column>/category<value>/train/
+  categorized/<category_column>/category<value>/val/
+  categorized/<category_column>/category<value>/test/
+  categorized/<category_column>/category<value>/split_manifest.json
+```
+
+For `full_geometry`, the output folder uses `Full_Geometry`:
+
+```text
+/home/kbas/scratch/String340MC_pone_offline_version3_plus/Parquet/Full_Geometry/Electron_Parquet_Emax1e6/
+```
+
+Logs are written to:
+
+```text
+/home/kbas/scratch/String340MC_pone_offline_version3_plus/Logs/<Flavor>_<geometry>_Parquet_Emax1e6/
 ```
 
 Example log names:
 
 ```text
-05_06_2026_job_38837651.log
-merge_Electron_102_string.out
+MM_DD_YYYY_job_<job_id>.log
+merge_<Flavor>_<geometry>.out
+categorization_<category_column>_<job_id>.log
 ```
 
 ## Conversion Logic
@@ -70,17 +175,24 @@ I3TruthExtractorPONE
 ParquetWriter
 ```
 
+The conversion filters are:
+
+```text
+NullSplitI3Filter
+TriggeredNonoiseFilter for the selected geometry
+EventPropertiesMaxEnergyFilter, unless max energy is disabled
+```
+
 Per-file parquet outputs are written to `truth/` and `features/` under
-`--outdir`. Files that already have both outputs on disk are skipped on
-re-runs.
+`--outdir`. Files that already have both outputs on disk are skipped on re-runs.
 
-### Truth Labels
+## Truth Labels
 
-`I3TruthExtractorPONE` writes three numeric category columns to the truth table:
+`I3TruthExtractorPONE` writes these category columns to the truth table:
 
 ```text
 category1_isMuonCC
-  1 : NuMu/NuMuBar charged-current track
+  1 : NuMu/NuMuBar charged-current event
   0 : all other events
 
 category2_tauCC_others_muonCC
@@ -94,27 +206,28 @@ category_3_contains_muon
   0 : no post-propagation muon found
 ```
 
-`category1_isMuonCC` is set to `1` only when `abs(pid) == 14` and
-`is_CC == 1`; otherwise it is `0`. `category2_tauCC_others_muonCC` uses the
-three-class PONE target mapping, with unmatched cases left at the extractor's
-padding value. `category_3_contains_muon` is set from the post-propagation
-particle tree and is used as the third category split.
+`category1_isMuonCC` is based on the parent neutrino and charged-current flag.
+`category_3_contains_muon` checks whether the post-propagation particle tree
+contains a muon anywhere. These are intentionally different labels.
 
 ## File Handling
 
-**DAQ-less files:** If `PONE_Reader` finds no DAQ (Q) frames in a file,
-it returns an empty event list. `ParquetWriter` writes nothing for that
-file. The job continues processing the remaining files.
+**DAQ-less files:** If `PONE_Reader` finds no DAQ frames in a file, it returns
+an empty event list. `ParquetWriter` writes nothing for that file. The job
+continues processing the remaining files.
 
-**Pulsemap missing or empty:** Frames where the requested pulsemap key is
-absent or empty are silently skipped within the file. If all frames are
-filtered this way, no parquet output is written for that file.
+**Pulsemap missing or empty:** Frames where the requested pulsemap key is absent
+or empty are skipped by the reader. If all frames are filtered this way, no
+parquet output is written for that file.
 
-**File open failure:** If `pop_daq()` raises an error other than
-`no frame to pop`, a `RuntimeError` is raised and the job stops. Check
-the SLURM log for the traceback and the offending filename.
+**Missing trigger flag:** `TriggeredNonoiseFilter` raises a `RuntimeError` if the
+required trigger flag is missing from a frame.
 
-## Job Log
+**File open failure:** If `pop_daq()` raises an error other than `no frame to
+pop`, a `RuntimeError` is raised and the job stops. Check the SLURM log for the
+traceback and the offending filename.
+
+## Conversion Log
 
 The conversion log is written to:
 
@@ -130,13 +243,13 @@ skipped_previously_done : 0
 input_files_discovered  : 3977
 input_files_processed   : 3977
 truth_outputs_found     : 3972
-feature_outputs_found   : 3972
+feature_outputs_found   : {'features': 3972}
 elapsed                 : 612.3s
 ```
 
-`truth_outputs_found` and `feature_outputs_found` count the actual parquet
-files on disk after the run. Files that were DAQ-less or fully filtered will
-not appear here.
+`truth_outputs_found` and `feature_outputs_found` count the actual parquet files
+on disk after the run. Files that were DAQ-less or fully filtered will not
+appear here.
 
 ## Merge
 
@@ -177,11 +290,10 @@ writer.merge_files(
 )
 ```
 
-GraphNeT's `ParquetWriter.merge_files` ignores the `files` argument and
-discovers the input parquet files from the output path. It builds a master
-event list from all truth parquet files, keeping both `event_no` and the source
-file name. The shuffle happens in GraphNeT source code in
-`ParquetWriter._identify_events`:
+GraphNeT's `ParquetWriter.merge_files` discovers the input parquet files from
+the output path. It builds a master event list from all truth parquet files,
+keeping both `event_no` and the source file name. The shuffle happens in
+GraphNeT source code in `ParquetWriter._identify_events`:
 
 ```python
 return res.to_pandas().sample(frac=1.0)
@@ -189,18 +301,11 @@ return res.to_pandas().sample(frac=1.0)
 
 That means the event list is shuffled at event level before it is split into
 merged parquet batches. The shuffled list is then divided into shards of
-`events_per_batch` events. For each shard, GraphNeT reads the needed source
-truth/features parquet files, selects the event indices belonging to that
-shard, concatenates them, and writes:
+`events_per_batch` events.
 
-```text
-merged_raw/truth/truth_<batch_id>.parquet
-merged_raw/features/features_<batch_id>.parquet
-```
-
-Important detail: the GraphNeT shuffle does not pass an explicit
-`random_state` to `pandas.DataFrame.sample`, so the event-level merge shuffle is
-not fixed by the `seed=42` used later for train/val/test batch assignment.
+Important detail: the GraphNeT shuffle does not pass an explicit `random_state`
+to `pandas.DataFrame.sample`, so the event-level merge shuffle is not fixed by
+the `seed=42` used later for train/val/test batch assignment.
 
 ### Train/Val/Test Split And Small Final Batch
 
@@ -208,48 +313,18 @@ After GraphNeT writes the merged batches, this repository builds splits in
 `merge_parquet.py::build_splits`.
 
 The split is done at merged-batch level, not individual-event level. The code
-finds all merged truth batches:
+finds all merged truth batches, removes the last batch from the normal random
+split pool, shuffles the remaining batch IDs with `seed=42`, and assigns:
 
-```python
-batch_ids = sorted(...)
+```text
+train = 80% of main batches
+val   = 10% of main batches
+test  = remaining main batches + the final batch
 ```
-
-Then it removes the last batch from the normal random split pool:
-
-```python
-last_batch = max(batch_ids)
-main_batches = [b for b in batch_ids if b != last_batch]
-```
-
-Only `main_batches` are shuffled with the local split seed:
-
-```python
-rng = random.Random(seed)
-rng.shuffle(main_batches)
-```
-
-The nominal fractions are:
-
-```python
-n_train = int(0.8 * n)
-n_val = int(0.1 * n)
-```
-
-and the assignment is:
-
-```python
-train = main_batches[:n_train]
-val = main_batches[n_train : n_train + n_val]
-test = main_batches[n_train + n_val :] + [last_batch]
-```
-
-So the intended split is 80/10/10 by number of full merged batches, with the
-last merged batch always forced into `test`.
 
 If the total number of events is not an exact multiple of `events_per_batch`
-(default: 1024 in this script), GraphNeT's last shard can contain fewer than
-1024 events. Because this repository always sends `last_batch` to `test`, that
-smaller remainder batch goes to the test split. It is not dropped.
+(default: 1024 in merge), GraphNeT's last shard can contain fewer events. This
+repository always sends that final batch to `test`. It is not dropped.
 
 The split metadata is written to:
 
@@ -257,9 +332,49 @@ The split metadata is written to:
 merged/split_manifest.json
 ```
 
-The manifest records the seed, nominal fractions, batch counts, the selected
-batch IDs, and:
+## RobustScaler Percentiles
 
-```json
-"last_batch_forced_to_test": <batch_id>
+The merge job computes p25/p50/p75 feature percentiles from the training split
+only:
+
+```text
+merged/train/features/
 ```
+
+Only numeric feature columns are used. `event_no` and `global_event_no` are
+excluded.
+
+The CSV is written to:
+
+```text
+/project/def-nahee/kbas/Graphnet-Applications/Metadata/RobustScaler/<MC>/
+```
+
+Name format:
+
+```text
+<geometry>_<flavor>[_<metadata_suffix>]_train_feature_percentiles_p25_p50_p75.csv
+```
+
+Example:
+
+```text
+102_string_electron_Emax1e6_train_feature_percentiles_p25_p50_p75.csv
+```
+
+## Categorized Parquet Outputs
+
+Categorized Parquet jobs read the raw `truth/` and `features/` parquet files,
+filter by each category value, then build train/val/test splits for that
+category. They do not write `CategoryInformation` CSVs.
+
+For example:
+
+```text
+categorized/category1_isMuonCC/category0/train/truth/
+categorized/category1_isMuonCC/category0/train/features/
+categorized/category1_isMuonCC/category1/train/truth/
+categorized/category1_isMuonCC/category1/train/features/
+```
+
+Each category value directory also gets a `split_manifest.json`.

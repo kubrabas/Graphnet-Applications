@@ -1,5 +1,5 @@
 """
-Build category event-list CSVs and submit categorized Parquet split jobs.
+Submit categorized Parquet split jobs.
 
 Example:
     python3 submit_categorized_parquet.py \
@@ -14,10 +14,9 @@ Example:
         --flavor all \
         --category-column category1_isMuonCC
 
-The script first reads the existing raw truth parquet files, writes one CSV per
-flavor/category column, then submits one SLURM job per flavor. The worker
-filters by category before computing train/val/test splits; it does not re-read
-I3 files.
+The worker reads existing raw truth parquet files to discover category values,
+then filters by category before computing train/val/test splits. It does not
+re-read I3 files.
 """
 
 import argparse
@@ -25,48 +24,34 @@ import importlib.util
 import re
 import subprocess
 from pathlib import Path
-from typing import Iterable, List, Optional, Tuple
+from typing import Iterable, List, Optional
 
 # ---------------------------------------------------------------------------
 # Paths / tables
 # ---------------------------------------------------------------------------
 
 PATHS_PY = "/project/def-nahee/kbas/Graphnet-Applications/Metadata/paths.py"
-CATEGORY_INFO_BASE = Path(
-    "/project/def-nahee/kbas/Graphnet-Applications/Metadata/CategoryInformation"
-)
 WORKER_SH = Path("/home/kbas/SlurmScripts/DataPreperation/submit_categorized_parquet.sh")
 SCRATCH_BASE = Path("/home/kbas/scratch")
 NWORKERS = 16
 DEFAULT_EVENTS_PER_BATCH = 256
+DEFAULT_EXCLUDE_NODES = "fc30564"
 
 MC_TABLE = {
     "340StringMC": {
         "pmt_attr": "STRING340MC_PMT",
         "parquet_attr": "STRING340MC_PARQUET",
-        "gcd_key": "340StringMC",
-        "results": "String340MC",
         "scratch": "String340MC_pone_offline_version3_plus",
     },
     "Spring2026MC": {
         "pmt_attr": "SPRING2026MC_PMT",
         "parquet_attr": "SPRING2026MC_PARQUET",
-        "gcd_key": "Spring2026MC",
-        "results": "Spring2026MC",
         "scratch": "Spring2026MC",
     },
 }
 
 ALL_FLAVORS = ["Muon", "Electron", "Tau", "NC"]
-SPLITS = ["train", "val", "test"]
 EVENT_COLUMNS = ["event_no", "RunID", "SubrunID", "EventID", "SubEventID"]
-CATEGORY_DIRS = {
-    "category1_isMuonCC": "first_category",
-    "category2_tauCC_others_muonCC": "second_category",
-    "category_3_contains_muon": "third_category",
-}
-
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -129,7 +114,7 @@ def source_parquet_outdir(
 
 
 def category_parent(category_column: str) -> str:
-    return CATEGORY_DIRS.get(category_column, category_column)
+    return category_column
 
 
 def category_value_label(value) -> str:
@@ -137,16 +122,6 @@ def category_value_label(value) -> str:
         value = int(value)
     text = str(value).replace("-", "minus").replace(".", "p")
     return f"category{text}"
-
-
-def parquet_dataset_label(parquet_base: Path, flavor: str) -> str:
-    suffix = parquet_base.name
-    prefix = f"{flavor}_Parquet"
-    if suffix.startswith(prefix):
-        suffix = suffix[len(prefix):].lstrip("_")
-    return "_".join(
-        part for part in [parquet_base.parent.name, flavor, suffix] if part
-    )
 
 
 def read_dataset_events(
@@ -188,38 +163,25 @@ def read_dataset_events(
     return pl.concat(parts, how="vertical")
 
 
-def write_event_list_csv(
+def get_category_values(
     paths,
     mc: str,
     geometry: str,
     flavor: str,
     category_column: str,
     dry_run: bool,
-) -> Tuple[Path, List[str]]:
+) -> List[str]:
     parquet_base = source_parquet_outdir(
         paths=paths,
         mc=mc,
         geometry=geometry,
         flavor=flavor,
     )
-    dataset_label = parquet_dataset_label(parquet_base, flavor)
-    out_dir = CATEGORY_INFO_BASE / MC_TABLE[mc]["results"]
-    out_path = out_dir / f"{dataset_label}_{category_column}_events.csv"
 
     if dry_run:
         print(f"  [DRY-RUN] would read truth dir: {parquet_base / 'truth'}")
-        print(f"  [DRY-RUN] would write event CSV: {out_path}")
-        print("  [DRY-RUN] category values will be read from the generated CSV")
-        return out_path, []
-
-    try:
-        import polars as pl
-    except ModuleNotFoundError as e:
-        raise ModuleNotFoundError(
-            "submit_categorized_parquet.py needs polars to read parquet files. "
-            "Run it in the same software environment used for parquet merging "
-            "(for example after loading scipy-stack/2023b on the cluster)."
-        ) from e
+        print("  [DRY-RUN] category values will be read from truth parquet files")
+        return []
 
     combined = read_dataset_events(
         parquet_base=parquet_base,
@@ -230,10 +192,8 @@ def write_event_list_csv(
     )
 
     values = [str(v) for v in combined["category_value"].unique().sort().to_list()]
-    out_dir.mkdir(parents=True, exist_ok=True)
-    combined.write_csv(str(out_path))
-    print(f"  event CSV -> {out_path} ({len(combined)} rows)")
-    return out_path, values
+    print(f"  category events read from {parquet_base / 'truth'} ({len(combined)} rows)")
+    return values
 
 
 def submit_category_workflow(
@@ -316,7 +276,7 @@ def iter_flavors(values: Iterable[str]) -> List[str]:
 
 def main() -> int:
     ap = argparse.ArgumentParser(
-        description="Build one category event CSV and submit categorized Parquet jobs."
+        description="Submit categorized Parquet jobs."
     )
     ap.add_argument("--mc", required=True, choices=list(MC_TABLE))
     ap.add_argument("--geometry", required=True, help="Geometry key, e.g. 102_string")
@@ -330,8 +290,8 @@ def main() -> int:
                     help="Overwrite existing categorized parquet outputs.")
     ap.add_argument("--dependency", default=None,
                     help="Optional SLURM dependency, e.g. afterok:123456.")
-    ap.add_argument("--exclude-nodes", default=None,
-                    help="Optional comma-separated SLURM node exclude list, e.g. fc30564.")
+    ap.add_argument("--exclude-nodes", default=DEFAULT_EXCLUDE_NODES,
+                    help=f"Comma-separated SLURM node exclude list. Default: {DEFAULT_EXCLUDE_NODES}.")
     ap.add_argument("--dry-run", action="store_true")
     args = ap.parse_args()
 

@@ -2,7 +2,7 @@
 Run the full categorized parquet workflow for one flavor inside SLURM.
 
 This worker runs in the IceTray/GraphNeT container. It reads existing raw
-per-file parquet files, writes the event-list CSV, then writes categorized
+per-file parquet files, discovers category values, then writes categorized
 parquet outputs. Category filtering happens before train/val/test splitting.
 """
 
@@ -15,7 +15,7 @@ from submit_categorized_parquet import (
     category_value_label,
     load_paths,
     source_parquet_outdir,
-    write_event_list_csv,
+    get_category_values,
 )
 from split_categorized_parquet import split_category_dataset
 
@@ -40,7 +40,7 @@ def main() -> int:
         f"category={args.category_column} events_per_batch={args.events_per_batch}"
     )
 
-    event_csv, values = write_event_list_csv(
+    values = get_category_values(
         paths=paths,
         mc=args.mc,
         geometry=args.geometry,
@@ -76,7 +76,6 @@ def main() -> int:
         )
         print(f"  stats={stats}")
 
-    print(f"event CSV -> {event_csv}")
     print("done")
     return 0
 

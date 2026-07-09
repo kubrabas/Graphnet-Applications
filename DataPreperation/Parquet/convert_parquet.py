@@ -5,7 +5,7 @@ Processes all I3 files in indir using GraphNeT DataConverter multiprocessing:
   1. Discovers all I3 files in indir, sorts them.
   2. Runs one DataConverter with PONE_Reader + PONE extractors + ParquetWriter
      over the full file list.
-  3. Writes truth/ and feature parquet files to a shared outdir.
+  3. Writes truth/ and features/ parquet files to a shared outdir.
   4. Writes a summary log to logdir/../job_<job_id>_<flavor>_<geometry>.log
 
 Run merge_parquet.py after this script finishes to merge batches and build splits.
@@ -48,47 +48,22 @@ from graphnet.data.writers import ParquetWriter
 VALID_FLAVORS = {"Muon", "Electron", "Tau", "NC"}
 
 PULSEMAP_BY_GEOMETRY = {
-    "common_events": "PMT_Response_nonoise_340_String",
     "full_geometry": "PMT_Response_nonoise_340_String",
     "340_string": "PMT_Response_nonoise_340_String",
     "160_string": "PMT_Response_nonoise_160_String",
     "102_string": "PMT_Response_nonoise_102_String",
 }
 
-COMMON_EVENT_FEATURES = [
-    ("features_340", "PMT_Response_nonoise_340_String"),
-    ("features_160", "PMT_Response_nonoise_160_String"),
-    ("features_102", "PMT_Response_nonoise_102_String"),
-]
-
-TRIGGER_KEYS = {
-    "340_string": "triggered_340_string",
-    "160_string": "triggered_160_string",
-    "102_string": "triggered_102_string",
+TRIGGER_KEY_BY_GEOMETRY = {
+    "full_geometry": "triggered_nonoise_340_string",
+    "340_string": "triggered_nonoise_340_string",
+    "160_string": "triggered_nonoise_160_string",
+    "102_string": "triggered_nonoise_102_string",
 }
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
-
-def frame_bool(frame, key: str) -> bool:
-    if key not in frame:
-        raise RuntimeError(f"Missing required trigger flag in frame: {key}")
-    value = frame[key]
-    if hasattr(value, "value"):
-        value = value.value
-    return float(value) == 1.0
-
-
-def pulsemap_has_pulses(frame, pulsemap: str) -> bool:
-    if pulsemap not in frame:
-        return False
-    pmap = frame[pulsemap]
-    try:
-        return any(len(pulses) > 0 for pulses in pmap.values())
-    except AttributeError:
-        return any(len(pmap[key]) > 0 for key in pmap.keys())
-
 
 class EventPropertiesMaxEnergyFilter(I3Filter):
     """Keep DAQ frames whose EventProperties.totalEnergy is below a limit."""
@@ -105,38 +80,23 @@ class EventPropertiesMaxEnergyFilter(I3Filter):
             return False
 
 
-class TriggerHierarchyFilter(I3Filter):
-    """Fail fast if sub-geometry trigger flags violate nesting."""
+def frame_bool(frame, key: str) -> bool:
+    if key not in frame:
+        raise RuntimeError(f"Missing required trigger flag in frame: {key}")
+    value = frame[key]
+    if hasattr(value, "value"):
+        value = value.value
+    return float(value) == 1.0
+
+
+class TriggeredNonoiseFilter(I3Filter):
+    """Keep DAQ frames triggered by the selected nonoise geometry."""
+
+    def __init__(self, trigger_key: str):
+        self._trigger_key = trigger_key
 
     def _keep_frame(self, frame) -> bool:
-        trig_340 = frame_bool(frame, TRIGGER_KEYS["340_string"])
-        trig_160 = frame_bool(frame, TRIGGER_KEYS["160_string"])
-        trig_102 = frame_bool(frame, TRIGGER_KEYS["102_string"])
-
-        if trig_102 and (not trig_160 or not trig_340):
-            raise RuntimeError(
-                "Invalid trigger hierarchy: triggered_102_string is true "
-                "but triggered_160_string or triggered_340_string is false."
-            )
-        if trig_160 and not trig_340:
-            raise RuntimeError(
-                "Invalid trigger hierarchy: triggered_160_string is true "
-                "but triggered_340_string is false."
-            )
-        return True
-
-
-class CommonGeometryTriggerFilter(I3Filter):
-    """Keep events triggered in all geometries with non-empty feature maps."""
-
-    def _keep_frame(self, frame) -> bool:
-        return (
-            all(frame_bool(frame, key) for key in TRIGGER_KEYS.values())
-            and all(
-                pulsemap_has_pulses(frame, pulsemap)
-                for _, pulsemap in COMMON_EVENT_FEATURES
-            )
-        )
+        return frame_bool(frame, self._trigger_key)
 
 
 def discover_i3_files(indir: str) -> List[Path]:
@@ -171,25 +131,12 @@ def pulsemap_for_geometry(geometry: str, pulsemap: str | None) -> str:
         ) from e
 
 
-def feature_extractors_for_geometry(geometry: str, pulsemap: str) -> List[I3FeatureExtractorPONE]:
-    if geometry == "common_events":
-        return [
-            I3FeatureExtractorPONE(pulsemap=source_pulsemap, name=table, exclude=[])
-            for table, source_pulsemap in COMMON_EVENT_FEATURES
-        ]
-    return [
-        I3FeatureExtractorPONE(
-            pulsemap=pulsemap,
-            name="features",
-            exclude=[],
-        )
-    ]
+def trigger_key_for_geometry(geometry: str) -> str:
+    try:
+        return TRIGGER_KEY_BY_GEOMETRY[geometry]
+    except KeyError as e:
+        raise ValueError(f"No nonoise trigger key known for geometry={geometry}.") from e
 
-
-def feature_table_names(geometry: str) -> List[str]:
-    if geometry == "common_events":
-        return [table for table, _ in COMMON_EVENT_FEATURES]
-    return ["features"]
 
 
 # ---------------------------------------------------------------------------
@@ -202,7 +149,7 @@ def main() -> int:
     )
     ap.add_argument("--mc",        required=True, help="MC type, e.g. 340StringMC")
     ap.add_argument("--flavor",    required=True, help="Particle flavor: Muon, Electron, Tau, NC")
-    ap.add_argument("--geometry",  required=True, help="Sub-geometry key, e.g. 102_string")
+    ap.add_argument("--geometry",  required=True, help="Geometry key, e.g. 102_string")
     ap.add_argument("--indir",     required=True, help="Input PMT-response directory")
     ap.add_argument("--gcd",       required=True, help="Path to GCD rescue file")
     ap.add_argument("--outdir",    required=True, help="Shared output directory for all tasks")
@@ -216,8 +163,6 @@ def main() -> int:
                     help="Parallel workers (default: $SLURM_CPUS_PER_TASK or 4)")
     ap.add_argument("--max-energy", type=float, default=1e6,
                     help="Keep only frames with EventProperties.totalEnergy <= this value in GeV. Default: 1e6.")
-    ap.add_argument("--trigger-mode", choices=["common", "none"], default="common",
-                    help="Trigger filtering mode. 'common' keeps only events triggered in 340, 160, and 102 string geometries; 'none' disables trigger filtering.")
     ap.add_argument("--overwrite", action="store_true",
                     help="Always re-run: pre-deletes existing outputs so skip check finds nothing")
     args = ap.parse_args()
@@ -227,6 +172,7 @@ def main() -> int:
         return 1
     try:
         pulsemap = pulsemap_for_geometry(args.geometry, args.pulsemap)
+        trigger_key = trigger_key_for_geometry(args.geometry)
     except ValueError as e:
         print(f"ERROR: {e}")
         return 1
@@ -241,7 +187,7 @@ def main() -> int:
         print(f"ERROR: No I3 files found in {args.indir}")
         return 3
 
-    feature_tables = feature_table_names(args.geometry)
+    feature_tables = ["features"]
 
     def _is_done(f: Path) -> bool:
         stem = stem_from_i3(str(f))
@@ -278,7 +224,7 @@ def main() -> int:
         print("Max energy filter  : none")
     else:
         print(f"Max energy filter  : <= {args.max_energy:.6g} GeV")
-    print(f"Trigger mode       : {args.trigger_mode}")
+    print(f"Trigger filter     : {trigger_key} == 1")
 
     if not to_process:
         print("Nothing to do.")
@@ -307,30 +253,27 @@ def main() -> int:
         _glog(f"outdir   : {outdir}")
         _glog(f"logdir   : {logdir}")
         _glog(f"pulsemap : {pulsemap}")
+        _glog(f"trigger_filter : {trigger_key} == 1")
         _glog(f"total    : {len(files)}  (already_done={n_already_done}, to_process={len(to_process)})")
         _glog(f"workers  : {nworkers}")
         if args.max_energy is None:
             _glog("max_energy_filter : none")
         else:
             _glog(f"max_energy_filter : <= {args.max_energy:.6g} GeV")
-        _glog(f"trigger_mode : {args.trigger_mode}")
         _glog()
-        i3_filters = [NullSplitI3Filter()]
+        i3_filters = [NullSplitI3Filter(), TriggeredNonoiseFilter(trigger_key)]
         if args.max_energy is not None:
             i3_filters.append(EventPropertiesMaxEnergyFilter(max_energy=args.max_energy))
-        if args.trigger_mode == "common":
-            i3_filters.extend([
-                TriggerHierarchyFilter(),
-                CommonGeometryTriggerFilter(),
-            ])
         reader = PONE_Reader(
             gcd_rescue=args.gcd,
             i3_filters=i3_filters,
             pulsemap=pulsemap,
             skip_empty_pulses=True,
         )
-        extractors = feature_extractors_for_geometry(args.geometry, pulsemap)
-        extractors.append(I3TruthExtractorPONE(name="truth", exclude=[]))
+        extractors = [
+            I3FeatureExtractorPONE(pulsemap=pulsemap, name="features", exclude=[]),
+            I3TruthExtractorPONE(name="truth", exclude=[]),
+        ]
         writer = ParquetWriter(truth_table="truth", index_column="event_no")
         converter = DataConverter(
             file_reader=reader,

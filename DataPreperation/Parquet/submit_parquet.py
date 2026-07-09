@@ -2,24 +2,22 @@
 Submit Parquet conversion jobs to SLURM — single node, parallel execution.
 
 Usage:
+    python3 submit_parquet.py --mc 340StringMC --flavor all
     python3 submit_parquet.py --mc 340StringMC --geometry 102_string --flavor Electron
-    python3 submit_parquet.py --mc 340StringMC --geometry 102_string --flavor Muon Electron Tau NC
-    python3 submit_parquet.py --mc 340StringMC --geometry full_geometry --flavor all
-    python3 submit_parquet.py --dry-run --mc 340StringMC --geometry common_events --flavor Muon
 
-For each flavor:
+For each selected geometry/flavor:
   1. Reads PMT-response path and GCD from paths.py.
-  2. Submits a single SLURM job with --cpus-per-task=NWORKERS.
-     convert_parquet.py then processes all files in parallel inside that job.
-  3. Chains a merge job after conversion finishes; merge uses any successful
-     truth/features parquet outputs that were produced.
+  2. Submits a single SLURM conversion job with --cpus-per-task=NWORKERS.
+     convert_parquet.py filters on that geometry's triggered_nonoise_* flag.
+  3. Chains merge after conversion; merge builds train/val/test, reindexed
+     splits, split_manifest.json, and RobustScaler percentile CSVs.
+  4. Chains categorized parquet jobs after conversion for the default category
+     columns.
 
 Shell script note:
     submit_parquet.sh must call convert_parquet.py with --nworkers $NWORKERS
     (no --array, no --task-id).
 
-Output parquet files go to the same parent as the PMT-response directory,
-with _PMT_Response replaced by _Parquet.
 Logs go to: /home/kbas/scratch/<mc_scratch>/Logs/<flavor>_<geometry>_Parquet/
 """
 
@@ -34,6 +32,7 @@ from typing import List, Optional
 
 from submit_categorized_parquet import (
     DEFAULT_EVENTS_PER_BATCH,
+    DEFAULT_EXCLUDE_NODES,
     submit_category_workflow,
 )
 
@@ -50,17 +49,16 @@ NWORKERS     = 16   # CPUs per job (parallel files processed simultaneously)
 MC_TABLE = {
     "340StringMC": {
         "pmt_attr": "STRING340MC_PMT",
-        "gcd_key": "340StringMC",
         "scratch": "String340MC_pone_offline_version3_plus",
     },
     "Spring2026MC": {
         "pmt_attr": "SPRING2026MC_PMT",
-        "gcd_key": "Spring2026MC",
         "scratch": "Spring2026MC",
     },
 }
 
 ALL_FLAVORS = ["Muon", "Electron", "Tau", "NC"]
+DEFAULT_GEOMETRIES = ["full_geometry", "160_string", "102_string"]
 DEFAULT_CATEGORY_COLUMNS = [
     "category1_isMuonCC",
     "category2_tauCC_others_muonCC",
@@ -68,7 +66,6 @@ DEFAULT_CATEGORY_COLUMNS = [
 ]
 
 PULSEMAP_BY_GEOMETRY = {
-    "common_events": "PMT_Response_nonoise_340_String",
     "full_geometry": "PMT_Response_nonoise_340_String",
     "340_string": "PMT_Response_nonoise_340_String",
     "160_string": "PMT_Response_nonoise_160_String",
@@ -123,8 +120,6 @@ def categorized_geometry_key(geometry: str, metadata_suffix: Optional[str]) -> s
 
 def geometry_output_folder(mc: str, geometry: str, pmt_path: str) -> str:
     if mc == "340StringMC":
-        if geometry == "common_events":
-            return "common_events"
         if geometry == "full_geometry":
             return "Full_Geometry"
         return geometry
@@ -166,14 +161,8 @@ def pulsemap_for_geometry(geometry: str, pulsemap: Optional[str]) -> str:
         ) from e
 
 
-def pmt_lookup_geometry(geometry: str) -> str:
-    if geometry == "common_events":
-        return "full_geometry"
-    return geometry
-
-
 def gcd_for_geometry(paths, mc: str, geometry: str) -> Optional[str]:
-    if geometry in {"full_geometry", "common_events"}:
+    if geometry == "full_geometry":
         return getattr(paths, "GCD")[mc]
     return getattr(paths, "GCD_TRIMMED").get(mc, {}).get(geometry)
 
@@ -191,6 +180,7 @@ def submit_convert(
     pulsemap: str,
     nworkers: int,
     max_energy: Optional[float],
+    exclude_nodes: Optional[str],
 ) -> Optional[str]:
     export_vars = (
         f"MC={mc},"
@@ -214,6 +204,8 @@ def submit_convert(
         f"--export={export_vars}",
         str(WORKER_SH),
     ]
+    if exclude_nodes:
+        cmd.insert(2, f"--exclude={exclude_nodes}")
     result = subprocess.run(cmd, capture_output=True, text=True, check=True)
     job_id = parse_job_id(result.stdout)
     print(f"  submitted: {job_name}  ({n_files} files, {nworkers} workers)  job_id={job_id}")
@@ -281,7 +273,7 @@ def submit_categories_after_dependency(
             events_per_batch=events_per_batch,
             overwrite=overwrite,
             dependency=dependency,
-            exclude_nodes=None,
+            exclude_nodes=DEFAULT_EXCLUDE_NODES,
             dry_run=dry_run,
         )
 
@@ -291,9 +283,14 @@ def submit_categories_after_dependency(
 # ---------------------------------------------------------------------------
 
 def main() -> int:
-    ap = argparse.ArgumentParser(description="Submit Parquet conversion jobs and optional categorized splits")
+    ap = argparse.ArgumentParser(description="Submit Parquet conversion, merge, and categorized split jobs")
     ap.add_argument("--mc",       required=True, choices=list(MC_TABLE))
-    ap.add_argument("--geometry", required=True, help="Dataset/geometry key, e.g. common_events or 102_string")
+    ap.add_argument(
+        "--geometry",
+        nargs="+",
+        default=None,
+        help=f"Dataset/geometry key(s). If omitted, runs {DEFAULT_GEOMETRIES}.",
+    )
     ap.add_argument("--flavor",   required=True, nargs="+",
                     help=f"Flavor(s) or 'all'. Choices: {ALL_FLAVORS}")
     ap.add_argument(
@@ -305,12 +302,8 @@ def main() -> int:
                     help=f"CPUs per job / parallel workers (default: {NWORKERS})")
     ap.add_argument("--max-energy", type=float, default=1e6,
                     help="Keep only frames with EventProperties.totalEnergy <= this value in GeV. Default: 1e6.")
-    ap.add_argument("--with-categories", action="store_true",
-                    help="After conversion succeeds, submit categorized parquet jobs.")
-    ap.add_argument("--with-merge", action="store_true",
-                    help="Also submit the old merged_raw/merged train-val-test workflow.")
     ap.add_argument("--category-columns", nargs="+", default=DEFAULT_CATEGORY_COLUMNS,
-                    help="Category columns to build when --with-categories is set.")
+                    help="Category columns to build after conversion.")
     ap.add_argument("--category-events-per-batch", type=int, default=DEFAULT_EVENTS_PER_BATCH,
                     help=f"Categorized output events per batch (default: {DEFAULT_EVENTS_PER_BATCH}).")
     ap.add_argument("--category-overwrite", action="store_true",
@@ -320,6 +313,7 @@ def main() -> int:
 
     mc      = args.mc
     flavors = ALL_FLAVORS if "all" in args.flavor else args.flavor
+    geometries = DEFAULT_GEOMETRIES if args.geometry is None else args.geometry
     for f in flavors:
         if f not in ALL_FLAVORS:
             print(f"ERROR: unknown flavor '{f}'. Choices: {ALL_FLAVORS}")
@@ -329,88 +323,98 @@ def main() -> int:
     pmt_table = getattr(paths, MC_TABLE[mc]["pmt_attr"])
     scratch   = MC_TABLE[mc]["scratch"]
 
-    gcd = gcd_for_geometry(paths, mc, args.geometry)
-    if gcd is None:
-        print(f"ERROR: No GCD found for mc={mc}, geometry={args.geometry} in paths.py")
-        return 1
-    try:
-        pulsemap = pulsemap_for_geometry(args.geometry, args.pulsemap)
-    except ValueError as e:
-        print(f"ERROR: {e}")
-        return 1
-
-    print(f"\n[{mc}]  geometry={args.geometry}  nworkers={args.nworkers}")
-
-    for flavor in flavors:
-        pmt_geometry = pmt_lookup_geometry(args.geometry)
-        entry    = pmt_table.get(pmt_geometry, {}).get(flavor, {})
-        pmt_path = entry.get("path")
-
-        if pmt_path is None:
-            print(f"  [skip] {flavor}: PMT path not set in paths.py")
-            continue
-
-        metadata_suffix = format_energy_suffix(args.max_energy)
-        outdir = outdir_from_geometry(
-            mc=mc,
-            scratch_base=SCRATCH_BASE,
-            scratch=scratch,
-            geometry=args.geometry,
-            flavor=flavor,
-            pmt_path=pmt_path,
-            suffix=metadata_suffix,
-        )
-        logdir = add_suffix(
-            f"{SCRATCH_BASE}/{scratch}/Logs/{flavor}_{args.geometry}_Parquet",
-            metadata_suffix,
-        )
-
+    for geometry in geometries:
+        gcd = gcd_for_geometry(paths, mc, geometry)
+        if gcd is None:
+            print(f"ERROR: No GCD found for mc={mc}, geometry={geometry} in paths.py")
+            return 1
         try:
-            n_files = discover_i3_files(pmt_path)
-        except Exception as e:
-            print(f"  [error] {flavor}: {e}")
+            pulsemap = pulsemap_for_geometry(geometry, args.pulsemap)
+        except ValueError as e:
+            print(f"ERROR: {e}")
             return 1
 
-        if n_files == 0:
-            print(f"  [skip] {flavor}: no I3 files found in {pmt_path}")
-            continue
+        print(f"\n[{mc}]  geometry={geometry}  nworkers={args.nworkers}")
 
-        if args.dry_run:
-            print(f"  [DRY-RUN] {flavor}: {n_files} files, {args.nworkers} workers")
-            print(f"    indir    = {pmt_path}")
-            print(f"    outdir   = {outdir}")
-            print(f"    gcd      = {gcd}")
-            print(f"    logdir   = {logdir}")
-            print(f"    pulsemap = {pulsemap}")
-            if args.max_energy is None:
-                print("    max_energy = none")
-            else:
-                print(f"    max_energy = {args.max_energy:.6g} GeV")
-                print(f"    suffix   = {metadata_suffix}")
-            print("    trigger_mode = common")
-            if args.with_categories:
-                category_geometry = categorized_geometry_key(args.geometry, metadata_suffix)
-                print(f"    with_categories = {args.category_columns}")
+        for flavor in flavors:
+            entry    = pmt_table.get(geometry, {}).get(flavor, {})
+            pmt_path = entry.get("path")
+
+            if pmt_path is None:
+                print(f"  [skip] {flavor}: PMT path not set in paths.py")
+                continue
+
+            metadata_suffix = format_energy_suffix(args.max_energy)
+            outdir = outdir_from_geometry(
+                mc=mc,
+                scratch_base=SCRATCH_BASE,
+                scratch=scratch,
+                geometry=geometry,
+                flavor=flavor,
+                pmt_path=pmt_path,
+                suffix=metadata_suffix,
+            )
+            logdir = add_suffix(
+                f"{SCRATCH_BASE}/{scratch}/Logs/{flavor}_{geometry}_Parquet",
+                metadata_suffix,
+            )
+
+            try:
+                n_files = discover_i3_files(pmt_path)
+            except Exception as e:
+                print(f"  [error] {flavor}: {e}")
+                return 1
+
+            if n_files == 0:
+                print(f"  [skip] {flavor}: no I3 files found in {pmt_path}")
+                continue
+
+            if args.dry_run:
+                category_geometry = categorized_geometry_key(geometry, metadata_suffix)
+                print(f"  [DRY-RUN] {flavor}: {n_files} files, {args.nworkers} workers")
+                print(f"    indir    = {pmt_path}")
+                print(f"    outdir   = {outdir}")
+                print(f"    gcd      = {gcd}")
+                print(f"    logdir   = {logdir}")
+                print(f"    pulsemap = {pulsemap}")
+                print(f"    exclude_nodes = {DEFAULT_EXCLUDE_NODES}")
+                if args.max_energy is None:
+                    print("    max_energy = none")
+                else:
+                    print(f"    max_energy = {args.max_energy:.6g} GeV")
+                    print(f"    suffix   = {metadata_suffix}")
+                print("    merge = yes (after conversion)")
+                print(f"    category_columns = {args.category_columns}")
                 print(f"    category_geometry = {category_geometry}")
                 print(f"    category_events_per_batch = {args.category_events_per_batch}")
-            continue
+                continue
 
-        convert_job_id = submit_convert(
-            mc=mc, flavor=flavor, geometry=args.geometry,
-            indir=pmt_path, gcd=gcd, outdir=outdir, logdir=logdir,
-            n_files=n_files, pulsemap=pulsemap, nworkers=args.nworkers,
-            max_energy=args.max_energy,
-        )
-        if convert_job_id is None:
-            print(f"  [error] {flavor}: could not parse job ID from sbatch output")
-            return 1
+            convert_job_id = submit_convert(
+                mc=mc, flavor=flavor, geometry=geometry,
+                indir=pmt_path, gcd=gcd, outdir=outdir, logdir=logdir,
+                n_files=n_files, pulsemap=pulsemap, nworkers=args.nworkers,
+                max_energy=args.max_energy,
+                exclude_nodes=DEFAULT_EXCLUDE_NODES,
+            )
+            if convert_job_id is None:
+                print(f"  [error] {flavor}: could not parse job ID from sbatch output")
+                return 1
 
-        if args.with_categories:
+            merge_job_id = submit_merge(
+                mc=mc, flavor=flavor, geometry=geometry,
+                outdir=outdir, logdir=logdir,
+                convert_job_id=convert_job_id,
+                metadata_suffix=metadata_suffix,
+            )
+            if merge_job_id is None:
+                print(f"  [error] {flavor}: could not parse merge job ID from sbatch output")
+                return 1
+
             submit_categories_after_dependency(
                 paths=paths,
                 mc=mc,
                 flavor=flavor,
-                geometry=args.geometry,
+                geometry=geometry,
                 metadata_suffix=metadata_suffix,
                 dependency_job_id=convert_job_id,
                 category_columns=args.category_columns,
@@ -419,16 +423,6 @@ def main() -> int:
                 overwrite=args.category_overwrite,
                 dry_run=args.dry_run,
             )
-        if args.with_merge or not args.with_categories:
-            merge_job_id = submit_merge(
-                mc=mc, flavor=flavor, geometry=args.geometry,
-                outdir=outdir, logdir=logdir,
-                convert_job_id=convert_job_id,
-                metadata_suffix=metadata_suffix,
-            )
-            if merge_job_id is None:
-                print(f"  [error] {flavor}: could not parse merge job ID from sbatch output")
-                return 1
 
     return 0
 
