@@ -197,10 +197,13 @@ def submit_convert(
         export_vars += f",MAX_ENERGY={max_energy}"
 
     job_name = f"Parquet_{mc}_{geometry}_{flavor}"
+    slurm_log = Path(logdir) / f"conversion_%j.log"
     cmd = [
         "sbatch",
         f"--job-name={job_name}",
         f"--cpus-per-task={nworkers}",
+        f"--output={slurm_log}",
+        f"--error={slurm_log}",
         f"--export={export_vars}",
         str(WORKER_SH),
     ]
@@ -376,6 +379,7 @@ def main() -> int:
                 print(f"    outdir   = {outdir}")
                 print(f"    gcd      = {gcd}")
                 print(f"    logdir   = {logdir}")
+                print(f"    slurm_log = {Path(logdir) / 'conversion_%j.log'}")
                 print(f"    pulsemap = {pulsemap}")
                 print(f"    exclude_nodes = {DEFAULT_EXCLUDE_NODES}")
                 if args.max_energy is None:
