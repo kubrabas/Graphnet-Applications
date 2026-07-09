@@ -6,6 +6,7 @@ import argparse
 import csv
 import importlib.util
 import os
+import re
 import shutil
 import sys
 import time
@@ -24,11 +25,12 @@ DEFAULT_OUTDIR = Path(
     "DatasetStatistics/FeatureLevelStatistics"
 )
 BERLIN_TZ = ZoneInfo("Europe/Berlin")
+PHOTON_KEY_DEFAULT = "I3Photons"
 
 ACCEPTED_PULSE_MAPS = {
-    "accepted_pulse_count_340_string": "Accepted_PulseMap_340String",
-    "accepted_pulse_count_160_string": "Accepted_PulseMap_160_String",
-    "accepted_pulse_count_102_string": "Accepted_PulseMap_102_String",
+    "340_string": "Accepted_PulseMap_340String",
+    "160_string": "Accepted_PulseMap_160_String",
+    "102_string": "Accepted_PulseMap_102_String",
 }
 
 COLUMNS = [
@@ -36,8 +38,21 @@ COLUMNS = [
     "SubrunID",
     "EventID",
     "SubEventID",
-    *ACCEPTED_PULSE_MAPS.keys(),
+    "accepted_pulse_count_340_string",
+    "accepted_pulse_count_160_string",
+    "accepted_pulse_count_102_string",
+    "accepted_pulse_map_distinct_string_count_340_string",
+    "accepted_pulse_map_distinct_string_count_160_string",
+    "accepted_pulse_map_distinct_string_count_102_string",
+    "accepted_pulse_map_distinct_OM_count_340_string",
+    "accepted_pulse_map_distinct_OM_count_160_string",
+    "accepted_pulse_map_distinct_OM_count_102_string",
+    "I3Photons_count_340String",
+    "I3Photons_distinct_string_count_340String",
+    "I3Photons_distinct_OM_count_340String",
 ]
+
+_KEY_INTS_RE = re.compile(r"\((\d+)\s*,\s*(\d+)\)")
 
 
 def load_paths():
@@ -91,21 +106,83 @@ def event_header_row(frame):
     }
 
 
-def pulse_count(frame, pulsemap_key: str) -> int:
-    """Count all pulse entries in a pulse map; return -1 if the map is missing."""
-    if pulsemap_key not in frame:
-        return -1
+def key_string_om(key):
+    """Return (string, OM/module) from an OMKey/ModuleKey-like object."""
+    string = None
+    om = None
 
-    pulse_map = frame[pulsemap_key]
+    if hasattr(key, "string"):
+        value = getattr(key, "string")
+        try:
+            string = int(value() if callable(value) else value)
+        except Exception:
+            string = None
+
+    for attr in ("om", "module"):
+        if hasattr(key, attr):
+            value = getattr(key, attr)
+            try:
+                om = int(value() if callable(value) else value)
+            except Exception:
+                om = None
+            break
+
+    if (string is None or om is None) and isinstance(key, tuple) and len(key) >= 2:
+        try:
+            string = int(key[0])
+            om = int(key[1])
+        except Exception:
+            pass
+
+    if string is None or om is None:
+        match = _KEY_INTS_RE.search(str(key))
+        if match:
+            string = int(match.group(1))
+            om = int(match.group(2))
+
+    return string, om
+
+
+def series_map_stats(frame, map_key: str):
+    """Count entries and active strings/OMs in a pulse/photon series map."""
+    if map_key not in frame:
+        return -1, -1, -1
+
+    series_map = frame[map_key]
+    total_count = 0
+    strings = set()
+    oms = set()
+
     try:
-        return sum(len(pulse_map[omkey]) for omkey in pulse_map.keys())
+        keys = list(series_map.keys())
     except AttributeError:
-        return sum(len(pulses) for pulses in pulse_map.values())
+        keys = None
+
+    if keys is None:
+        return sum(len(series) for series in series_map.values()), -1, -1
+
+    for key in keys:
+        try:
+            n_items = len(series_map[key])
+        except Exception:
+            n_items = 0
+
+        total_count += n_items
+        if n_items <= 0:
+            continue
+
+        string, om = key_string_om(key)
+        if string is not None:
+            strings.add(string)
+        if string is not None and om is not None:
+            oms.add((string, om))
+
+    return total_count, len(strings), len(oms)
 
 
 def process_file(task):
     """Count accepted pulses from one I3 file into a chunk CSV."""
-    index, infile_s, chunk_s, flavor, mc_key = task
+    index, infile_s, chunk_s, flavor, mc_key, photon_key = task
     infile = Path(infile_s)
     chunk = Path(chunk_s)
     t_start = time.time()
@@ -146,8 +223,16 @@ def process_file(task):
                 break
 
             row = event_header_row(frame)
-            for column, pulsemap_key in ACCEPTED_PULSE_MAPS.items():
-                row[column] = pulse_count(frame, pulsemap_key)
+            for suffix, pulsemap_key in ACCEPTED_PULSE_MAPS.items():
+                count, string_count, om_count = series_map_stats(frame, pulsemap_key)
+                row[f"accepted_pulse_count_{suffix}"] = count
+                row[f"accepted_pulse_map_distinct_string_count_{suffix}"] = string_count
+                row[f"accepted_pulse_map_distinct_OM_count_{suffix}"] = om_count
+
+            photon_count, photon_string_count, photon_om_count = series_map_stats(frame, photon_key)
+            row["I3Photons_count_340String"] = photon_count
+            row["I3Photons_distinct_string_count_340String"] = photon_string_count
+            row["I3Photons_distinct_OM_count_340String"] = photon_om_count
 
             writer.writerow(row)
             rows += 1
@@ -195,6 +280,7 @@ def parse_args():
     ap.add_argument("--logdir", default=None, help="Log/chunk directory")
     ap.add_argument("--nworkers", type=int, default=None, help="Parallel workers")
     ap.add_argument("--mc-key", default="String340MC", help="BAD_I3_FILES top-level key")
+    ap.add_argument("--photon-key", default=PHOTON_KEY_DEFAULT, help="Photon map key")
     return ap.parse_args()
 
 
@@ -225,6 +311,7 @@ def main() -> int:
             str(chunks / f"{index:06d}_{infile.stem}.csv"),
             args.flavor,
             args.mc_key,
+            args.photon_key,
         )
         for index, infile in enumerate(inputs)
     ]
@@ -243,6 +330,7 @@ def main() -> int:
         log_line(f"flavor   : {args.flavor}")
         log_line(f"indir    : {indir}")
         log_line(f"pattern  : {args.pattern}")
+        log_line(f"photon   : {args.photon_key}")
         log_line(f"out      : {out}")
         log_line(f"logdir   : {logdir}")
         log_line(f"files    : {len(inputs)}")
