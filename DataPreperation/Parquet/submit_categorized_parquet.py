@@ -39,12 +39,10 @@ DEFAULT_EXCLUDE_NODES = "fc30564"
 
 MC_TABLE = {
     "340StringMC": {
-        "pmt_attr": "STRING340MC_PMT",
         "parquet_attr": "STRING340MC_PARQUET",
         "scratch": "String340MC_pone_offline_version3_plus",
     },
     "Spring2026MC": {
-        "pmt_attr": "SPRING2026MC_PMT",
         "parquet_attr": "SPRING2026MC_PARQUET",
         "scratch": "Spring2026MC",
     },
@@ -68,10 +66,6 @@ def parse_job_id(sbatch_output: str) -> Optional[str]:
     return m.group(1) if m else None
 
 
-def base_parquet_outdir(pmt_path: str) -> Path:
-    return Path(pmt_path.replace("_PMT_Response", "_Parquet"))
-
-
 def split_dir_from_paths(
     paths,
     mc: str,
@@ -81,20 +75,12 @@ def split_dir_from_paths(
 ) -> Path:
     parquet_table = getattr(paths, MC_TABLE[mc]["parquet_attr"], {})
     entry = parquet_table.get(geometry, {}).get(flavor, {}).get(split)
-    if entry:
-        return Path(entry)
-
-    pmt_path = (
-        getattr(paths, MC_TABLE[mc]["pmt_attr"], {})
-        .get(geometry, {})
-        .get(flavor, {})
-        .get("path")
-    )
-    if not pmt_path:
+    if not entry:
         raise ValueError(
-            f"No parquet or PMT path found for mc={mc}, geometry={geometry}, flavor={flavor}"
+            f"No parquet path found in paths.py for mc={mc}, "
+            f"geometry={geometry}, flavor={flavor}, split={split}"
         )
-    return base_parquet_outdir(pmt_path) / "merged" / f"{split}_reindexed"
+    return Path(entry)
 
 
 def source_parquet_outdir(

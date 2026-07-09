@@ -4,6 +4,7 @@ Submit Parquet conversion jobs to SLURM — single node, parallel execution.
 Usage:
     python3 submit_parquet.py --mc 340StringMC --flavor all
     python3 submit_parquet.py --mc 340StringMC --geometry 102_string --flavor Electron
+    python3 submit_parquet.py --mc 340StringMC --geometry full_geometry 160_string 102_string --flavor Tau
 
 For each selected geometry/flavor:
   1. Reads PMT-response path and GCD from paths.py.
