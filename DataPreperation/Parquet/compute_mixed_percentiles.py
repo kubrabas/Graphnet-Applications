@@ -17,7 +17,7 @@ and writes to:
 
 Usage:
     python3 compute_mixed_percentiles.py --mc 340StringMC --geometry 102_string_emax1e6
-    python3 compute_mixed_percentiles.py --mc 340StringMC --geometry full_geometry --flavors Muon Electron Tau NC
+    python3 compute_mixed_percentiles.py --mc 340StringMC --geometry full_geometry_emax1e6
 """
 
 import argparse

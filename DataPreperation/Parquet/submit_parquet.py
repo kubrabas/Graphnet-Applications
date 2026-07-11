@@ -12,7 +12,7 @@ For each selected geometry/flavor:
      convert_parquet.py filters on that geometry's triggered_nonoise_* flag.
   3. Chains merge after conversion; merge builds train/val/test, reindexed
      splits, split_manifest.json, and RobustScaler percentile CSVs.
-  4. Chains categorized parquet jobs after conversion for the default category
+  4. Chains categorized parquet jobs after merge for the default category
      columns.
 
 Shell script note:
@@ -312,7 +312,7 @@ def main() -> int:
     ap.add_argument("--max-energy", type=float, default=1e6,
                     help="Keep only frames with EventProperties.totalEnergy <= this value in GeV. Default: 1e6.")
     ap.add_argument("--category-columns", nargs="+", default=DEFAULT_CATEGORY_COLUMNS,
-                    help="Category columns to build after conversion.")
+                    help="Category columns to build after merge.")
     ap.add_argument("--category-events-per-batch", type=int, default=DEFAULT_EVENTS_PER_BATCH,
                     help=f"Categorized output events per batch (default: {DEFAULT_EVENTS_PER_BATCH}).")
     ap.add_argument("--category-overwrite", action="store_true",

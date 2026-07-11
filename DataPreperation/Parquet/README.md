@@ -55,7 +55,7 @@ For each selected geometry/flavor, `submit_parquet.py` does all of this:
 
 1. Submits one conversion job running `convert_parquet.py`.
 2. Chains one merge job after conversion succeeds.
-3. Chains categorized Parquet jobs after conversion succeeds for the default
+3. Chains categorized Parquet jobs after merge succeeds for the default
    category columns.
 
 Merge and categorized outputs are not optional in this workflow. There is no
@@ -334,8 +334,10 @@ merged/split_manifest.json
 
 ## RobustScaler Percentiles
 
-The merge job computes p25/p50/p75 feature percentiles from the training split
-only:
+### Flavor-Specific Percentiles
+
+The merge job computes p25/p50/p75 feature percentiles from each flavor's
+training split:
 
 ```text
 merged/train/features/
@@ -344,7 +346,7 @@ merged/train/features/
 Only numeric feature columns are used. `event_no` and `global_event_no` are
 excluded.
 
-The CSV is written to:
+Flavor-specific CSVs are written directly under:
 
 ```text
 /project/def-nahee/kbas/Graphnet-Applications/Metadata/RobustScaler/<MC>/
@@ -361,6 +363,72 @@ Example:
 ```text
 102_string_electron_Emax1e6_train_feature_percentiles_p25_p50_p75.csv
 ```
+
+### Mixed-Flavor Percentiles
+
+`compute_mixed_percentiles.py` combines training features across the requested
+flavors. By default these are `Muon`, `Electron`, `Tau`, and `NC`. One command
+processes one geometry and produces all mixed scalers needed by the routing
+pipeline:
+
+```bash
+python3 compute_mixed_percentiles.py \
+  --mc 340StringMC \
+  --geometry 102_string_emax1e6
+```
+
+The command first computes one category-free scaler from all training events.
+This scaler is shared by all three classification methods for that geometry.
+It then computes one scaler for every routed reconstruction class in:
+
+```text
+category1_isMuonCC
+category2_tauCC_others_muonCC
+category_3_contains_muon
+```
+
+Category-specific inputs come from the categorized `train/features/`
+directories. Flavor/class combinations whose path is `does_not_exist` in
+`paths.py` are skipped. Each routed class scaler is shared by its energy,
+zenith, and azimuth reconstruction models.
+
+Outputs are written under:
+
+```text
+/project/def-nahee/kbas/Graphnet-Applications/Metadata/RobustScaler/<MC>/mixed/<geometry>/
+```
+
+For each geometry, the output layout is:
+
+```text
+classification/
+  train_feature_percentiles_p25_p50_p75.csv
+
+category1_isMuonCC/
+  class_0_not_muon_cc/train_feature_percentiles_p25_p50_p75.csv
+  class_1_muon_cc/train_feature_percentiles_p25_p50_p75.csv
+
+category2_tauCC_others_muonCC/
+  class_0_tau_cc/train_feature_percentiles_p25_p50_p75.csv
+  class_1_electron_cc_or_nc/train_feature_percentiles_p25_p50_p75.csv
+  class_2_muon_cc/train_feature_percentiles_p25_p50_p75.csv
+
+category_3_contains_muon/
+  class_0_no_muon/train_feature_percentiles_p25_p50_p75.csv
+  class_1_contains_muon/train_feature_percentiles_p25_p50_p75.csv
+```
+
+This is eight mixed percentile CSVs per geometry. Use these geometry keys for
+the current energy-filtered String340MC datasets:
+
+```text
+full_geometry_emax1e6
+160_string_emax1e6
+102_string_emax1e6
+```
+
+The script requires an environment containing both Pandas and Polars, such as
+the existing `.venv_try` environment used for Parquet inspection.
 
 ## Categorized Parquet Outputs
 
