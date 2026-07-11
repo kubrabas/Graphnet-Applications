@@ -35,7 +35,7 @@ WORKER_SH = Path("/home/kbas/SlurmScripts/DataPreperation/submit_categorized_par
 SCRATCH_BASE = Path("/home/kbas/scratch")
 NWORKERS = 16
 DEFAULT_EVENTS_PER_BATCH = 256
-DEFAULT_EXCLUDE_NODES = "fc30564"
+DEFAULT_EXCLUDE_NODES = "fc30564,fc30568"
 
 MC_TABLE = {
     "340StringMC": {

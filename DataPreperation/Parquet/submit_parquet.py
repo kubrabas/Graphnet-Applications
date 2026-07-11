@@ -225,6 +225,7 @@ def submit_merge(
     logdir: str,
     convert_job_id: str,
     metadata_suffix: Optional[str],
+    exclude_nodes: Optional[str],
 ) -> Optional[str]:
     export_vars = (
         f"MC={mc},"
@@ -240,10 +241,14 @@ def submit_merge(
     cmd = [
         "sbatch",
         f"--job-name={job_name}",
+        f"--output={Path(logdir) / 'merge_wrapper_%j.out'}",
+        f"--error={Path(logdir) / 'merge_wrapper_%j.out'}",
         f"--dependency=afterok:{convert_job_id}",
         f"--export={export_vars}",
         str(MERGE_SH),
     ]
+    if exclude_nodes:
+        cmd.insert(2, f"--exclude={exclude_nodes}")
     result = subprocess.run(cmd, capture_output=True, text=True, check=True)
     merge_job_id = parse_job_id(result.stdout)
     print(f"  chained:   {job_name}  job_id={merge_job_id}  (runs after completion of {convert_job_id})")
@@ -410,6 +415,7 @@ def main() -> int:
                 outdir=outdir, logdir=logdir,
                 convert_job_id=convert_job_id,
                 metadata_suffix=metadata_suffix,
+                exclude_nodes=DEFAULT_EXCLUDE_NODES,
             )
             if merge_job_id is None:
                 print(f"  [error] {flavor}: could not parse merge job ID from sbatch output")
@@ -421,7 +427,7 @@ def main() -> int:
                 flavor=flavor,
                 geometry=geometry,
                 metadata_suffix=metadata_suffix,
-                dependency_job_id=convert_job_id,
+                dependency_job_id=merge_job_id,
                 category_columns=args.category_columns,
                 nworkers=args.nworkers,
                 events_per_batch=args.category_events_per_batch,
