@@ -700,62 +700,64 @@ STRING340MC_PARQUET = {
 # ============================================================
 # RobustScaler Percentiles
 # ============================================================
-# Each entry points to the CSV produced by DataPreperation/Parquet/merge_parquet.py
-# or DataPreperation/Parquet/compute_mixed_percentiles.py.
+# Each entry points to a mixed-flavor CSV produced by
+# DataPreperation/Parquet/compute_mixed_percentiles.py.
 
 ROBUST_SCALER = {
     "340StringMC": {
-        "102_string": {
-            "Muon": "/project/def-nahee/kbas/Graphnet-Applications/Metadata/RobustScaler/340StringMC/102_string_muon_train_feature_percentiles_p25_p50_p75.csv",
-            "Electron": "/project/def-nahee/kbas/Graphnet-Applications/Metadata/RobustScaler/340StringMC/102_string_electron_train_feature_percentiles_p25_p50_p75.csv",
-            "Tau": "/project/def-nahee/kbas/Graphnet-Applications/Metadata/RobustScaler/340StringMC/102_string_tau_train_feature_percentiles_p25_p50_p75.csv",
-            "NC": "/project/def-nahee/kbas/Graphnet-Applications/Metadata/RobustScaler/340StringMC/102_string_nc_train_feature_percentiles_p25_p50_p75.csv",
-            "mixed": None,
-        },
         "102_string_emax1e6": {
-            "Muon": "/project/def-nahee/kbas/Graphnet-Applications/Metadata/RobustScaler/340StringMC/102_string_muon_Emax1e6_train_feature_percentiles_p25_p50_p75.csv",
-            "Electron": "/project/def-nahee/kbas/Graphnet-Applications/Metadata/RobustScaler/340StringMC/102_string_electron_train_feature_percentiles_p25_p50_p75.csv",
-            "Tau": "/project/def-nahee/kbas/Graphnet-Applications/Metadata/RobustScaler/340StringMC/102_string_tau_train_feature_percentiles_p25_p50_p75.csv",
-            "NC": "/project/def-nahee/kbas/Graphnet-Applications/Metadata/RobustScaler/340StringMC/102_string_nc_train_feature_percentiles_p25_p50_p75.csv",
-            "mixed": "/project/def-nahee/kbas/Graphnet-Applications/Metadata/RobustScaler/340StringMC/102_string_emax1e6_mixed_muon_electron_tau_nc_train_feature_percentiles_p25_p50_p75.csv",
-            "first_category_mixed_0": "/project/def-nahee/kbas/Graphnet-Applications/Metadata/RobustScaler/340StringMC/102_string_emax1e6_first_category_mixed_0_train_feature_percentiles_p25_p50_p75.csv",
-            "first_category_mixed_1": "/project/def-nahee/kbas/Graphnet-Applications/Metadata/RobustScaler/340StringMC/102_string_emax1e6_first_category_mixed_1_train_feature_percentiles_p25_p50_p75.csv",
-            "second_category_mixed_0": "/project/def-nahee/kbas/Graphnet-Applications/Metadata/RobustScaler/340StringMC/102_string_emax1e6_second_category_mixed_0_train_feature_percentiles_p25_p50_p75.csv",
-            "second_category_mixed_1": "/project/def-nahee/kbas/Graphnet-Applications/Metadata/RobustScaler/340StringMC/102_string_emax1e6_second_category_mixed_1_train_feature_percentiles_p25_p50_p75.csv",
-            "second_category_mixed_2": "/project/def-nahee/kbas/Graphnet-Applications/Metadata/RobustScaler/340StringMC/102_string_emax1e6_second_category_mixed_2_train_feature_percentiles_p25_p50_p75.csv",
+            "classification": "/project/def-nahee/kbas/Graphnet-Applications/Metadata/RobustScaler/340StringMC/mixed/102_string_emax1e6/classification/train_feature_percentiles_p25_p50_p75.csv",
+            "reconstruction": {
+                "category1_isMuonCC": {
+                    "0": "/project/def-nahee/kbas/Graphnet-Applications/Metadata/RobustScaler/340StringMC/mixed/102_string_emax1e6/category1_isMuonCC/class_0_not_muon_cc/train_feature_percentiles_p25_p50_p75.csv",
+                    "1": "/project/def-nahee/kbas/Graphnet-Applications/Metadata/RobustScaler/340StringMC/mixed/102_string_emax1e6/category1_isMuonCC/class_1_muon_cc/train_feature_percentiles_p25_p50_p75.csv",
+                },
+                "category2_tauCC_others_muonCC": {
+                    "0": "/project/def-nahee/kbas/Graphnet-Applications/Metadata/RobustScaler/340StringMC/mixed/102_string_emax1e6/category2_tauCC_others_muonCC/class_0_tau_cc/train_feature_percentiles_p25_p50_p75.csv",
+                    "1": "/project/def-nahee/kbas/Graphnet-Applications/Metadata/RobustScaler/340StringMC/mixed/102_string_emax1e6/category2_tauCC_others_muonCC/class_1_electron_cc_or_nc/train_feature_percentiles_p25_p50_p75.csv",
+                    "2": "/project/def-nahee/kbas/Graphnet-Applications/Metadata/RobustScaler/340StringMC/mixed/102_string_emax1e6/category2_tauCC_others_muonCC/class_2_muon_cc/train_feature_percentiles_p25_p50_p75.csv",
+                },
+                "category_3_contains_muon": {
+                    "0": "/project/def-nahee/kbas/Graphnet-Applications/Metadata/RobustScaler/340StringMC/mixed/102_string_emax1e6/category_3_contains_muon/class_0_no_muon/train_feature_percentiles_p25_p50_p75.csv",
+                    "1": "/project/def-nahee/kbas/Graphnet-Applications/Metadata/RobustScaler/340StringMC/mixed/102_string_emax1e6/category_3_contains_muon/class_1_contains_muon/train_feature_percentiles_p25_p50_p75.csv",
+                },
+            },
         },
-        "160_string": {
-            "Muon": None,
-            "Electron": None,
-            "Tau": None,
-            "NC": None,
-            "mixed": None,
-        },
-         "160_string_emax1e6": {
-            "Muon": None,
-            "Electron": None,
-            "Tau": None,
-            "NC": None,
-            "mixed": None,
-        },
-        "full_geometry": {
-            "Muon": "/project/def-nahee/kbas/Graphnet-Applications/Metadata/RobustScaler/340StringMC/full_geometry_muon_train_feature_percentiles_p25_p50_p75.csv",
-            "Electron": "/project/def-nahee/kbas/Graphnet-Applications/Metadata/RobustScaler/340StringMC/full_geometry_electron_train_feature_percentiles_p25_p50_p75.csv",
-            "Tau": "/project/def-nahee/kbas/Graphnet-Applications/Metadata/RobustScaler/340StringMC/full_geometry_tau_train_feature_percentiles_p25_p50_p75.csv",
-            "NC": "/project/def-nahee/kbas/Graphnet-Applications/Metadata/RobustScaler/340StringMC/full_geometry_nc_train_feature_percentiles_p25_p50_p75.csv",
-            "mixed": None,
+        "160_string_emax1e6": {
+            "classification": "/project/def-nahee/kbas/Graphnet-Applications/Metadata/RobustScaler/340StringMC/mixed/160_string_emax1e6/classification/train_feature_percentiles_p25_p50_p75.csv",
+            "reconstruction": {
+                "category1_isMuonCC": {
+                    "0": "/project/def-nahee/kbas/Graphnet-Applications/Metadata/RobustScaler/340StringMC/mixed/160_string_emax1e6/category1_isMuonCC/class_0_not_muon_cc/train_feature_percentiles_p25_p50_p75.csv",
+                    "1": "/project/def-nahee/kbas/Graphnet-Applications/Metadata/RobustScaler/340StringMC/mixed/160_string_emax1e6/category1_isMuonCC/class_1_muon_cc/train_feature_percentiles_p25_p50_p75.csv",
+                },
+                "category2_tauCC_others_muonCC": {
+                    "0": "/project/def-nahee/kbas/Graphnet-Applications/Metadata/RobustScaler/340StringMC/mixed/160_string_emax1e6/category2_tauCC_others_muonCC/class_0_tau_cc/train_feature_percentiles_p25_p50_p75.csv",
+                    "1": "/project/def-nahee/kbas/Graphnet-Applications/Metadata/RobustScaler/340StringMC/mixed/160_string_emax1e6/category2_tauCC_others_muonCC/class_1_electron_cc_or_nc/train_feature_percentiles_p25_p50_p75.csv",
+                    "2": "/project/def-nahee/kbas/Graphnet-Applications/Metadata/RobustScaler/340StringMC/mixed/160_string_emax1e6/category2_tauCC_others_muonCC/class_2_muon_cc/train_feature_percentiles_p25_p50_p75.csv",
+                },
+                "category_3_contains_muon": {
+                    "0": "/project/def-nahee/kbas/Graphnet-Applications/Metadata/RobustScaler/340StringMC/mixed/160_string_emax1e6/category_3_contains_muon/class_0_no_muon/train_feature_percentiles_p25_p50_p75.csv",
+                    "1": "/project/def-nahee/kbas/Graphnet-Applications/Metadata/RobustScaler/340StringMC/mixed/160_string_emax1e6/category_3_contains_muon/class_1_contains_muon/train_feature_percentiles_p25_p50_p75.csv",
+                },
+            },
         },
         "full_geometry_emax1e6": {
-            "Muon": "/project/def-nahee/kbas/Graphnet-Applications/Metadata/RobustScaler/340StringMC/full_geometry_muon_Emax1e6_train_feature_percentiles_p25_p50_p75.csv",
-            "Electron": "/project/def-nahee/kbas/Graphnet-Applications/Metadata/RobustScaler/340StringMC/full_geometry_electron_train_feature_percentiles_p25_p50_p75.csv",
-            "Tau": "/project/def-nahee/kbas/Graphnet-Applications/Metadata/RobustScaler/340StringMC/full_geometry_tau_train_feature_percentiles_p25_p50_p75.csv",
-            "NC": "/project/def-nahee/kbas/Graphnet-Applications/Metadata/RobustScaler/340StringMC/full_geometry_nc_train_feature_percentiles_p25_p50_p75.csv",
-            "mixed": "/project/def-nahee/kbas/Graphnet-Applications/Metadata/RobustScaler/340StringMC/full_geometry_emax1e6_mixed_muon_electron_tau_nc_train_feature_percentiles_p25_p50_p75.csv",
-            "first_category_mixed_0": "/project/def-nahee/kbas/Graphnet-Applications/Metadata/RobustScaler/340StringMC/full_geometry_emax1e6_first_category_mixed_0_train_feature_percentiles_p25_p50_p75.csv",
-            "first_category_mixed_1": "/project/def-nahee/kbas/Graphnet-Applications/Metadata/RobustScaler/340StringMC/full_geometry_emax1e6_first_category_mixed_1_train_feature_percentiles_p25_p50_p75.csv",
-            "second_category_mixed_0": "/project/def-nahee/kbas/Graphnet-Applications/Metadata/RobustScaler/340StringMC/full_geometry_emax1e6_second_category_mixed_0_train_feature_percentiles_p25_p50_p75.csv",
-            "second_category_mixed_1": "/project/def-nahee/kbas/Graphnet-Applications/Metadata/RobustScaler/340StringMC/full_geometry_emax1e6_second_category_mixed_1_train_feature_percentiles_p25_p50_p75.csv",
-            "second_category_mixed_2": "/project/def-nahee/kbas/Graphnet-Applications/Metadata/RobustScaler/340StringMC/full_geometry_emax1e6_second_category_mixed_2_train_feature_percentiles_p25_p50_p75.csv",
+            "classification": "/project/def-nahee/kbas/Graphnet-Applications/Metadata/RobustScaler/340StringMC/mixed/full_geometry_emax1e6/classification/train_feature_percentiles_p25_p50_p75.csv",
+            "reconstruction": {
+                "category1_isMuonCC": {
+                    "0": "/project/def-nahee/kbas/Graphnet-Applications/Metadata/RobustScaler/340StringMC/mixed/full_geometry_emax1e6/category1_isMuonCC/class_0_not_muon_cc/train_feature_percentiles_p25_p50_p75.csv",
+                    "1": "/project/def-nahee/kbas/Graphnet-Applications/Metadata/RobustScaler/340StringMC/mixed/full_geometry_emax1e6/category1_isMuonCC/class_1_muon_cc/train_feature_percentiles_p25_p50_p75.csv",
+                },
+                "category2_tauCC_others_muonCC": {
+                    "0": "/project/def-nahee/kbas/Graphnet-Applications/Metadata/RobustScaler/340StringMC/mixed/full_geometry_emax1e6/category2_tauCC_others_muonCC/class_0_tau_cc/train_feature_percentiles_p25_p50_p75.csv",
+                    "1": "/project/def-nahee/kbas/Graphnet-Applications/Metadata/RobustScaler/340StringMC/mixed/full_geometry_emax1e6/category2_tauCC_others_muonCC/class_1_electron_cc_or_nc/train_feature_percentiles_p25_p50_p75.csv",
+                    "2": "/project/def-nahee/kbas/Graphnet-Applications/Metadata/RobustScaler/340StringMC/mixed/full_geometry_emax1e6/category2_tauCC_others_muonCC/class_2_muon_cc/train_feature_percentiles_p25_p50_p75.csv",
+                },
+                "category_3_contains_muon": {
+                    "0": "/project/def-nahee/kbas/Graphnet-Applications/Metadata/RobustScaler/340StringMC/mixed/full_geometry_emax1e6/category_3_contains_muon/class_0_no_muon/train_feature_percentiles_p25_p50_p75.csv",
+                    "1": "/project/def-nahee/kbas/Graphnet-Applications/Metadata/RobustScaler/340StringMC/mixed/full_geometry_emax1e6/category_3_contains_muon/class_1_contains_muon/train_feature_percentiles_p25_p50_p75.csv",
+                },
+            },
         },
     },
     "Spring2026MC": {},

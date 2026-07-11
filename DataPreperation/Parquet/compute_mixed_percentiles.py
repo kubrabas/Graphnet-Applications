@@ -18,6 +18,26 @@ and writes to:
 Usage:
     python3 compute_mixed_percentiles.py --mc 340StringMC --geometry 102_string_emax1e6
     python3 compute_mixed_percentiles.py --mc 340StringMC --geometry full_geometry_emax1e6
+
+Full-geometry processing can require substantially more memory than the
+reduced geometries. Request a high-memory compute node before running it:
+
+salloc \
+  --time=1:00:00 \
+  --account=def-nahee \
+  --nodes=1 \
+  --ntasks=1 \
+  --cpus-per-task=8 \
+  --mem=128G
+
+Then activate the Parquet environment and run the script:
+
+source /project/def-nahee/kbas/.venv_try/bin/activate
+cd /project/def-nahee/kbas/Graphnet-Applications/DataPreperation/Parquet
+
+python3 compute_mixed_percentiles.py \
+  --mc 340StringMC \
+  --geometry full_geometry_emax1e6
 """
 
 import argparse
