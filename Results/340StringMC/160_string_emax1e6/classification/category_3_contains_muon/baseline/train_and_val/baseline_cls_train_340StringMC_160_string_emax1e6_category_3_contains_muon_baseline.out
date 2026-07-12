@@ -392,3 +392,4 @@ Cannot use healpy functionality. Install healpy, if you need to do entropy scann
 [1;34mgraphnet[0m [SpawnProcess-24] [33mWARNING [0m 2026-07-12 12:05:52 - <module> - `icecube` not available. Some functionality may be missing.[0m
 [1;34mgraphnet[0m [SpawnProcess-24] [33mWARNING [0m 2026-07-12 12:05:52 - <module> - `km3net` not available. Some functionality may be missing.[0m
 [Validation] diagnostics written to: /project/def-nahee/kbas/Graphnet-Applications/Results/340StringMC/160_string_emax1e6/classification/category_3_contains_muon/baseline/train_and_val
+--- train_classification finished (rc=0)
