@@ -27,3 +27,5 @@ epoch,elapsed_min,epoch_duration_min,rss_gb,cpu_load_pct,gpu_util_pct,gpu_mem_us
 25,1340.349,49.346,3.105,172.80,nan,nan,nan,nan
 26,1389.429,49.080,3.107,207.56,nan,nan,nan,nan
 27,1442.835,53.406,3.108,197.68,nan,nan,nan,nan
+28,1492.243,49.408,3.105,180.40,nan,nan,nan,nan
+29,1541.799,49.555,3.111,192.47,nan,nan,nan,nan

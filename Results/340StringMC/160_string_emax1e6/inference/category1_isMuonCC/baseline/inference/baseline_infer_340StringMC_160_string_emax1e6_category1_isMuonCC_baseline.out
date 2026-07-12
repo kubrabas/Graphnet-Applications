@@ -1,0 +1,147 @@
+--- HOST: JOB=48381992  HOST=fc10913
+--- CONFIG: /project/6061446/kbas/graphnet/examples/08_pone/configs/inference/160_string_emax1e6__category1_isMuonCC.yml
+--- OUTPUT_PREPARED: 1
+--- LOGFILE: /project/def-nahee/kbas/Graphnet-Applications/Results/340StringMC/160_string_emax1e6/inference/category1_isMuonCC/baseline/inference/baseline_infer_340StringMC_160_string_emax1e6_category1_isMuonCC_baseline.out
+--- INFERENCE_SCRIPT: /project/def-nahee/kbas/graphnet/examples/08_pone/inference_scripts/run_inference.py
+INFO:    Using cached SIF image
+WARNING: While bind mounting '/project:/project': destination is already in the mount point list
+[1;34mgraphnet[0m [MainProcess] [33mWARNING [0m 2026-07-12 11:41:29 - <module> - `icecube` not available. Some functionality may be missing.[0m
+[1;34mgraphnet[0m [MainProcess] [33mWARNING [0m 2026-07-12 11:41:32 - <module> - `km3net` not available. Some functionality may be missing.[0m
+torchdiffeq not found - no support for continuous flows. Install *torchdiffeq* if support is desired!
+Meander not installed... contours can not be calculated.
+Healpy not installed... spherical contours can not be calculated.
+package *astropy* not found -> if you want to use plotting functionality for adaptive grids, install *astropy*!
+package *mhealpy* not found -> if you want to use plotting functionality for adaptive grids, install *mhealpy*!
+Cannot use healpy functionality. Install healpy, if you need to do entropy scanning!
+[1;34mgraphnet[0m [MainProcess] [33mWARNING [0m 2026-07-12 11:41:41 - <module> - `graphnet.models.graphs` will be depricated soon. All functionality has been moved to `graphnet.models.data_representation`.[0m
+[Paths] mixed test inputs:
+  Muon: /home/kbas/scratch/String340MC_pone_offline_version3_plus/Parquet/160_string/Muon_Parquet_Emax1e6/merged/test_reindexed
+  Electron: /home/kbas/scratch/String340MC_pone_offline_version3_plus/Parquet/160_string/Electron_Parquet_Emax1e6/merged/test_reindexed
+  Tau: /home/kbas/scratch/String340MC_pone_offline_version3_plus/Parquet/160_string/Tau_Parquet_Emax1e6/merged/test_reindexed
+  NC: /home/kbas/scratch/String340MC_pone_offline_version3_plus/Parquet/160_string/NC_Parquet_Emax1e6/merged/test_reindexed
+[Preflight] ready: 4 test paths, 2 route classes, 3 reconstruction targets
+
+========== CONFIG ==========
+classification:
+  config: /project/def-nahee/kbas/graphnet/examples/08_pone/configs/classification/160_string_emax1e6__category1_isMuonCC.yml
+  experiment_name: baseline
+  positive_label: 1
+  threshold: 0.5
+data:
+  features:
+  - pmt_x
+  - pmt_y
+  - pmt_z
+  - dom_time
+  - charge
+  percentiles_csv: null
+  pulsemaps: features
+  split: test
+  truth_all:
+  - event_no
+  - RunID
+  - SubrunID
+  - EventID
+  - SubEventID
+  - category1_isMuonCC
+  - category2_tauCC_others_muonCC
+  - category_3_contains_muon
+  - position_x
+  - position_y
+  - position_z
+  - pid
+  - is_CC
+  - totalEnergy
+  - zenith
+  - azimuth
+  - finalStateX
+  - finalStateY
+  - finalType1
+  - finalType2
+  - initialType
+  - totalColumnDepth
+  - impactParameter
+  - fully_contained
+  - starting_track
+  - stopping_track
+  - through_going
+  - missed_track
+  truth_table: truth
+experiment_name: baseline
+flavors:
+- Muon
+- Electron
+- Tau
+- NC
+geometry: 160_string_emax1e6
+inference:
+  batch_size: 256
+  multiprocessing_context: spawn
+  num_workers: 8
+  pin_memory: true
+mc: 340StringMC
+notebook:
+  allow_failure: true
+  command: jupyter
+  enabled: true
+  output_name: inference_report.ipynb
+  template: /project/def-nahee/kbas/graphnet/examples/08_pone/inference_scripts/inference_report_template.ipynb
+  timeout_seconds: 3600
+output:
+  dirs:
+    inference: inference
+  root_dir: /project/def-nahee/kbas/Graphnet-Applications/Results
+reconstruction:
+  config: /project/def-nahee/kbas/graphnet/examples/08_pone/configs/reconstruction/160_string_emax1e6__category1_isMuonCC.yml
+  experiment_name: baseline
+  targets:
+  - energy
+  - zenith
+  - azimuth
+routing:
+  category: category1_isMuonCC
+  classes:
+  - 0
+  - 1
+run:
+  existing_output: error
+slurm:
+  account: def-nahee
+  cpus_per_task: 8
+  exclude: fc10713
+  gpus_per_node: nvidia_h100_80gb_hbm3_3g.40gb:1
+  mem: 96G
+  time: 08:00:00
+task:
+  mode: routed
+  type: inference
+
+============================
+
+[Output] inference dir: /project/def-nahee/kbas/Graphnet-Applications/Results/340StringMC/160_string_emax1e6/inference/category1_isMuonCC/baseline/inference
+[Paths] mixed test inputs:
+  Muon: /home/kbas/scratch/String340MC_pone_offline_version3_plus/Parquet/160_string/Muon_Parquet_Emax1e6/merged/test_reindexed
+  Electron: /home/kbas/scratch/String340MC_pone_offline_version3_plus/Parquet/160_string/Electron_Parquet_Emax1e6/merged/test_reindexed
+  Tau: /home/kbas/scratch/String340MC_pone_offline_version3_plus/Parquet/160_string/Tau_Parquet_Emax1e6/merged/test_reindexed
+  NC: /home/kbas/scratch/String340MC_pone_offline_version3_plus/Parquet/160_string/NC_Parquet_Emax1e6/merged/test_reindexed
+[1;34mgraphnet[0m [MainProcess] [32mINFO    [0m 2026-07-12 11:41:42 - PONE.__init__ - Writing log to [1mlogs/graphnet_20260712-114142.log[0m
+[Checkpoint] loaded classification: /project/def-nahee/kbas/Graphnet-Applications/Results/340StringMC/160_string_emax1e6/classification/category1_isMuonCC/baseline/train_and_val/best_model.pth
+[1;34mgraphnet[0m [SpawnProcess-1] [33mWARNING [0m 2026-07-12 11:41:45 - <module> - `icecube` not available. Some functionality may be missing.[0m
+[1;34mgraphnet[0m [SpawnProcess-1] [33mWARNING [0m 2026-07-12 11:41:45 - <module> - `km3net` not available. Some functionality may be missing.[0m
+torchdiffeq not found - no support for continuous flows. Install *torchdiffeq* if support is desired!
+Meander not installed... contours can not be calculated.
+Healpy not installed... spherical contours can not be calculated.
+package *astropy* not found -> if you want to use plotting functionality for adaptive grids, install *astropy*!
+package *mhealpy* not found -> if you want to use plotting functionality for adaptive grids, install *mhealpy*!
+Cannot use healpy functionality. Install healpy, if you need to do entropy scanning!
+[1;34mgraphnet[0m [SpawnProcess-1] [33mWARNING [0m 2026-07-12 11:41:47 - <module> - `graphnet.models.graphs` will be depricated soon. All functionality has been moved to `graphnet.models.data_representation`.[0m
+[1;34mgraphnet[0m [SpawnProcess-2] [33mWARNING [0m 2026-07-12 11:41:49 - <module> - `icecube` not available. Some functionality may be missing.[0m
+[1;34mgraphnet[0m [SpawnProcess-2] [33mWARNING [0m 2026-07-12 11:41:49 - <module> - `km3net` not available. Some functionality may be missing.[0m
+torchdiffeq not found - no support for continuous flows. Install *torchdiffeq* if support is desired!
+Meander not installed... contours can not be calculated.
+Healpy not installed... spherical contours can not be calculated.
+package *astropy* not found -> if you want to use plotting functionality for adaptive grids, install *astropy*!
+package *mhealpy* not found -> if you want to use plotting functionality for adaptive grids, install *mhealpy*!
+Cannot use healpy functionality. Install healpy, if you need to do entropy scanning!
+[1;34mgraphnet[0m [SpawnProcess-2] [33mWARNING [0m 2026-07-12 11:41:51 - <module> - `graphnet.models.graphs` will be depricated soon. All functionality has been moved to `graphnet.models.data_representation`.[0m
+[1;34mgraphnet[0m [SpawnProcess-3] [33mWARNING [0m 2026-07-12 11:41:53 - <module> - `icecube` not available. Some functionality may be missing.[0m
