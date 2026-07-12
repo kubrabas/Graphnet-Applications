@@ -307,3 +307,5 @@ Metric val_loss improved by 0.000 >= min_delta = 0.0. New best score: 0.246 | ep
 [1;34mgraphnet[0m [MainProcess] [32mINFO    [0m 2026-07-12 11:15:50 - StandardModel._call_callback_hooks - Model state_dict saved to /project/def-nahee/kbas/Graphnet-Applications/Results/340StringMC/102_string_emax1e6/classification/category_3_contains_muon/baseline/train_and_val/best_model.pth[0m
 Metric val_loss improved by 0.001 >= min_delta = 0.0. New best score: 0.245 | epoch: 14
 [1;34mgraphnet[0m [MainProcess] [32mINFO    [0m 2026-07-12 11:47:54 - StandardModel._call_callback_hooks - Model state_dict saved to /project/def-nahee/kbas/Graphnet-Applications/Results/340StringMC/102_string_emax1e6/classification/category_3_contains_muon/baseline/train_and_val/best_model.pth[0m
+Metric val_loss improved by 0.000 >= min_delta = 0.0. New best score: 0.245 | epoch: 16
+[1;34mgraphnet[0m [MainProcess] [32mINFO    [0m 2026-07-12 12:56:57 - StandardModel._call_callback_hooks - Model state_dict saved to /project/def-nahee/kbas/Graphnet-Applications/Results/340StringMC/102_string_emax1e6/classification/category_3_contains_muon/baseline/train_and_val/best_model.pth[0m
