@@ -1,18 +1,16 @@
-"""
-Split raw parquet datasets into category-specific train/val/test outputs.
+"""Create truth-category views of canonical train and validation splits.
 
-This module does not read I3 files. It filters raw truth rows by a category
-column, matches feature rows by event_no, then builds train/val/test splits for
-that category value.
+The canonical split has already been assigned upstream. This module only
+filters each split by a truth category; it never randomizes or reassigns an
+event and intentionally does not create categorized test datasets.
 """
 
 import json
-import random
 import re
 from pathlib import Path
 from typing import Dict, List, Tuple
 
-SPLITS = ["train", "val", "test"]
+SPLITS = ["train", "val"]
 EVENT_ID_COLS = ["RunID", "SubrunID", "EventID", "SubEventID"]
 
 
@@ -23,36 +21,15 @@ def batch_id(path: Path) -> int:
     return int(match.group(1))
 
 
-def truth_stem(path: Path) -> str:
-    if not path.name.endswith("_truth.parquet"):
-        raise ValueError(f"Unexpected truth parquet name: {path}")
-    return path.name[: -len("_truth.parquet")]
-
-
 def truth_files_in(truth_dir: Path) -> List[Path]:
-    files = sorted(truth_dir.glob("*_truth.parquet"))
-    if files:
-        return files
     return sorted(truth_dir.glob("truth_*.parquet"), key=batch_id)
 
 
-def feature_file_for_truth(source_dataset_dir: Path, table: str, truth_file: Path) -> Path:
-    if truth_file.name.startswith("truth_"):
-        bid = batch_id(truth_file)
-        return source_dataset_dir / table / f"{table}_{bid}.parquet"
-    stem = truth_stem(truth_file)
-    return source_dataset_dir / table / f"{stem}_{table}.parquet"
-
-
 def parquet_tables(source_split_dir: Path) -> List[str]:
-    tables = [
-        p.name
-        for p in source_split_dir.iterdir()
-        if p.is_dir()
-    ]
+    tables = [item.name for item in source_split_dir.iterdir() if item.is_dir()]
     if "truth" not in tables:
         raise FileNotFoundError(f"Missing truth table in {source_split_dir}")
-    feature_tables = sorted(t for t in tables if t.startswith("features"))
+    feature_tables = sorted(table for table in tables if table.startswith("features"))
     if not feature_tables:
         raise FileNotFoundError(f"Missing feature table(s) in {source_split_dir}")
     return ["truth"] + feature_tables
@@ -60,16 +37,19 @@ def parquet_tables(source_split_dir: Path) -> List[str]:
 
 def prepare_dataset_output(outbase: Path, tables: List[str], overwrite: bool) -> bool:
     existing = []
+    test_dir = outbase / "test"
+    if test_dir.exists():
+        raise FileExistsError(
+            f"Legacy categorized test directory exists: {test_dir}. Archive it before rerunning."
+        )
     for split in SPLITS:
         for table in tables:
             table_dir = outbase / split / table
             table_dir.mkdir(parents=True, exist_ok=True)
             existing.extend(table_dir.glob("*.parquet"))
-
     if existing and not overwrite:
         print(f"Output already exists, skipping: {outbase}")
         return False
-
     if overwrite:
         for path in existing:
             path.unlink()
@@ -78,238 +58,148 @@ def prepare_dataset_output(outbase: Path, tables: List[str], overwrite: bool) ->
 
 def write_batch(
     outdir: Path,
-    out_batch: int,
+    output_id: int,
     truth_batch,
     feature_batches: Dict[str, object],
 ) -> Tuple[int, Dict[str, int]]:
-    truth_out = outdir / "truth" / f"truth_{out_batch}.parquet"
-    truth_batch.write_parquet(truth_out)
+    truth_batch.write_parquet(outdir / "truth" / f"truth_{output_id}.parquet")
     feature_rows = {}
-    for table, features_batch in feature_batches.items():
-        features_out = outdir / table / f"{table}_{out_batch}.parquet"
-        features_batch.write_parquet(features_out)
-        feature_rows[table] = features_batch.height
+    for table, features in feature_batches.items():
+        features.write_parquet(outdir / table / f"{table}_{output_id}.parquet")
+        feature_rows[table] = features.height
     return truth_batch.height, feature_rows
 
 
-def event_key_columns(truth) -> List[str]:
-    if all(c in truth.columns for c in EVENT_ID_COLS):
-        return EVENT_ID_COLS
-    if "event_no" in truth.columns:
-        return ["event_no"]
-    raise ValueError(f"Missing event identifiers. Need {EVENT_ID_COLS} or event_no.")
-
-
-def split_event_keys(keys, seed: int = 42) -> Dict[str, object]:
-    import polars as pl
-
-    key_cols = keys.columns
-    schema = keys.schema
-
-    def empty_keys():
-        return pl.DataFrame({
-            col: pl.Series(col, [], dtype=schema[col])
-            for col in key_cols
-        })
-
-    rows = keys.unique(maintain_order=True).sort(key_cols).to_dicts()
-    rng = random.Random(seed)
-    rng.shuffle(rows)
-
-    n = len(rows)
-    n_train = int(0.8 * n)
-    n_val = int(0.1 * n)
-    split_rows = {
-        "train": rows[:n_train],
-        "val": rows[n_train:n_train + n_val],
-        "test": rows[n_train + n_val:],
-    }
-    return {
-        split: pl.DataFrame(split_rows[split], schema=schema)
-        if split_rows[split]
-        else empty_keys()
-        for split in SPLITS
-    }
-
-
-def write_split_batches(
-    outdir: Path,
-    truth_split,
-    feature_splits: Dict[str, object],
+def filter_one_canonical_split(
+    source_split_dir: Path,
+    output_split_dir: Path,
+    category_column: str,
+    category_value: str,
     events_per_batch: int,
-) -> Tuple[int, Dict[str, int], int]:
+) -> dict:
     import polars as pl
 
-    event_ids = truth_split.select("event_no").unique(maintain_order=True)
-    truth_rows = 0
-    feature_rows = {table: 0 for table in feature_splits}
-    out_batch = 0
+    tables = parquet_tables(source_split_dir)
+    feature_tables = [table for table in tables if table != "truth"]
+    truth_files = truth_files_in(source_split_dir / "truth")
+    if not truth_files:
+        raise FileNotFoundError(f"No truth parquet files in {source_split_dir / 'truth'}")
 
-    for start in range(0, event_ids.height, events_per_batch):
-        event_batch = event_ids.slice(start, events_per_batch)
-        truth_batch = truth_split.join(event_batch, on="event_no", how="inner")
+    pending_truth = None
+    pending_features = {table: None for table in feature_tables}
+    output_id = 0
+    truth_rows = 0
+    feature_rows = {table: 0 for table in feature_tables}
+
+    def flush(n_events=None):
+        nonlocal pending_truth, pending_features, output_id, truth_rows
+        if pending_truth is None or pending_truth.is_empty():
+            return
+        event_ids = pending_truth.select("event_no").unique(maintain_order=True)
+        if n_events is not None:
+            event_ids = event_ids.head(n_events)
+        truth_batch = pending_truth.join(event_ids, on="event_no", how="inner")
         feature_batches = {
-            table: features.join(event_batch, on="event_no", how="inner")
-            for table, features in feature_splits.items()
+            table: frame.join(event_ids, on="event_no", how="inner")
+            for table, frame in pending_features.items()
         }
         n_truth, n_features = write_batch(
-            outdir=outdir,
-            out_batch=out_batch,
-            truth_batch=truth_batch,
-            feature_batches=feature_batches,
+            output_split_dir, output_id, truth_batch, feature_batches
         )
         truth_rows += n_truth
-        for table, n_rows in n_features.items():
-            feature_rows[table] += n_rows
-        out_batch += 1
+        for table, count in n_features.items():
+            feature_rows[table] += count
+        pending_truth = pending_truth.join(event_ids, on="event_no", how="anti")
+        pending_features = {
+            table: frame.join(event_ids, on="event_no", how="anti")
+            for table, frame in pending_features.items()
+        }
+        output_id += 1
 
-    return truth_rows, feature_rows, out_batch
+    for truth_file in truth_files:
+        source_id = batch_id(truth_file)
+        truth = pl.read_parquet(truth_file)
+        required = ["event_no", category_column, *EVENT_ID_COLS]
+        missing = [column for column in required if column not in truth.columns]
+        if missing:
+            raise ValueError(f"Missing columns {missing} in {truth_file}")
+        selected_truth = truth.filter(
+            pl.col(category_column).cast(pl.Utf8) == str(category_value)
+        )
+        if selected_truth.is_empty():
+            continue
+        event_ids = selected_truth.select("event_no").unique()
+        selected_features = {}
+        for table in feature_tables:
+            feature_file = source_split_dir / table / f"{table}_{source_id}.parquet"
+            if not feature_file.exists():
+                raise FileNotFoundError(f"Missing matching feature batch: {feature_file}")
+            features = pl.read_parquet(feature_file)
+            selected_features[table] = features.join(event_ids, on="event_no", how="inner")
+
+        if pending_truth is None:
+            pending_truth = selected_truth
+            pending_features = selected_features
+        else:
+            pending_truth = pl.concat([pending_truth, selected_truth])
+            pending_features = {
+                table: pl.concat([pending_features[table], selected_features[table]])
+                for table in feature_tables
+            }
+        while pending_truth.select("event_no").n_unique() >= events_per_batch:
+            flush(events_per_batch)
+
+    flush()
+    return {
+        "source_truth_files": len(truth_files),
+        "truth_rows": truth_rows,
+        "feature_rows": feature_rows,
+        "output_batches": output_id,
+    }
 
 
 def split_category_dataset(
-    source_dataset_dir: Path,
+    source_split_dirs: Dict[str, Path],
     outbase: Path,
     category_column: str,
     category_value: str,
     events_per_batch: int,
     overwrite: bool,
-    seed: int = 42,
 ) -> dict:
-    import polars as pl
+    if set(source_split_dirs) != set(SPLITS):
+        raise ValueError(f"Expected canonical source splits {SPLITS}, got {sorted(source_split_dirs)}")
+    if events_per_batch <= 0:
+        raise ValueError("events_per_batch must be positive")
 
-    tables = parquet_tables(source_dataset_dir)
-    feature_table_names = [t for t in tables if t != "truth"]
-    truth_dir = source_dataset_dir / "truth"
-    truth_files = truth_files_in(truth_dir)
-    if not truth_files:
-        raise FileNotFoundError(f"No truth parquet files found in {truth_dir}")
-
-    if not prepare_dataset_output(outbase, tables, overwrite):
-        return {
-            "source_truth_files": len(truth_files),
-            "tables": tables,
-            "events_per_batch": events_per_batch,
-            "skipped_existing": True,
-        }
-
-    truth_parts = []
-    feature_parts: Dict[str, List[pl.DataFrame]] = {
-        table: [] for table in feature_table_names
-    }
-
-    for truth_file in truth_files:
-        feature_files = {
-            table: feature_file_for_truth(source_dataset_dir, table, truth_file)
-            for table in feature_table_names
-        }
-        missing = [str(path) for path in feature_files.values() if not path.exists()]
-        if missing:
-            raise FileNotFoundError(f"Missing matching feature file(s): {missing}")
-
-        truth = pl.read_parquet(truth_file)
-        if category_column not in truth.columns:
-            raise ValueError(f"Missing column {category_column} in {truth_file}")
-        if "event_no" not in truth.columns:
-            raise ValueError(f"Missing event_no in {truth_file}")
-
-        truth_filtered = truth.filter(
-            pl.col(category_column).cast(pl.Utf8) == str(category_value)
-        )
-        if truth_filtered.is_empty():
-            continue
-
-        event_ids = truth_filtered.select("event_no").unique()
-        truth_parts.append(truth_filtered)
-        for table, feature_file in feature_files.items():
-            features = pl.read_parquet(feature_file)
-            if "event_no" not in features.columns:
-                raise ValueError(f"Missing event_no in {feature_file}")
-            feature_parts[table].append(features.join(event_ids, on="event_no", how="inner"))
-
-    if not truth_parts:
-        manifest = {
-            "seed": seed,
-            "fractions": {"train": 0.8, "val": 0.1, "test": 0.1},
-            "category_column": category_column,
-            "category_value": str(category_value),
-            "events_per_batch": events_per_batch,
-            "split_event_counts": {split: 0 for split in SPLITS},
-            "output_batches": {split: 0 for split in SPLITS},
-        }
-        with open(outbase / "split_manifest.json", "w") as f:
-            json.dump(manifest, f, indent=2)
-        return {
-            "source_truth_files": len(truth_files),
-            "tables": tables,
-            "events_per_batch": events_per_batch,
-            "truth_rows": {split: 0 for split in SPLITS},
-            "feature_rows": {
-                split: {table: 0 for table in feature_table_names}
-                for split in SPLITS
-            },
-            "output_batches": {split: 0 for split in SPLITS},
-            "skipped_existing": False,
-        }
-
-    truth_all = pl.concat(truth_parts)
-    feature_all = {
-        table: pl.concat(parts) if parts else pl.DataFrame()
-        for table, parts in feature_parts.items()
-    }
-    key_cols = event_key_columns(truth_all)
-    split_keys = split_event_keys(truth_all.select(key_cols), seed=seed)
-
-    truth_rows = {}
-    feature_rows = {}
-    output_batches = {}
-    split_event_counts = {}
-
+    tables = parquet_tables(source_split_dirs["train"])
     for split in SPLITS:
-        keys = split_keys[split]
-        split_event_counts[split] = keys.height
-        split_outdir = outbase / split
-        if keys.is_empty():
-            truth_rows[split] = 0
-            feature_rows[split] = {table: 0 for table in feature_table_names}
-            output_batches[split] = 0
-            continue
+        split_tables = parquet_tables(source_split_dirs[split])
+        if split_tables != tables:
+            raise ValueError(f"Table mismatch in canonical {split}: {split_tables} != {tables}")
+    if not prepare_dataset_output(outbase, tables, overwrite):
+        return {"skipped_existing": True}
 
-        truth_split = truth_all.join(keys, on=key_cols, how="inner")
-        event_ids = truth_split.select("event_no").unique()
-        feature_splits = {
-            table: features.join(event_ids, on="event_no", how="inner")
-            for table, features in feature_all.items()
-        }
-        n_truth, n_features, n_batches = write_split_batches(
-            outdir=split_outdir,
-            truth_split=truth_split,
-            feature_splits=feature_splits,
+    split_stats = {}
+    for split in SPLITS:
+        split_stats[split] = filter_one_canonical_split(
+            source_split_dir=source_split_dirs[split],
+            output_split_dir=outbase / split,
+            category_column=category_column,
+            category_value=category_value,
             events_per_batch=events_per_batch,
         )
-        truth_rows[split] = n_truth
-        feature_rows[split] = n_features
-        output_batches[split] = n_batches
 
     manifest = {
-        "seed": seed,
-        "fractions": {"train": 0.8, "val": 0.1, "test": 0.1},
+        "split_policy": "inherited_from_canonical_master_split",
+        "source_split_dirs": {key: str(value) for key, value in source_split_dirs.items()},
         "category_column": category_column,
         "category_value": str(category_value),
-        "event_key_columns": key_cols,
+        "event_key_columns": EVENT_ID_COLS,
         "events_per_batch": events_per_batch,
-        "split_event_counts": split_event_counts,
-        "output_batches": output_batches,
+        "categorized_splits": SPLITS,
+        "test_output": "intentionally_not_created",
+        "stats": split_stats,
     }
-    with open(outbase / "split_manifest.json", "w") as f:
-        json.dump(manifest, f, indent=2)
-
-    return {
-        "source_truth_files": len(truth_files),
-        "tables": tables,
-        "event_key_columns": key_cols,
-        "events_per_batch": events_per_batch,
-        "truth_rows": truth_rows,
-        "feature_rows": feature_rows,
-        "output_batches": output_batches,
-        "skipped_existing": False,
-    }
+    with open(outbase / "split_manifest.json", "w") as handle:
+        json.dump(manifest, handle, indent=2)
+    return {"skipped_existing": False, "tables": tables, "splits": split_stats}

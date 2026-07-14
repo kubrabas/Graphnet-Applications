@@ -1,18 +1,9 @@
-"""
-Merge per-batch Parquet files into a single shuffled dataset with train/val/test splits.
+"""Merge Parquet batches and apply the canonical event-level split.
 
-After all convert_parquet.py SLURM array tasks finish, this script:
-  1. Merges per-batch truth/ and feature parquet files into shuffled batches.
-  2. Renames merged/ -> merged_raw/ (immutable source; never modified).
-  3. Builds 80/10/10 train/val/test splits as symlinks into merged_raw/.
-  4. Builds *_reindexed/ dirs (sequential 0,1,2,... symlinks for ParquetDataset).
-  5. Writes split_manifest.json.
-  6. Computes p25/p50/p75 feature percentiles from training set -> saves CSV for RobustScaler.
-
-Usage:
-    python3 merge_parquet.py --mc 340StringMC --flavor Electron --geometry 102_string \\
-        --outdir /home/kbas/scratch/String340MC/102_string/Electron_Parquet \\
-        --logdir /home/kbas/scratch/String340MC/Logs/Electron_102_string_Parquet
+After conversion finishes this script merges the per-file outputs, joins every
+physical event to the immutable master split manifest, writes train/val/test
+batches, and creates sequential ``*_reindexed`` views. It never chooses or
+randomizes a split locally.
 """
 
 import h5py  # must be imported before graphnet to avoid HDF5 version conflict
@@ -20,76 +11,57 @@ import h5py  # must be imported before graphnet to avoid HDF5 version conflict
 import argparse
 import json
 import os
-import random
 import re
-import shutil
 import sys
 import time
 import traceback
 from pathlib import Path
 from typing import Dict, List
 
-import pandas as pd
 import polars as pl
-
 from graphnet.data.writers import ParquetWriter
 
-# ---------------------------------------------------------------------------
-# Constants
-# ---------------------------------------------------------------------------
+ALL_FLAVORS = ["Muon", "Electron", "Tau", "NC"]
+EVENT_ID_COLS = ["RunID", "SubrunID", "EventID", "SubEventID"]
+SPLIT_NAME_MAP = {"train": "train", "validation": "val", "test": "test"}
+GEOMETRY_TRIGGER = {
+    "102_string": "trigger_102",
+    "160_string": "trigger_160",
+    "full_geometry": "trigger_340",
+    "340_string": "trigger_340",
+}
 
-METADATA_ROBUSTSCALER  = "/project/def-nahee/kbas/Graphnet-Applications/Metadata/RobustScaler"
-ALL_FLAVORS   = ["Muon", "Electron", "Tau", "NC"]
 
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
-
-def link_or_copy(src: Path, dst: Path) -> None:
-    dst.parent.mkdir(parents=True, exist_ok=True)
-    if dst.exists():
-        return
-    try:
-        os.link(src, dst)
-    except Exception:
-        try:
-            os.symlink(src.resolve(), dst)
-        except Exception:
-            shutil.copy2(src, dst)
+def batch_id(path: Path) -> int:
+    match = re.search(r"_(\d+)\.parquet$", path.name)
+    if match is None:
+        raise ValueError(f"Could not parse batch id from {path}")
+    return int(match.group(1))
 
 
 def parquet_tables(dataset_dir: Path) -> List[str]:
     ignored = {"merged", "merged_raw", "categorized"}
     tables = [
-        p.name
-        for p in dataset_dir.iterdir()
-        if p.is_dir() and p.name not in ignored
+        item.name
+        for item in dataset_dir.iterdir()
+        if item.is_dir() and item.name not in ignored
     ]
     if "truth" not in tables:
         raise RuntimeError(f"Missing truth table directory under {dataset_dir}")
-    return ["truth"] + sorted(t for t in tables if t != "truth")
-
-
-def feature_tables(tables: List[str]) -> List[str]:
-    return [table for table in tables if table.startswith("features")]
+    return ["truth"] + sorted(table for table in tables if table != "truth")
 
 
 def reindex_split(split_dir: Path, reindexed_dir: Path, tables: List[str]) -> None:
-    """Create sequential 0,1,2,... symlinks in reindexed_dir pointing into split_dir."""
-    rx = re.compile(r"_(\d+)\.parquet$")
-    ids = sorted(
-        int(rx.search(p.name).group(1))
-        for p in (split_dir / "truth").glob("truth_*.parquet")
-        if rx.search(p.name)
-    )
+    """Create sequential symlinks for GraphNeT's ParquetDataset."""
+    ids = sorted(batch_id(path) for path in (split_dir / "truth").glob("truth_*.parquet"))
     for table in tables:
         (reindexed_dir / table).mkdir(parents=True, exist_ok=True)
     for new_id, old_id in enumerate(ids):
         for table in tables:
             src = (split_dir / table / f"{table}_{old_id}.parquet").resolve()
-            dst =  reindexed_dir / table / f"{table}_{new_id}.parquet"
-            if dst.exists():
-                dst.unlink()
+            if not src.exists():
+                raise FileNotFoundError(f"Missing table batch while reindexing: {src}")
+            dst = reindexed_dir / table / f"{table}_{new_id}.parquet"
             dst.symlink_to(src)
 
 
@@ -97,57 +69,124 @@ def build_splits(
     merged_raw: Path,
     merged_dir: Path,
     tables: List[str],
-    seed: int = 42,
-) -> Dict[str, List[int]]:
-    pat = re.compile(r"^truth_(\d+)\.parquet$")
-    batch_ids = sorted(
-        int(pat.match(p.name).group(1))
-        for p in (merged_raw / "truth").glob("truth_*.parquet")
-        if pat.match(p.name)
+    master_manifest_path: Path,
+    flavor: str,
+    geometry: str,
+) -> Dict[str, int]:
+    """Partition merged batches according to the canonical master manifest."""
+    if merged_dir.exists():
+        raise FileExistsError(
+            f"Split output already exists: {merged_dir}. Archive or remove it before rerunning."
+        )
+    if geometry not in GEOMETRY_TRIGGER:
+        raise ValueError(f"No master-manifest trigger configured for geometry={geometry}")
+    if not master_manifest_path.is_file():
+        raise FileNotFoundError(f"Master split manifest not found: {master_manifest_path}")
+
+    trigger_column = GEOMETRY_TRIGGER[geometry]
+    master = pl.read_parquet(master_manifest_path)
+    required = {"flavor", "split", trigger_column, *EVENT_ID_COLS}
+    missing = sorted(required - set(master.columns))
+    if missing:
+        raise ValueError(f"Master split manifest is missing columns: {missing}")
+
+    master = (
+        master.filter(
+            (pl.col("flavor") == flavor)
+            & (pl.col(trigger_column).cast(pl.Boolean))
+        )
+        .select(EVENT_ID_COLS + ["split"])
     )
-    if not batch_ids:
-        raise RuntimeError(f"No merged batches found in {merged_raw / 'truth'}")
+    if master.select(EVENT_ID_COLS).is_duplicated().any():
+        raise ValueError(f"Duplicate physical event keys in {master_manifest_path}")
+    unknown_splits = set(master["split"].unique().to_list()) - set(SPLIT_NAME_MAP)
+    if unknown_splits:
+        raise ValueError(f"Unknown split values in master manifest: {sorted(unknown_splits)}")
 
-    last_batch  = max(batch_ids)
-    main_batches = [b for b in batch_ids if b != last_batch]
-    rng = random.Random(seed)
-    rng.shuffle(main_batches)
+    truth_files = sorted((merged_raw / "truth").glob("truth_*.parquet"), key=batch_id)
+    if not truth_files:
+        raise RuntimeError(f"No merged truth batches found in {merged_raw / 'truth'}")
 
-    n       = len(main_batches)
-    n_train = int(0.8 * n)
-    n_val   = int(0.1 * n)
-
-    splits: Dict[str, List[int]] = {
-        "train": main_batches[:n_train],
-        "val":   main_batches[n_train: n_train + n_val],
-        "test":  main_batches[n_train + n_val:] + [last_batch],
-    }
-
-    for split_name, ids in splits.items():
+    for split_name in SPLIT_NAME_MAP.values():
         for table in tables:
-            for bid in ids:
-                src = merged_raw / table / f"{table}_{bid}.parquet"
-                dst = merged_dir / split_name / table / f"{table}_{bid}.parquet"
-                if src.exists():
-                    link_or_copy(src, dst)
+            (merged_dir / split_name / table).mkdir(parents=True, exist_ok=True)
 
-    manifest = {
-        "seed": seed,
-        "fractions": {"train": 0.8, "val": 0.1, "test": 0.1},
-        "last_batch_forced_to_test": int(last_batch),
-        "batch_counts": {k: len(v) for k, v in splits.items()},
-        "splits": {k: sorted(v) for k, v in splits.items()},
+    counts = {name: 0 for name in SPLIT_NAME_MAP.values()}
+    output_batches = {name: 0 for name in SPLIT_NAME_MAP.values()}
+    seen_parts = []
+    feature_tables = [table for table in tables if table != "truth"]
+
+    for truth_file in truth_files:
+        source_batch_id = batch_id(truth_file)
+        truth = pl.read_parquet(truth_file)
+        missing_ids = [column for column in EVENT_ID_COLS + ["event_no"] if column not in truth.columns]
+        if missing_ids:
+            raise ValueError(f"Missing columns {missing_ids} in {truth_file}")
+        if truth.select(EVENT_ID_COLS).is_duplicated().any():
+            raise ValueError(f"Duplicate physical event keys inside {truth_file}")
+
+        joined = truth.join(master, on=EVENT_ID_COLS, how="left")
+        if joined.height != truth.height:
+            raise ValueError(f"Non-unique manifest join while processing {truth_file}")
+        unmatched = joined.filter(pl.col("split").is_null()).height
+        if unmatched:
+            raise ValueError(
+                f"{unmatched} events in {truth_file} are absent from the canonical manifest "
+                f"selection for flavor={flavor}, geometry={geometry}"
+            )
+        seen_parts.append(joined.select(EVENT_ID_COLS))
+
+        feature_frames = {}
+        for table in feature_tables:
+            feature_path = merged_raw / table / f"{table}_{source_batch_id}.parquet"
+            if not feature_path.exists():
+                raise FileNotFoundError(f"Missing matching feature batch: {feature_path}")
+            feature_frames[table] = pl.read_parquet(feature_path)
+
+        for canonical_name, split_name in SPLIT_NAME_MAP.items():
+            truth_split = joined.filter(pl.col("split") == canonical_name).drop("split")
+            if truth_split.is_empty():
+                continue
+            event_nos = truth_split.select("event_no")
+            output_id = output_batches[split_name]
+            truth_split.write_parquet(
+                merged_dir / split_name / "truth" / f"truth_{output_id}.parquet"
+            )
+            for table, features in feature_frames.items():
+                if "event_no" not in features.columns:
+                    raise ValueError(f"Missing event_no in {table}_{source_batch_id}.parquet")
+                features.join(event_nos, on="event_no", how="inner").write_parquet(
+                    merged_dir / split_name / table / f"{table}_{output_id}.parquet"
+                )
+            counts[split_name] += truth_split.height
+            output_batches[split_name] += 1
+
+    seen = pl.concat(seen_parts)
+    if seen.select(EVENT_ID_COLS).is_duplicated().any():
+        raise ValueError("A physical event occurs in more than one merged source batch")
+    if seen.height != master.height:
+        missing_count = master.join(seen, on=EVENT_ID_COLS, how="anti").height
+        raise ValueError(
+            f"Canonical manifest expects {master.height} events but merged data contains "
+            f"{seen.height}; missing={missing_count}"
+        )
+
+    local_manifest = {
+        "source_master_manifest": str(master_manifest_path),
+        "flavor": flavor,
+        "geometry": geometry,
+        "trigger_column": trigger_column,
+        "event_key_columns": EVENT_ID_COLS,
+        "split_event_counts": counts,
+        "output_batches": output_batches,
+        "split_name_mapping": SPLIT_NAME_MAP,
     }
-    with open(merged_dir / "split_manifest.json", "w") as f:
-        json.dump(manifest, f, indent=2)
-
-    return splits
+    with open(merged_dir / "split_manifest.json", "w") as handle:
+        json.dump(local_manifest, handle, indent=2)
+    return counts
 
 
 def summarize_conversion_logs(logdir: Path, flavor: str, geometry: str) -> None:
-    """Scan per-task log files, print aggregated conversion statistics,
-    and write a separate corrupt_files.log listing files that could not be opened."""
-    import re
     summary_pattern = re.compile(
         r"\[.+?\]\s+kept=(\d+)\s+noise_only=(\d+)\s+"
         r"(?:absent_pulsemap|pulsemap_does_not_exist)=(\d+)"
@@ -155,112 +194,46 @@ def summarize_conversion_logs(logdir: Path, flavor: str, geometry: str) -> None:
     )
     file_error_pattern = re.compile(r"\[FILE ERROR\] Could not open: (.+?)\s+error=")
     merge_log_name = f"merge_{flavor}_{geometry}.out"
-
-    total_kept = total_noise = total_absent = 0
-    files_parsed = 0
+    total_kept = total_noise = total_absent = files_parsed = 0
     corrupt_files: List[str] = []
 
     for log_file in sorted(logdir.glob("*.out")):
         if log_file.name == merge_log_name:
             continue
         for line in log_file.read_text(errors="replace").splitlines():
-            m = summary_pattern.search(line)
-            if m:
-                total_kept    += int(m.group(1))
-                total_noise   += int(m.group(2))
-                total_absent  += int(m.group(3))
-                files_parsed  += 1
-            fe = file_error_pattern.search(line)
-            if fe:
-                corrupt_files.append(fe.group(1))
+            match = summary_pattern.search(line)
+            if match:
+                total_kept += int(match.group(1))
+                total_noise += int(match.group(2))
+                total_absent += int(match.group(3))
+                files_parsed += 1
+            file_error = file_error_pattern.search(line)
+            if file_error:
+                corrupt_files.append(file_error.group(1))
 
     print(f"=== CONVERSION SUMMARY: FILE LEVEL ({files_parsed} tasks) ===")
-    print(f"  corrupt_files   : {len(corrupt_files)}  (files that could not be opened at all)")
-
+    print(f"  corrupt_files   : {len(corrupt_files)}")
     corrupt_log = logdir / "corrupt_files.log"
-    if corrupt_files:
-        corrupt_log.write_text("\n".join(corrupt_files) + "\n")
-        print(f"  corrupt file list -> {corrupt_log}")
-    else:
-        corrupt_log.write_text("")
-
-    print(f"=== CONVERSION SUMMARY: EVENT LEVEL ===")
+    corrupt_log.write_text("\n".join(corrupt_files) + ("\n" if corrupt_files else ""))
+    print("=== CONVERSION SUMMARY: EVENT LEVEL ===")
     print(f"  kept            : {total_kept}")
     print(f"  noise_only      : {total_noise}")
     print(f"  pulsemap_does_not_exist : {total_absent}")
 
 
-def dataset_name(
-    geometry: str,
-    flavor: str,
-    metadata_suffix: str = "",
-    feature_table: str = "",
-) -> str:
-    parts = [geometry, flavor.lower()]
-    if feature_table and feature_table != "features":
-        parts.append(feature_table)
-    if metadata_suffix:
-        parts.append(metadata_suffix)
-    return "_".join(parts)
-
-
-def compute_feature_percentiles(
-    train_feat_dir: Path,
-    mc: str,
-    geometry: str,
-    flavor: str,
-    feature_table: str = "features",
-    metadata_suffix: str = "",
-) -> None:
-    pattern = str(train_feat_dir / f"{feature_table}_*.parquet")
-    lf = pl.scan_parquet(pattern)
-    schema = lf.collect_schema()
-    exclude = {"event_no", "global_event_no"}
-    num_cols = [c for c, t in schema.items() if t.is_numeric() and c not in exclude]
-
-    if not num_cols:
-        print("[WARN] No numeric feature columns found — skipping percentile CSV.")
-        return
-
-    q25 = lf.select([pl.col(c).quantile(0.25).alias(c) for c in num_cols]).collect()
-    q50 = lf.select([pl.col(c).quantile(0.50).alias(c) for c in num_cols]).collect()
-    q75 = lf.select([pl.col(c).quantile(0.75).alias(c) for c in num_cols]).collect()
-
-    result = pd.DataFrame({
-        "feature": num_cols,
-        "p25": [q25[c][0] for c in num_cols],
-        "p50": [q50[c][0] for c in num_cols],
-        "p75": [q75[c][0] for c in num_cols],
-    })
-
-    out_dir = Path(METADATA_ROBUSTSCALER) / mc
-    out_dir.mkdir(parents=True, exist_ok=True)
-    csv_name = (
-        f"{dataset_name(geometry, flavor, metadata_suffix, feature_table)}"
-        "_train_feature_percentiles_p25_p50_p75.csv"
-    )
-    csv_path = out_dir / csv_name
-    result.to_csv(str(csv_path), index=False, float_format="%.16f")
-    print(f"feature percentiles -> {csv_path}")
-
-
-# ---------------------------------------------------------------------------
-# Main
-# ---------------------------------------------------------------------------
-
 def main() -> int:
-    ap = argparse.ArgumentParser(description="Merge parquet batches and build train/val/test splits.")
-    ap.add_argument("--mc",               required=True)
-    ap.add_argument("--flavor",           required=True)
-    ap.add_argument("--geometry",         required=True)
-    ap.add_argument("--outdir",           required=True, help="Shared parquet output directory")
-    ap.add_argument("--logdir",           required=True)
-    ap.add_argument("--events-per-batch", type=int, default=1024)
-    ap.add_argument("--num-workers",      type=int, default=1)
-    ap.add_argument("--metadata-suffix",  default="",
-                    help="Optional suffix inserted into metadata CSV names, e.g. Emax1e6")
-    ap.add_argument("--dry-run",          action="store_true")
-    args = ap.parse_args()
+    parser = argparse.ArgumentParser(description="Merge parquet batches and apply a master split.")
+    parser.add_argument("--mc", required=True)
+    parser.add_argument("--flavor", required=True)
+    parser.add_argument("--geometry", required=True)
+    parser.add_argument("--outdir", required=True)
+    parser.add_argument("--logdir", required=True)
+    parser.add_argument("--master-split", required=True)
+    parser.add_argument("--events-per-batch", type=int, default=1024)
+    parser.add_argument("--num-workers", type=int, default=1)
+    parser.add_argument("--metadata-suffix", default="")
+    parser.add_argument("--dry-run", action="store_true")
+    args = parser.parse_args()
 
     if args.flavor not in ALL_FLAVORS:
         print(f"ERROR: unknown flavor '{args.flavor}'. Choices: {ALL_FLAVORS}")
@@ -269,35 +242,26 @@ def main() -> int:
     outdir = Path(args.outdir)
     logdir = Path(args.logdir)
     logdir.mkdir(parents=True, exist_ok=True)
-
     logfile = logdir / f"merge_{args.flavor}_{args.geometry}.out"
-    log_fh  = open(logfile, "w")
-    sys.stdout = log_fh
-    sys.stderr = log_fh
+    log_handle = open(logfile, "w")
+    sys.stdout = log_handle
+    sys.stderr = log_handle
 
-    t_start = time.time()
+    started = time.time()
     print("=== PARQUET MERGE JOB STARTED ===")
-    print(f"mc            : {args.mc}")
-    print(f"flavor        : {args.flavor}")
-    print(f"geometry      : {args.geometry}")
-    print(f"outdir        : {outdir}")
-    print(f"metadata_suffix : {args.metadata_suffix or '(none)'}")
-    print(f"events/batch  : {args.events_per_batch}")
-    log_fh.flush()
+    print(f"mc             : {args.mc}")
+    print(f"flavor         : {args.flavor}")
+    print(f"geometry       : {args.geometry}")
+    print(f"outdir         : {outdir}")
+    print(f"master_split   : {args.master_split}")
+    print(f"events/batch   : {args.events_per_batch}")
+    log_handle.flush()
 
     try:
-        merged_dir     = outdir / "merged"
+        merged_dir = outdir / "merged"
         merged_raw_dir = outdir / "merged_raw"
-
-        # ----------------------------------------------------------------
-        # 0. Summarize per-task conversion logs
-        # ----------------------------------------------------------------
         summarize_conversion_logs(logdir, args.flavor, args.geometry)
-        log_fh.flush()
 
-        # ----------------------------------------------------------------
-        # 1. Merge per-batch files into shuffled batches
-        # ----------------------------------------------------------------
         if merged_raw_dir.exists():
             print(f"merged_raw already exists, skipping merge: {merged_raw_dir}")
         elif args.dry_run:
@@ -312,67 +276,39 @@ def main() -> int:
             )
             os.rename(merged_dir, merged_raw_dir)
             print(f"merged_raw -> {merged_raw_dir}")
-        log_fh.flush()
 
-        # ----------------------------------------------------------------
-        # 2. Build train/val/test splits + split_manifest.json
-        # ----------------------------------------------------------------
         if args.dry_run:
-            print("[DRY-RUN] would build train/val/test split dirs")
+            print("[DRY-RUN] would apply canonical master split and build reindexed views")
         else:
             tables = parquet_tables(merged_raw_dir)
-            splits = build_splits(
+            counts = build_splits(
                 merged_raw=merged_raw_dir,
                 merged_dir=merged_dir,
                 tables=tables,
+                master_manifest_path=Path(args.master_split),
+                flavor=args.flavor,
+                geometry=args.geometry,
             )
-            print(f"splits: { {k: len(v) for k, v in splits.items()} }")
+            print(f"split event counts: {counts}")
             print(f"tables: {tables}")
-        log_fh.flush()
-
-        # ----------------------------------------------------------------
-        # 3. Build *_reindexed dirs
-        # ----------------------------------------------------------------
-        if not args.dry_run:
-            tables = parquet_tables(merged_raw_dir)
             for split_name in ["train", "val", "test"]:
                 reindex_split(
-                    split_dir     = merged_dir / split_name,
-                    reindexed_dir = merged_dir / f"{split_name}_reindexed",
-                    tables        = tables,
+                    split_dir=merged_dir / split_name,
+                    reindexed_dir=merged_dir / f"{split_name}_reindexed",
+                    tables=tables,
                 )
             print("reindexed splits: done")
-        log_fh.flush()
 
-        # ----------------------------------------------------------------
-        # 4. Feature percentiles for RobustScaler
-        # ----------------------------------------------------------------
-        if not args.dry_run:
-            tables = parquet_tables(merged_raw_dir)
-            for feature_table in feature_tables(tables):
-                compute_feature_percentiles(
-                    train_feat_dir = merged_dir / "train" / feature_table,
-                    mc             = args.mc,
-                    geometry       = args.geometry,
-                    flavor         = args.flavor,
-                    feature_table  = feature_table,
-                    metadata_suffix = args.metadata_suffix,
-                )
-        log_fh.flush()
-
-        elapsed = time.time() - t_start
-        print(f"=== SUCCESS  elapsed={elapsed:.1f}s ===")
-
-    except Exception as e:
-        elapsed = time.time() - t_start
-        print(f"=== FAILED  elapsed={elapsed:.1f}s  error={e} ===")
+        print(f"=== SUCCESS  elapsed={time.time() - started:.1f}s ===")
+    except Exception as error:
+        print(f"=== FAILED  elapsed={time.time() - started:.1f}s  error={error} ===")
         traceback.print_exc()
-        log_fh.flush()
-        log_fh.close()
+        log_handle.flush()
+        log_handle.close()
         return 1
 
-    log_fh.flush()
-    log_fh.close()
+    log_handle.flush()
+    log_handle.close()
     return 0
 
 

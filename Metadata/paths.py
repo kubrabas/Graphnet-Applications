@@ -32,6 +32,18 @@ LIC = {
 
 
 # ============================================================
+# Dataset Split Manifests
+# ============================================================
+
+DATASET_SPLITS = {
+    "340StringMC": {
+        "emax1e6": "/project/def-nahee/kbas/Graphnet-Applications/Metadata/DatasetSplits/340StringMC/master_split_emax1e6.parquet",
+    },
+    "Spring2026MC": {},
+}
+
+
+# ============================================================
 # Spring 2026 MC - I3 Folders
 # ============================================================
 
@@ -133,7 +145,7 @@ STRING340MC_PMT = {
 # ============================================================
 # 340 String MC - Parquet (per flavor)
 # ============================================================
-# Each entry: train/val/test -> path to merged/*_reindexed dir
+# Full datasets expose canonical train/val/test. Category views expose only canonical train/val; category test is intentionally does_not_exist.
 
 STRING340MC_PARQUET = {
     "102_string_emax1e6": {
@@ -150,7 +162,7 @@ STRING340MC_PARQUET = {
                 "1": {
                     "train": "/home/kbas/scratch/String340MC_pone_offline_version3_plus/Parquet/102_string/Muon_Parquet_Emax1e6/categorized/category1_isMuonCC/category1/train",
                     "val": "/home/kbas/scratch/String340MC_pone_offline_version3_plus/Parquet/102_string/Muon_Parquet_Emax1e6/categorized/category1_isMuonCC/category1/val",
-                    "test": "/home/kbas/scratch/String340MC_pone_offline_version3_plus/Parquet/102_string/Muon_Parquet_Emax1e6/categorized/category1_isMuonCC/category1/test",
+                    "test": "does_not_exist",
                 },
             },
             "category2_tauCC_others_muonCC": {
@@ -167,7 +179,7 @@ STRING340MC_PARQUET = {
                 "2": {
                     "train": "/home/kbas/scratch/String340MC_pone_offline_version3_plus/Parquet/102_string/Muon_Parquet_Emax1e6/categorized/category2_tauCC_others_muonCC/category2/train",
                     "val": "/home/kbas/scratch/String340MC_pone_offline_version3_plus/Parquet/102_string/Muon_Parquet_Emax1e6/categorized/category2_tauCC_others_muonCC/category2/val",
-                    "test": "/home/kbas/scratch/String340MC_pone_offline_version3_plus/Parquet/102_string/Muon_Parquet_Emax1e6/categorized/category2_tauCC_others_muonCC/category2/test",
+                    "test": "does_not_exist",
                 },
             },
             "category_3_contains_muon": {
@@ -179,7 +191,7 @@ STRING340MC_PARQUET = {
                 "1": {
                     "train": "/home/kbas/scratch/String340MC_pone_offline_version3_plus/Parquet/102_string/Muon_Parquet_Emax1e6/categorized/category_3_contains_muon/category1/train",
                     "val": "/home/kbas/scratch/String340MC_pone_offline_version3_plus/Parquet/102_string/Muon_Parquet_Emax1e6/categorized/category_3_contains_muon/category1/val",
-                    "test": "/home/kbas/scratch/String340MC_pone_offline_version3_plus/Parquet/102_string/Muon_Parquet_Emax1e6/categorized/category_3_contains_muon/category1/test",
+                    "test": "does_not_exist",
                 },
             },
         },
@@ -191,7 +203,7 @@ STRING340MC_PARQUET = {
                 "0": {
                     "train": "/home/kbas/scratch/String340MC_pone_offline_version3_plus/Parquet/102_string/Electron_Parquet_Emax1e6/categorized/category1_isMuonCC/category0/train",
                     "val": "/home/kbas/scratch/String340MC_pone_offline_version3_plus/Parquet/102_string/Electron_Parquet_Emax1e6/categorized/category1_isMuonCC/category0/val",
-                    "test": "/home/kbas/scratch/String340MC_pone_offline_version3_plus/Parquet/102_string/Electron_Parquet_Emax1e6/categorized/category1_isMuonCC/category0/test",
+                    "test": "does_not_exist",
                 },
                 "1": {
                     "train": "does_not_exist",
@@ -208,7 +220,7 @@ STRING340MC_PARQUET = {
                 "1": {
                     "train": "/home/kbas/scratch/String340MC_pone_offline_version3_plus/Parquet/102_string/Electron_Parquet_Emax1e6/categorized/category2_tauCC_others_muonCC/category1/train",
                     "val": "/home/kbas/scratch/String340MC_pone_offline_version3_plus/Parquet/102_string/Electron_Parquet_Emax1e6/categorized/category2_tauCC_others_muonCC/category1/val",
-                    "test": "/home/kbas/scratch/String340MC_pone_offline_version3_plus/Parquet/102_string/Electron_Parquet_Emax1e6/categorized/category2_tauCC_others_muonCC/category1/test",
+                    "test": "does_not_exist",
                 },
                 "2": {
                     "train": "does_not_exist",
@@ -220,7 +232,7 @@ STRING340MC_PARQUET = {
                 "0": {
                     "train": "/home/kbas/scratch/String340MC_pone_offline_version3_plus/Parquet/102_string/Electron_Parquet_Emax1e6/categorized/category_3_contains_muon/category0/train",
                     "val": "/home/kbas/scratch/String340MC_pone_offline_version3_plus/Parquet/102_string/Electron_Parquet_Emax1e6/categorized/category_3_contains_muon/category0/val",
-                    "test": "/home/kbas/scratch/String340MC_pone_offline_version3_plus/Parquet/102_string/Electron_Parquet_Emax1e6/categorized/category_3_contains_muon/category0/test",
+                    "test": "does_not_exist",
                 },
                 "1": {
                     "train": "does_not_exist",
@@ -237,7 +249,7 @@ STRING340MC_PARQUET = {
                 "0": {
                     "train": "/home/kbas/scratch/String340MC_pone_offline_version3_plus/Parquet/102_string/Tau_Parquet_Emax1e6/categorized/category1_isMuonCC/category0/train",
                     "val": "/home/kbas/scratch/String340MC_pone_offline_version3_plus/Parquet/102_string/Tau_Parquet_Emax1e6/categorized/category1_isMuonCC/category0/val",
-                    "test": "/home/kbas/scratch/String340MC_pone_offline_version3_plus/Parquet/102_string/Tau_Parquet_Emax1e6/categorized/category1_isMuonCC/category0/test",
+                    "test": "does_not_exist",
                 },
                 "1": {
                     "train": "does_not_exist",
@@ -249,7 +261,7 @@ STRING340MC_PARQUET = {
                 "0": {
                     "train": "/home/kbas/scratch/String340MC_pone_offline_version3_plus/Parquet/102_string/Tau_Parquet_Emax1e6/categorized/category2_tauCC_others_muonCC/category0/train",
                     "val": "/home/kbas/scratch/String340MC_pone_offline_version3_plus/Parquet/102_string/Tau_Parquet_Emax1e6/categorized/category2_tauCC_others_muonCC/category0/val",
-                    "test": "/home/kbas/scratch/String340MC_pone_offline_version3_plus/Parquet/102_string/Tau_Parquet_Emax1e6/categorized/category2_tauCC_others_muonCC/category0/test",
+                    "test": "does_not_exist",
                 },
                 "1": {
                     "train": "does_not_exist",
@@ -266,12 +278,12 @@ STRING340MC_PARQUET = {
                 "0": {
                     "train": "/home/kbas/scratch/String340MC_pone_offline_version3_plus/Parquet/102_string/Tau_Parquet_Emax1e6/categorized/category_3_contains_muon/category0/train",
                     "val": "/home/kbas/scratch/String340MC_pone_offline_version3_plus/Parquet/102_string/Tau_Parquet_Emax1e6/categorized/category_3_contains_muon/category0/val",
-                    "test": "/home/kbas/scratch/String340MC_pone_offline_version3_plus/Parquet/102_string/Tau_Parquet_Emax1e6/categorized/category_3_contains_muon/category0/test",
+                    "test": "does_not_exist",
                 },
                 "1": {
                     "train": "/home/kbas/scratch/String340MC_pone_offline_version3_plus/Parquet/102_string/Tau_Parquet_Emax1e6/categorized/category_3_contains_muon/category1/train",
                     "val": "/home/kbas/scratch/String340MC_pone_offline_version3_plus/Parquet/102_string/Tau_Parquet_Emax1e6/categorized/category_3_contains_muon/category1/val",
-                    "test": "/home/kbas/scratch/String340MC_pone_offline_version3_plus/Parquet/102_string/Tau_Parquet_Emax1e6/categorized/category_3_contains_muon/category1/test",
+                    "test": "does_not_exist",
                 },
             },
         },
@@ -283,7 +295,7 @@ STRING340MC_PARQUET = {
                 "0": {
                     "train": "/home/kbas/scratch/String340MC_pone_offline_version3_plus/Parquet/102_string/NC_Parquet_Emax1e6/categorized/category1_isMuonCC/category0/train",
                     "val": "/home/kbas/scratch/String340MC_pone_offline_version3_plus/Parquet/102_string/NC_Parquet_Emax1e6/categorized/category1_isMuonCC/category0/val",
-                    "test": "/home/kbas/scratch/String340MC_pone_offline_version3_plus/Parquet/102_string/NC_Parquet_Emax1e6/categorized/category1_isMuonCC/category0/test",
+                    "test": "does_not_exist",
                 },
                 "1": {
                     "train": "does_not_exist",
@@ -300,7 +312,7 @@ STRING340MC_PARQUET = {
                 "1": {
                     "train": "/home/kbas/scratch/String340MC_pone_offline_version3_plus/Parquet/102_string/NC_Parquet_Emax1e6/categorized/category2_tauCC_others_muonCC/category1/train",
                     "val": "/home/kbas/scratch/String340MC_pone_offline_version3_plus/Parquet/102_string/NC_Parquet_Emax1e6/categorized/category2_tauCC_others_muonCC/category1/val",
-                    "test": "/home/kbas/scratch/String340MC_pone_offline_version3_plus/Parquet/102_string/NC_Parquet_Emax1e6/categorized/category2_tauCC_others_muonCC/category1/test",
+                    "test": "does_not_exist",
                 },
                 "2": {
                     "train": "does_not_exist",
@@ -312,7 +324,7 @@ STRING340MC_PARQUET = {
                 "0": {
                     "train": "/home/kbas/scratch/String340MC_pone_offline_version3_plus/Parquet/102_string/NC_Parquet_Emax1e6/categorized/category_3_contains_muon/category0/train",
                     "val": "/home/kbas/scratch/String340MC_pone_offline_version3_plus/Parquet/102_string/NC_Parquet_Emax1e6/categorized/category_3_contains_muon/category0/val",
-                    "test": "/home/kbas/scratch/String340MC_pone_offline_version3_plus/Parquet/102_string/NC_Parquet_Emax1e6/categorized/category_3_contains_muon/category0/test",
+                    "test": "does_not_exist",
                 },
                 "1": {
                     "train": "does_not_exist",
@@ -336,7 +348,7 @@ STRING340MC_PARQUET = {
                 "1": {
                     "train": "/home/kbas/scratch/String340MC_pone_offline_version3_plus/Parquet/160_string/Muon_Parquet_Emax1e6/categorized/category1_isMuonCC/category1/train",
                     "val": "/home/kbas/scratch/String340MC_pone_offline_version3_plus/Parquet/160_string/Muon_Parquet_Emax1e6/categorized/category1_isMuonCC/category1/val",
-                    "test": "/home/kbas/scratch/String340MC_pone_offline_version3_plus/Parquet/160_string/Muon_Parquet_Emax1e6/categorized/category1_isMuonCC/category1/test",
+                    "test": "does_not_exist",
                 },
             },
             "category2_tauCC_others_muonCC": {
@@ -353,7 +365,7 @@ STRING340MC_PARQUET = {
                 "2": {
                     "train": "/home/kbas/scratch/String340MC_pone_offline_version3_plus/Parquet/160_string/Muon_Parquet_Emax1e6/categorized/category2_tauCC_others_muonCC/category2/train",
                     "val": "/home/kbas/scratch/String340MC_pone_offline_version3_plus/Parquet/160_string/Muon_Parquet_Emax1e6/categorized/category2_tauCC_others_muonCC/category2/val",
-                    "test": "/home/kbas/scratch/String340MC_pone_offline_version3_plus/Parquet/160_string/Muon_Parquet_Emax1e6/categorized/category2_tauCC_others_muonCC/category2/test",
+                    "test": "does_not_exist",
                 },
             },
             "category_3_contains_muon": {
@@ -365,7 +377,7 @@ STRING340MC_PARQUET = {
                 "1": {
                     "train": "/home/kbas/scratch/String340MC_pone_offline_version3_plus/Parquet/160_string/Muon_Parquet_Emax1e6/categorized/category_3_contains_muon/category1/train",
                     "val": "/home/kbas/scratch/String340MC_pone_offline_version3_plus/Parquet/160_string/Muon_Parquet_Emax1e6/categorized/category_3_contains_muon/category1/val",
-                    "test": "/home/kbas/scratch/String340MC_pone_offline_version3_plus/Parquet/160_string/Muon_Parquet_Emax1e6/categorized/category_3_contains_muon/category1/test",
+                    "test": "does_not_exist",
                 },
             },
         },
@@ -377,7 +389,7 @@ STRING340MC_PARQUET = {
                 "0": {
                     "train": "/home/kbas/scratch/String340MC_pone_offline_version3_plus/Parquet/160_string/Electron_Parquet_Emax1e6/categorized/category1_isMuonCC/category0/train",
                     "val": "/home/kbas/scratch/String340MC_pone_offline_version3_plus/Parquet/160_string/Electron_Parquet_Emax1e6/categorized/category1_isMuonCC/category0/val",
-                    "test": "/home/kbas/scratch/String340MC_pone_offline_version3_plus/Parquet/160_string/Electron_Parquet_Emax1e6/categorized/category1_isMuonCC/category0/test",
+                    "test": "does_not_exist",
                 },
                 "1": {
                     "train": "does_not_exist",
@@ -394,7 +406,7 @@ STRING340MC_PARQUET = {
                 "1": {
                     "train": "/home/kbas/scratch/String340MC_pone_offline_version3_plus/Parquet/160_string/Electron_Parquet_Emax1e6/categorized/category2_tauCC_others_muonCC/category1/train",
                     "val": "/home/kbas/scratch/String340MC_pone_offline_version3_plus/Parquet/160_string/Electron_Parquet_Emax1e6/categorized/category2_tauCC_others_muonCC/category1/val",
-                    "test": "/home/kbas/scratch/String340MC_pone_offline_version3_plus/Parquet/160_string/Electron_Parquet_Emax1e6/categorized/category2_tauCC_others_muonCC/category1/test",
+                    "test": "does_not_exist",
                 },
                 "2": {
                     "train": "does_not_exist",
@@ -406,7 +418,7 @@ STRING340MC_PARQUET = {
                 "0": {
                     "train": "/home/kbas/scratch/String340MC_pone_offline_version3_plus/Parquet/160_string/Electron_Parquet_Emax1e6/categorized/category_3_contains_muon/category0/train",
                     "val": "/home/kbas/scratch/String340MC_pone_offline_version3_plus/Parquet/160_string/Electron_Parquet_Emax1e6/categorized/category_3_contains_muon/category0/val",
-                    "test": "/home/kbas/scratch/String340MC_pone_offline_version3_plus/Parquet/160_string/Electron_Parquet_Emax1e6/categorized/category_3_contains_muon/category0/test",
+                    "test": "does_not_exist",
                 },
                 "1": {
                     "train": "does_not_exist",
@@ -423,7 +435,7 @@ STRING340MC_PARQUET = {
                 "0": {
                     "train": "/home/kbas/scratch/String340MC_pone_offline_version3_plus/Parquet/160_string/Tau_Parquet_Emax1e6/categorized/category1_isMuonCC/category0/train",
                     "val": "/home/kbas/scratch/String340MC_pone_offline_version3_plus/Parquet/160_string/Tau_Parquet_Emax1e6/categorized/category1_isMuonCC/category0/val",
-                    "test": "/home/kbas/scratch/String340MC_pone_offline_version3_plus/Parquet/160_string/Tau_Parquet_Emax1e6/categorized/category1_isMuonCC/category0/test",
+                    "test": "does_not_exist",
                 },
                 "1": {
                     "train": "does_not_exist",
@@ -435,7 +447,7 @@ STRING340MC_PARQUET = {
                 "0": {
                     "train": "/home/kbas/scratch/String340MC_pone_offline_version3_plus/Parquet/160_string/Tau_Parquet_Emax1e6/categorized/category2_tauCC_others_muonCC/category0/train",
                     "val": "/home/kbas/scratch/String340MC_pone_offline_version3_plus/Parquet/160_string/Tau_Parquet_Emax1e6/categorized/category2_tauCC_others_muonCC/category0/val",
-                    "test": "/home/kbas/scratch/String340MC_pone_offline_version3_plus/Parquet/160_string/Tau_Parquet_Emax1e6/categorized/category2_tauCC_others_muonCC/category0/test",
+                    "test": "does_not_exist",
                 },
                 "1": {
                     "train": "does_not_exist",
@@ -452,12 +464,12 @@ STRING340MC_PARQUET = {
                 "0": {
                     "train": "/home/kbas/scratch/String340MC_pone_offline_version3_plus/Parquet/160_string/Tau_Parquet_Emax1e6/categorized/category_3_contains_muon/category0/train",
                     "val": "/home/kbas/scratch/String340MC_pone_offline_version3_plus/Parquet/160_string/Tau_Parquet_Emax1e6/categorized/category_3_contains_muon/category0/val",
-                    "test": "/home/kbas/scratch/String340MC_pone_offline_version3_plus/Parquet/160_string/Tau_Parquet_Emax1e6/categorized/category_3_contains_muon/category0/test",
+                    "test": "does_not_exist",
                 },
                 "1": {
                     "train": "/home/kbas/scratch/String340MC_pone_offline_version3_plus/Parquet/160_string/Tau_Parquet_Emax1e6/categorized/category_3_contains_muon/category1/train",
                     "val": "/home/kbas/scratch/String340MC_pone_offline_version3_plus/Parquet/160_string/Tau_Parquet_Emax1e6/categorized/category_3_contains_muon/category1/val",
-                    "test": "/home/kbas/scratch/String340MC_pone_offline_version3_plus/Parquet/160_string/Tau_Parquet_Emax1e6/categorized/category_3_contains_muon/category1/test",
+                    "test": "does_not_exist",
                 },
             },
         },
@@ -469,7 +481,7 @@ STRING340MC_PARQUET = {
                 "0": {
                     "train": "/home/kbas/scratch/String340MC_pone_offline_version3_plus/Parquet/160_string/NC_Parquet_Emax1e6/categorized/category1_isMuonCC/category0/train",
                     "val": "/home/kbas/scratch/String340MC_pone_offline_version3_plus/Parquet/160_string/NC_Parquet_Emax1e6/categorized/category1_isMuonCC/category0/val",
-                    "test": "/home/kbas/scratch/String340MC_pone_offline_version3_plus/Parquet/160_string/NC_Parquet_Emax1e6/categorized/category1_isMuonCC/category0/test",
+                    "test": "does_not_exist",
                 },
                 "1": {
                     "train": "does_not_exist",
@@ -486,7 +498,7 @@ STRING340MC_PARQUET = {
                 "1": {
                     "train": "/home/kbas/scratch/String340MC_pone_offline_version3_plus/Parquet/160_string/NC_Parquet_Emax1e6/categorized/category2_tauCC_others_muonCC/category1/train",
                     "val": "/home/kbas/scratch/String340MC_pone_offline_version3_plus/Parquet/160_string/NC_Parquet_Emax1e6/categorized/category2_tauCC_others_muonCC/category1/val",
-                    "test": "/home/kbas/scratch/String340MC_pone_offline_version3_plus/Parquet/160_string/NC_Parquet_Emax1e6/categorized/category2_tauCC_others_muonCC/category1/test",
+                    "test": "does_not_exist",
                 },
                 "2": {
                     "train": "does_not_exist",
@@ -498,7 +510,7 @@ STRING340MC_PARQUET = {
                 "0": {
                     "train": "/home/kbas/scratch/String340MC_pone_offline_version3_plus/Parquet/160_string/NC_Parquet_Emax1e6/categorized/category_3_contains_muon/category0/train",
                     "val": "/home/kbas/scratch/String340MC_pone_offline_version3_plus/Parquet/160_string/NC_Parquet_Emax1e6/categorized/category_3_contains_muon/category0/val",
-                    "test": "/home/kbas/scratch/String340MC_pone_offline_version3_plus/Parquet/160_string/NC_Parquet_Emax1e6/categorized/category_3_contains_muon/category0/test",
+                    "test": "does_not_exist",
                 },
                 "1": {
                     "train": "does_not_exist",
@@ -522,7 +534,7 @@ STRING340MC_PARQUET = {
                 "1": {
                     "train": "/home/kbas/scratch/String340MC_pone_offline_version3_plus/Parquet/Full_Geometry/Muon_Parquet_Emax1e6/categorized/category1_isMuonCC/category1/train",
                     "val": "/home/kbas/scratch/String340MC_pone_offline_version3_plus/Parquet/Full_Geometry/Muon_Parquet_Emax1e6/categorized/category1_isMuonCC/category1/val",
-                    "test": "/home/kbas/scratch/String340MC_pone_offline_version3_plus/Parquet/Full_Geometry/Muon_Parquet_Emax1e6/categorized/category1_isMuonCC/category1/test",
+                    "test": "does_not_exist",
                 },
             },
             "category2_tauCC_others_muonCC": {
@@ -539,7 +551,7 @@ STRING340MC_PARQUET = {
                 "2": {
                     "train": "/home/kbas/scratch/String340MC_pone_offline_version3_plus/Parquet/Full_Geometry/Muon_Parquet_Emax1e6/categorized/category2_tauCC_others_muonCC/category2/train",
                     "val": "/home/kbas/scratch/String340MC_pone_offline_version3_plus/Parquet/Full_Geometry/Muon_Parquet_Emax1e6/categorized/category2_tauCC_others_muonCC/category2/val",
-                    "test": "/home/kbas/scratch/String340MC_pone_offline_version3_plus/Parquet/Full_Geometry/Muon_Parquet_Emax1e6/categorized/category2_tauCC_others_muonCC/category2/test",
+                    "test": "does_not_exist",
                 },
             },
             "category_3_contains_muon": {
@@ -551,7 +563,7 @@ STRING340MC_PARQUET = {
                 "1": {
                     "train": "/home/kbas/scratch/String340MC_pone_offline_version3_plus/Parquet/Full_Geometry/Muon_Parquet_Emax1e6/categorized/category_3_contains_muon/category1/train",
                     "val": "/home/kbas/scratch/String340MC_pone_offline_version3_plus/Parquet/Full_Geometry/Muon_Parquet_Emax1e6/categorized/category_3_contains_muon/category1/val",
-                    "test": "/home/kbas/scratch/String340MC_pone_offline_version3_plus/Parquet/Full_Geometry/Muon_Parquet_Emax1e6/categorized/category_3_contains_muon/category1/test",
+                    "test": "does_not_exist",
                 },
             },
         },
@@ -563,7 +575,7 @@ STRING340MC_PARQUET = {
                 "0": {
                     "train": "/home/kbas/scratch/String340MC_pone_offline_version3_plus/Parquet/Full_Geometry/Electron_Parquet_Emax1e6/categorized/category1_isMuonCC/category0/train",
                     "val": "/home/kbas/scratch/String340MC_pone_offline_version3_plus/Parquet/Full_Geometry/Electron_Parquet_Emax1e6/categorized/category1_isMuonCC/category0/val",
-                    "test": "/home/kbas/scratch/String340MC_pone_offline_version3_plus/Parquet/Full_Geometry/Electron_Parquet_Emax1e6/categorized/category1_isMuonCC/category0/test",
+                    "test": "does_not_exist",
                 },
                 "1": {
                     "train": "does_not_exist",
@@ -580,7 +592,7 @@ STRING340MC_PARQUET = {
                 "1": {
                     "train": "/home/kbas/scratch/String340MC_pone_offline_version3_plus/Parquet/Full_Geometry/Electron_Parquet_Emax1e6/categorized/category2_tauCC_others_muonCC/category1/train",
                     "val": "/home/kbas/scratch/String340MC_pone_offline_version3_plus/Parquet/Full_Geometry/Electron_Parquet_Emax1e6/categorized/category2_tauCC_others_muonCC/category1/val",
-                    "test": "/home/kbas/scratch/String340MC_pone_offline_version3_plus/Parquet/Full_Geometry/Electron_Parquet_Emax1e6/categorized/category2_tauCC_others_muonCC/category1/test",
+                    "test": "does_not_exist",
                 },
                 "2": {
                     "train": "does_not_exist",
@@ -592,7 +604,7 @@ STRING340MC_PARQUET = {
                 "0": {
                     "train": "/home/kbas/scratch/String340MC_pone_offline_version3_plus/Parquet/Full_Geometry/Electron_Parquet_Emax1e6/categorized/category_3_contains_muon/category0/train",
                     "val": "/home/kbas/scratch/String340MC_pone_offline_version3_plus/Parquet/Full_Geometry/Electron_Parquet_Emax1e6/categorized/category_3_contains_muon/category0/val",
-                    "test": "/home/kbas/scratch/String340MC_pone_offline_version3_plus/Parquet/Full_Geometry/Electron_Parquet_Emax1e6/categorized/category_3_contains_muon/category0/test",
+                    "test": "does_not_exist",
                 },
                 "1": {
                     "train": "does_not_exist",
@@ -609,7 +621,7 @@ STRING340MC_PARQUET = {
                 "0": {
                     "train": "/home/kbas/scratch/String340MC_pone_offline_version3_plus/Parquet/Full_Geometry/Tau_Parquet_Emax1e6/categorized/category1_isMuonCC/category0/train",
                     "val": "/home/kbas/scratch/String340MC_pone_offline_version3_plus/Parquet/Full_Geometry/Tau_Parquet_Emax1e6/categorized/category1_isMuonCC/category0/val",
-                    "test": "/home/kbas/scratch/String340MC_pone_offline_version3_plus/Parquet/Full_Geometry/Tau_Parquet_Emax1e6/categorized/category1_isMuonCC/category0/test",
+                    "test": "does_not_exist",
                 },
                 "1": {
                     "train": "does_not_exist",
@@ -621,7 +633,7 @@ STRING340MC_PARQUET = {
                 "0": {
                     "train": "/home/kbas/scratch/String340MC_pone_offline_version3_plus/Parquet/Full_Geometry/Tau_Parquet_Emax1e6/categorized/category2_tauCC_others_muonCC/category0/train",
                     "val": "/home/kbas/scratch/String340MC_pone_offline_version3_plus/Parquet/Full_Geometry/Tau_Parquet_Emax1e6/categorized/category2_tauCC_others_muonCC/category0/val",
-                    "test": "/home/kbas/scratch/String340MC_pone_offline_version3_plus/Parquet/Full_Geometry/Tau_Parquet_Emax1e6/categorized/category2_tauCC_others_muonCC/category0/test",
+                    "test": "does_not_exist",
                 },
                 "1": {
                     "train": "does_not_exist",
@@ -638,12 +650,12 @@ STRING340MC_PARQUET = {
                 "0": {
                     "train": "/home/kbas/scratch/String340MC_pone_offline_version3_plus/Parquet/Full_Geometry/Tau_Parquet_Emax1e6/categorized/category_3_contains_muon/category0/train",
                     "val": "/home/kbas/scratch/String340MC_pone_offline_version3_plus/Parquet/Full_Geometry/Tau_Parquet_Emax1e6/categorized/category_3_contains_muon/category0/val",
-                    "test": "/home/kbas/scratch/String340MC_pone_offline_version3_plus/Parquet/Full_Geometry/Tau_Parquet_Emax1e6/categorized/category_3_contains_muon/category0/test",
+                    "test": "does_not_exist",
                 },
                 "1": {
                     "train": "/home/kbas/scratch/String340MC_pone_offline_version3_plus/Parquet/Full_Geometry/Tau_Parquet_Emax1e6/categorized/category_3_contains_muon/category1/train",
                     "val": "/home/kbas/scratch/String340MC_pone_offline_version3_plus/Parquet/Full_Geometry/Tau_Parquet_Emax1e6/categorized/category_3_contains_muon/category1/val",
-                    "test": "/home/kbas/scratch/String340MC_pone_offline_version3_plus/Parquet/Full_Geometry/Tau_Parquet_Emax1e6/categorized/category_3_contains_muon/category1/test",
+                    "test": "does_not_exist",
                 },
             },
         },
@@ -655,7 +667,7 @@ STRING340MC_PARQUET = {
                 "0": {
                     "train": "/home/kbas/scratch/String340MC_pone_offline_version3_plus/Parquet/Full_Geometry/NC_Parquet_Emax1e6/categorized/category1_isMuonCC/category0/train",
                     "val": "/home/kbas/scratch/String340MC_pone_offline_version3_plus/Parquet/Full_Geometry/NC_Parquet_Emax1e6/categorized/category1_isMuonCC/category0/val",
-                    "test": "/home/kbas/scratch/String340MC_pone_offline_version3_plus/Parquet/Full_Geometry/NC_Parquet_Emax1e6/categorized/category1_isMuonCC/category0/test",
+                    "test": "does_not_exist",
                 },
                 "1": {
                     "train": "does_not_exist",
@@ -672,7 +684,7 @@ STRING340MC_PARQUET = {
                 "1": {
                     "train": "/home/kbas/scratch/String340MC_pone_offline_version3_plus/Parquet/Full_Geometry/NC_Parquet_Emax1e6/categorized/category2_tauCC_others_muonCC/category1/train",
                     "val": "/home/kbas/scratch/String340MC_pone_offline_version3_plus/Parquet/Full_Geometry/NC_Parquet_Emax1e6/categorized/category2_tauCC_others_muonCC/category1/val",
-                    "test": "/home/kbas/scratch/String340MC_pone_offline_version3_plus/Parquet/Full_Geometry/NC_Parquet_Emax1e6/categorized/category2_tauCC_others_muonCC/category1/test",
+                    "test": "does_not_exist",
                 },
                 "2": {
                     "train": "does_not_exist",
@@ -684,7 +696,7 @@ STRING340MC_PARQUET = {
                 "0": {
                     "train": "/home/kbas/scratch/String340MC_pone_offline_version3_plus/Parquet/Full_Geometry/NC_Parquet_Emax1e6/categorized/category_3_contains_muon/category0/train",
                     "val": "/home/kbas/scratch/String340MC_pone_offline_version3_plus/Parquet/Full_Geometry/NC_Parquet_Emax1e6/categorized/category_3_contains_muon/category0/val",
-                    "test": "/home/kbas/scratch/String340MC_pone_offline_version3_plus/Parquet/Full_Geometry/NC_Parquet_Emax1e6/categorized/category_3_contains_muon/category0/test",
+                    "test": "does_not_exist",
                 },
                 "1": {
                     "train": "does_not_exist",

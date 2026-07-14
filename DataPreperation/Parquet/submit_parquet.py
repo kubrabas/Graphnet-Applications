@@ -11,9 +11,10 @@ For each selected geometry/flavor:
   2. Submits a single SLURM conversion job with --cpus-per-task=NWORKERS.
      convert_parquet.py filters on that geometry's triggered_nonoise_* flag.
   3. Chains merge after conversion; merge builds train/val/test, reindexed
-     splits, split_manifest.json, and RobustScaler percentile CSVs.
-  4. Chains categorized parquet jobs after merge for the default category
-     columns.
+     splits and split_manifest.json.
+  4. Chains categorized train/validation views after merge.
+  5. After every flavor/category job for a geometry succeeds, runs one mixed
+     RobustScaler percentile job.
 
 Shell script note:
     submit_parquet.sh must call convert_parquet.py with --nworkers $NWORKERS
@@ -44,6 +45,7 @@ from submit_categorized_parquet import (
 PATHS_PY     = "/project/def-nahee/kbas/Graphnet-Applications/Metadata/paths.py"
 WORKER_SH    = Path("/home/kbas/SlurmScripts/DataPreperation/submit_parquet.sh")
 MERGE_SH     = Path("/home/kbas/SlurmScripts/DataPreperation/submit_parquet_merge.sh")
+MIXED_SH     = Path("/project/def-nahee/kbas/Graphnet-Applications/DataPreperation/Parquet/run_mixed_percentiles.sh")
 SCRATCH_BASE = "/home/kbas/scratch"
 NWORKERS     = 16   # CPUs per job (parallel files processed simultaneously)
 
@@ -210,6 +212,7 @@ def submit_convert(
     ]
     if exclude_nodes:
         cmd.insert(2, f"--exclude={exclude_nodes}")
+    Path(logdir).mkdir(parents=True, exist_ok=True)
     result = subprocess.run(cmd, capture_output=True, text=True, check=True)
     job_id = parse_job_id(result.stdout)
     print(f"  submitted: {job_name}  ({n_files} files, {nworkers} workers)  job_id={job_id}")
@@ -225,6 +228,7 @@ def submit_merge(
     logdir: str,
     convert_job_id: str,
     metadata_suffix: Optional[str],
+    master_split: str,
     exclude_nodes: Optional[str],
 ) -> Optional[str]:
     export_vars = (
@@ -232,7 +236,8 @@ def submit_merge(
         f"FLAVOR={flavor},"
         f"GEOMETRY={geometry},"
         f"OUTDIR={outdir},"
-        f"LOGDIR={logdir}"
+        f"LOGDIR={logdir},"
+        f"MASTER_SPLIT={master_split}"
     )
     if metadata_suffix is not None:
         export_vars += f",METADATA_SUFFIX={metadata_suffix}"
@@ -268,11 +273,12 @@ def submit_categories_after_dependency(
     events_per_batch: int,
     overwrite: bool,
     dry_run: bool,
-) -> None:
+) -> List[str]:
     category_geometry = categorized_geometry_key(geometry, metadata_suffix)
     dependency = f"afterok:{dependency_job_id}"
+    job_ids = []
     for category_column in category_columns:
-        submit_category_workflow(
+        job_id = submit_category_workflow(
             paths=paths,
             mc=mc,
             geometry=category_geometry,
@@ -285,6 +291,54 @@ def submit_categories_after_dependency(
             exclude_nodes=DEFAULT_EXCLUDE_NODES,
             dry_run=dry_run,
         )
+        if job_id is None and not dry_run:
+            raise RuntimeError(
+                f"Could not parse categorized job ID for {flavor}/{category_column}"
+            )
+        if job_id is not None:
+            job_ids.append(job_id)
+    return job_ids
+
+
+def submit_mixed_percentiles(
+    *,
+    mc: str,
+    geometry: str,
+    dependency_job_ids: List[str],
+    scratch: str,
+    dry_run: bool,
+) -> Optional[str]:
+    if not dependency_job_ids and not dry_run:
+        raise ValueError("Cannot submit mixed percentiles without category dependencies")
+    logfile = (
+        Path(SCRATCH_BASE) / scratch / "Logs" / "MixedPercentiles"
+        / f"{geometry}_%j.out"
+    )
+    dependency = ":".join(dependency_job_ids)
+    cmd = [
+        "sbatch",
+        f"--job-name=MixedPct_{mc}_{geometry}",
+        f"--exclude={DEFAULT_EXCLUDE_NODES}",
+        f"--output={logfile}",
+        f"--error={logfile}",
+        f"--export=MC={mc},GEOMETRY={geometry}",
+        str(MIXED_SH),
+    ]
+    if dependency:
+        cmd.insert(2, f"--dependency=afterok:{dependency}")
+    elif dry_run:
+        cmd.insert(2, "--dependency=afterok:<all-category-jobs>")
+    if dry_run:
+        print(f"  [DRY-RUN] mixed percentiles: {' '.join(cmd)}")
+        return None
+    logfile.parent.mkdir(parents=True, exist_ok=True)
+    result = subprocess.run(cmd, capture_output=True, text=True, check=True)
+    job_id = parse_job_id(result.stdout)
+    if job_id is None:
+        raise RuntimeError("Could not parse mixed-percentile job ID from sbatch output")
+    print(f"  chained mixed percentiles: job_id={job_id} after {len(dependency_job_ids)} category jobs")
+    print(f"    log: {logfile}")
+    return job_id
 
 
 # ---------------------------------------------------------------------------
@@ -310,7 +364,7 @@ def main() -> int:
     ap.add_argument("--nworkers", type=int, default=NWORKERS,
                     help=f"CPUs per job / parallel workers (default: {NWORKERS})")
     ap.add_argument("--max-energy", type=float, default=1e6,
-                    help="Keep only frames with EventProperties.totalEnergy <= this value in GeV. Default: 1e6.")
+                    help="Keep only frames with EventProperties.totalEnergy < this value in GeV. Default: 1e6.")
     ap.add_argument("--category-columns", nargs="+", default=DEFAULT_CATEGORY_COLUMNS,
                     help="Category columns to build after merge.")
     ap.add_argument("--category-events-per-batch", type=int, default=DEFAULT_EVENTS_PER_BATCH,
@@ -343,7 +397,17 @@ def main() -> int:
             print(f"ERROR: {e}")
             return 1
 
+        metadata_suffix = format_energy_suffix(args.max_energy)
+        split_key = paths_suffix(metadata_suffix)
+        master_split = getattr(paths, "DATASET_SPLITS", {}).get(mc, {}).get(split_key)
+        if master_split is None:
+            print(f"ERROR: No master split for mc={mc}, key={split_key} in paths.py")
+            return 1
+
         print(f"\n[{mc}]  geometry={geometry}  nworkers={args.nworkers}")
+        print(f"  master_split={master_split}")
+        category_job_ids: List[str] = []
+        geometry_complete = True
 
         for flavor in flavors:
             entry    = pmt_table.get(geometry, {}).get(flavor, {})
@@ -351,9 +415,9 @@ def main() -> int:
 
             if pmt_path is None:
                 print(f"  [skip] {flavor}: PMT path not set in paths.py")
+                geometry_complete = False
                 continue
 
-            metadata_suffix = format_energy_suffix(args.max_energy)
             outdir = outdir_from_geometry(
                 mc=mc,
                 scratch_base=SCRATCH_BASE,
@@ -376,6 +440,7 @@ def main() -> int:
 
             if n_files == 0:
                 print(f"  [skip] {flavor}: no I3 files found in {pmt_path}")
+                geometry_complete = False
                 continue
 
             if args.dry_run:
@@ -415,13 +480,14 @@ def main() -> int:
                 outdir=outdir, logdir=logdir,
                 convert_job_id=convert_job_id,
                 metadata_suffix=metadata_suffix,
+                master_split=master_split,
                 exclude_nodes=DEFAULT_EXCLUDE_NODES,
             )
             if merge_job_id is None:
                 print(f"  [error] {flavor}: could not parse merge job ID from sbatch output")
                 return 1
 
-            submit_categories_after_dependency(
+            category_job_ids.extend(submit_categories_after_dependency(
                 paths=paths,
                 mc=mc,
                 flavor=flavor,
@@ -432,6 +498,27 @@ def main() -> int:
                 nworkers=args.nworkers,
                 events_per_batch=args.category_events_per_batch,
                 overwrite=args.category_overwrite,
+                dry_run=args.dry_run,
+            ))
+
+        category_geometry = categorized_geometry_key(geometry, metadata_suffix)
+        if set(flavors) != set(ALL_FLAVORS):
+            print("  [skip] mixed percentiles require --flavor all to avoid partial production scalers")
+        elif set(args.category_columns) != set(DEFAULT_CATEGORY_COLUMNS):
+            print("  [skip] mixed percentiles require all default category columns")
+        elif not geometry_complete:
+            print("  [skip] mixed percentiles because at least one flavor pipeline was not submitted")
+        else:
+            expected_dependencies = len(ALL_FLAVORS) * len(DEFAULT_CATEGORY_COLUMNS)
+            if not args.dry_run and len(category_job_ids) != expected_dependencies:
+                raise RuntimeError(
+                    f"Expected {expected_dependencies} category job IDs, got {len(category_job_ids)}"
+                )
+            submit_mixed_percentiles(
+                mc=mc,
+                geometry=category_geometry,
+                dependency_job_ids=category_job_ids,
+                scratch=scratch,
                 dry_run=args.dry_run,
             )
 

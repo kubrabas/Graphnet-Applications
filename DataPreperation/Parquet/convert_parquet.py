@@ -75,7 +75,7 @@ class EventPropertiesMaxEnergyFilter(I3Filter):
         if "EventProperties" not in frame:
             return False
         try:
-            return float(frame["EventProperties"].totalEnergy) <= self._max_energy
+            return float(frame["EventProperties"].totalEnergy) < self._max_energy
         except AttributeError:
             return False
 
@@ -162,7 +162,7 @@ def main() -> int:
     ap.add_argument("--nworkers",  type=int, default=None,
                     help="Parallel workers (default: $SLURM_CPUS_PER_TASK or 4)")
     ap.add_argument("--max-energy", type=float, default=1e6,
-                    help="Keep only frames with EventProperties.totalEnergy <= this value in GeV. Default: 1e6.")
+                    help="Keep only frames with EventProperties.totalEnergy < this value in GeV. Default: 1e6.")
     ap.add_argument("--overwrite", action="store_true",
                     help="Always re-run: pre-deletes existing outputs so skip check finds nothing")
     args = ap.parse_args()

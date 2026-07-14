@@ -14,9 +14,9 @@ Example:
         --flavor all \
         --category-column category1_isMuonCC
 
-The worker reads existing raw truth parquet files to discover category values,
-then filters by category before computing train/val/test splits. It does not
-re-read I3 files.
+The worker reads the canonical train and validation truth files, then creates
+category-filtered views without changing split membership. No categorized test
+output is created and I3 files are not re-read.
 """
 
 import argparse
@@ -111,43 +111,37 @@ def category_value_label(value) -> str:
 
 
 def read_dataset_events(
-    parquet_base: Path,
+    parquet_dirs: List[Path],
     category_column: str,
 ):
     try:
         import polars as pl
     except ModuleNotFoundError as e:
         raise ModuleNotFoundError(
-            "submit_categorized_parquet.py needs polars to read parquet files. "
-            "Run it in the same software environment used for parquet merging "
-            "(for example after loading scipy-stack/2023b on the cluster)."
+            "submit_categorized_parquet.py needs polars to read parquet files."
         ) from e
 
-    truth_dir = parquet_base / "truth"
-    truth_files = sorted(truth_dir.glob("*.parquet"))
-    if not truth_files:
-        raise FileNotFoundError(f"No truth parquet files found in {truth_dir}")
-
-    first_truth = pl.read_parquet(truth_files[0], n_rows=0)
-    missing = [c for c in EVENT_COLUMNS + [category_column] if c not in first_truth.columns]
-    if missing:
-        raise ValueError(f"Missing columns {missing} in {truth_dir}")
-
-    columns = EVENT_COLUMNS + [category_column]
     parts = []
-    for truth_file in truth_files:
-        part = (
-            pl.read_parquet(truth_file, columns=columns)
-            .with_columns(
-                pl.lit(category_column).alias("category_column"),
-                pl.col(category_column).alias("category_value"),
+    for parquet_dir in parquet_dirs:
+        truth_dir = parquet_dir / "truth"
+        truth_files = sorted(truth_dir.glob("*.parquet"))
+        if not truth_files:
+            raise FileNotFoundError(f"No truth parquet files found in {truth_dir}")
+        first_truth = pl.read_parquet(truth_files[0], n_rows=0)
+        missing = [
+            column for column in EVENT_COLUMNS + [category_column]
+            if column not in first_truth.columns
+        ]
+        if missing:
+            raise ValueError(f"Missing columns {missing} in {truth_dir}")
+        columns = EVENT_COLUMNS + [category_column]
+        for truth_file in truth_files:
+            parts.append(
+                pl.read_parquet(truth_file, columns=columns).with_columns(
+                    pl.col(category_column).alias("category_value")
+                ).drop(category_column)
             )
-            .drop(category_column)
-        )
-        parts.append(part)
-
     return pl.concat(parts, how="vertical")
-
 
 def get_category_values(
     paths,
@@ -157,30 +151,24 @@ def get_category_values(
     category_column: str,
     dry_run: bool,
 ) -> List[str]:
-    parquet_base = source_parquet_outdir(
-        paths=paths,
-        mc=mc,
-        geometry=geometry,
-        flavor=flavor,
-    )
-
+    canonical_dirs = [
+        split_dir_from_paths(paths, mc, geometry, flavor, split)
+        for split in ("train", "val")
+    ]
     if dry_run:
-        print(f"  [DRY-RUN] would read truth dir: {parquet_base / 'truth'}")
-        print("  [DRY-RUN] category values will be read from truth parquet files")
+        print(f"  [DRY-RUN] would read canonical truth dirs: {canonical_dirs}")
         return []
 
     combined = read_dataset_events(
-        parquet_base=parquet_base,
+        parquet_dirs=canonical_dirs,
         category_column=category_column,
     ).unique(
         subset=["RunID", "SubrunID", "EventID", "SubEventID"],
         maintain_order=True,
     )
-
-    values = [str(v) for v in combined["category_value"].unique().sort().to_list()]
-    print(f"  category events read from {parquet_base / 'truth'} ({len(combined)} rows)")
+    values = [str(value) for value in combined["category_value"].unique().sort().to_list()]
+    print(f"  category events read from canonical train/val ({len(combined)} rows)")
     return values
-
 
 def submit_category_workflow(
     *,
