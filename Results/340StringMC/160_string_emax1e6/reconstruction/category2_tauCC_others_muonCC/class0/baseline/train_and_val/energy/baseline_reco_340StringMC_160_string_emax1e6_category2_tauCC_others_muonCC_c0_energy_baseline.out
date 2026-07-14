@@ -1,4 +1,4 @@
---- HOST: JOB=48200109  HOST=fc10711
+--- HOST: JOB=48454059  HOST=fc10903
 --- CONFIG: /project/6061446/kbas/graphnet/examples/08_pone/configs/reconstruction/160_string_emax1e6__category2_tauCC_others_muonCC.yml
 --- ROUTE_CLASS: 0
 --- TARGET: energy
@@ -7,15 +7,15 @@
 --- TRAIN_SCRIPT: /project/def-nahee/kbas/graphnet/examples/08_pone/train_scripts/train_reconstruction.py
 INFO:    Using cached SIF image
 WARNING: While bind mounting '/project:/project': destination is already in the mount point list
-[1;34mgraphnet[0m [MainProcess] [33mWARNING [0m 2026-07-11 09:21:35 - <module> - `icecube` not available. Some functionality may be missing.[0m
-[1;34mgraphnet[0m [MainProcess] [33mWARNING [0m 2026-07-11 09:21:37 - <module> - `km3net` not available. Some functionality may be missing.[0m
+[1;34mgraphnet[0m [MainProcess] [33mWARNING [0m 2026-07-13 10:49:07 - <module> - `icecube` not available. Some functionality may be missing.[0m
+[1;34mgraphnet[0m [MainProcess] [33mWARNING [0m 2026-07-13 10:49:08 - <module> - `km3net` not available. Some functionality may be missing.[0m
 torchdiffeq not found - no support for continuous flows. Install *torchdiffeq* if support is desired!
 Meander not installed... contours can not be calculated.
 Healpy not installed... spherical contours can not be calculated.
 package *astropy* not found -> if you want to use plotting functionality for adaptive grids, install *astropy*!
 package *mhealpy* not found -> if you want to use plotting functionality for adaptive grids, install *mhealpy*!
 Cannot use healpy functionality. Install healpy, if you need to do entropy scanning!
-[1;34mgraphnet[0m [MainProcess] [33mWARNING [0m 2026-07-11 09:21:42 - <module> - `graphnet.models.graphs` will be depricated soon. All functionality has been moved to `graphnet.models.data_representation`.[0m
+[1;34mgraphnet[0m [MainProcess] [33mWARNING [0m 2026-07-13 10:49:12 - <module> - `graphnet.models.graphs` will be depricated soon. All functionality has been moved to `graphnet.models.data_representation`.[0m
 
 ========== CONFIG ==========
 data:
@@ -166,81 +166,81 @@ weights:
   NC: does_not_exist
 [Paths] val total: features=49 parquet | truth=49 parquet
 [Paths] percentiles_csv: /project/def-nahee/kbas/Graphnet-Applications/Metadata/RobustScaler/340StringMC/mixed/160_string_emax1e6/category2_tauCC_others_muonCC/class_0_tau_cc/train_feature_percentiles_p25_p50_p75.csv
-[1;34mgraphnet[0m [MainProcess] [32mINFO    [0m 2026-07-11 09:21:43 - PONE.__init__ - Writing log to [1mlogs/graphnet_20260711-092143.log[0m
+[1;34mgraphnet[0m [MainProcess] [32mINFO    [0m 2026-07-13 10:49:13 - PONE.__init__ - Writing log to [1mlogs/graphnet_20260713-104913.log[0m
 [Data] train=391 batches | val=49 batches
-[1;34mgraphnet[0m [SpawnProcess-1] [33mWARNING [0m 2026-07-11 09:21:49 - <module> - `icecube` not available. Some functionality may be missing.[0m
-[1;34mgraphnet[0m [SpawnProcess-1] [33mWARNING [0m 2026-07-11 09:21:49 - <module> - `km3net` not available. Some functionality may be missing.[0m
+[1;34mgraphnet[0m [SpawnProcess-1] [33mWARNING [0m 2026-07-13 10:49:19 - <module> - `icecube` not available. Some functionality may be missing.[0m
+[1;34mgraphnet[0m [SpawnProcess-1] [33mWARNING [0m 2026-07-13 10:49:19 - <module> - `km3net` not available. Some functionality may be missing.[0m
 torchdiffeq not found - no support for continuous flows. Install *torchdiffeq* if support is desired!
 Meander not installed... contours can not be calculated.
 Healpy not installed... spherical contours can not be calculated.
 package *astropy* not found -> if you want to use plotting functionality for adaptive grids, install *astropy*!
 package *mhealpy* not found -> if you want to use plotting functionality for adaptive grids, install *mhealpy*!
 Cannot use healpy functionality. Install healpy, if you need to do entropy scanning!
-[1;34mgraphnet[0m [SpawnProcess-1] [33mWARNING [0m 2026-07-11 09:21:51 - <module> - `graphnet.models.graphs` will be depricated soon. All functionality has been moved to `graphnet.models.data_representation`.[0m
-[1;34mgraphnet[0m [SpawnProcess-2] [33mWARNING [0m 2026-07-11 09:21:54 - <module> - `icecube` not available. Some functionality may be missing.[0m
-[1;34mgraphnet[0m [SpawnProcess-2] [33mWARNING [0m 2026-07-11 09:21:54 - <module> - `km3net` not available. Some functionality may be missing.[0m
+[1;34mgraphnet[0m [SpawnProcess-1] [33mWARNING [0m 2026-07-13 10:49:20 - <module> - `graphnet.models.graphs` will be depricated soon. All functionality has been moved to `graphnet.models.data_representation`.[0m
+[1;34mgraphnet[0m [SpawnProcess-2] [33mWARNING [0m 2026-07-13 10:49:23 - <module> - `icecube` not available. Some functionality may be missing.[0m
+[1;34mgraphnet[0m [SpawnProcess-2] [33mWARNING [0m 2026-07-13 10:49:23 - <module> - `km3net` not available. Some functionality may be missing.[0m
 torchdiffeq not found - no support for continuous flows. Install *torchdiffeq* if support is desired!
 Meander not installed... contours can not be calculated.
 Healpy not installed... spherical contours can not be calculated.
 package *astropy* not found -> if you want to use plotting functionality for adaptive grids, install *astropy*!
 package *mhealpy* not found -> if you want to use plotting functionality for adaptive grids, install *mhealpy*!
 Cannot use healpy functionality. Install healpy, if you need to do entropy scanning!
-[1;34mgraphnet[0m [SpawnProcess-2] [33mWARNING [0m 2026-07-11 09:21:55 - <module> - `graphnet.models.graphs` will be depricated soon. All functionality has been moved to `graphnet.models.data_representation`.[0m
-[1;34mgraphnet[0m [SpawnProcess-3] [33mWARNING [0m 2026-07-11 09:21:59 - <module> - `icecube` not available. Some functionality may be missing.[0m
-[1;34mgraphnet[0m [SpawnProcess-3] [33mWARNING [0m 2026-07-11 09:21:59 - <module> - `km3net` not available. Some functionality may be missing.[0m
+[1;34mgraphnet[0m [SpawnProcess-2] [33mWARNING [0m 2026-07-13 10:49:24 - <module> - `graphnet.models.graphs` will be depricated soon. All functionality has been moved to `graphnet.models.data_representation`.[0m
+[1;34mgraphnet[0m [SpawnProcess-3] [33mWARNING [0m 2026-07-13 10:49:27 - <module> - `icecube` not available. Some functionality may be missing.[0m
+[1;34mgraphnet[0m [SpawnProcess-3] [33mWARNING [0m 2026-07-13 10:49:27 - <module> - `km3net` not available. Some functionality may be missing.[0m
 torchdiffeq not found - no support for continuous flows. Install *torchdiffeq* if support is desired!
 Meander not installed... contours can not be calculated.
 Healpy not installed... spherical contours can not be calculated.
 package *astropy* not found -> if you want to use plotting functionality for adaptive grids, install *astropy*!
 package *mhealpy* not found -> if you want to use plotting functionality for adaptive grids, install *mhealpy*!
 Cannot use healpy functionality. Install healpy, if you need to do entropy scanning!
-[1;34mgraphnet[0m [SpawnProcess-3] [33mWARNING [0m 2026-07-11 09:22:00 - <module> - `graphnet.models.graphs` will be depricated soon. All functionality has been moved to `graphnet.models.data_representation`.[0m
-[1;34mgraphnet[0m [SpawnProcess-4] [33mWARNING [0m 2026-07-11 09:22:03 - <module> - `icecube` not available. Some functionality may be missing.[0m
-[1;34mgraphnet[0m [SpawnProcess-4] [33mWARNING [0m 2026-07-11 09:22:03 - <module> - `km3net` not available. Some functionality may be missing.[0m
+[1;34mgraphnet[0m [SpawnProcess-3] [33mWARNING [0m 2026-07-13 10:49:28 - <module> - `graphnet.models.graphs` will be depricated soon. All functionality has been moved to `graphnet.models.data_representation`.[0m
+[1;34mgraphnet[0m [SpawnProcess-4] [33mWARNING [0m 2026-07-13 10:49:31 - <module> - `icecube` not available. Some functionality may be missing.[0m
+[1;34mgraphnet[0m [SpawnProcess-4] [33mWARNING [0m 2026-07-13 10:49:31 - <module> - `km3net` not available. Some functionality may be missing.[0m
 torchdiffeq not found - no support for continuous flows. Install *torchdiffeq* if support is desired!
 Meander not installed... contours can not be calculated.
 Healpy not installed... spherical contours can not be calculated.
 package *astropy* not found -> if you want to use plotting functionality for adaptive grids, install *astropy*!
 package *mhealpy* not found -> if you want to use plotting functionality for adaptive grids, install *mhealpy*!
 Cannot use healpy functionality. Install healpy, if you need to do entropy scanning!
-[1;34mgraphnet[0m [SpawnProcess-4] [33mWARNING [0m 2026-07-11 09:22:04 - <module> - `graphnet.models.graphs` will be depricated soon. All functionality has been moved to `graphnet.models.data_representation`.[0m
-[1;34mgraphnet[0m [SpawnProcess-5] [33mWARNING [0m 2026-07-11 09:22:08 - <module> - `icecube` not available. Some functionality may be missing.[0m
-[1;34mgraphnet[0m [SpawnProcess-5] [33mWARNING [0m 2026-07-11 09:22:08 - <module> - `km3net` not available. Some functionality may be missing.[0m
+[1;34mgraphnet[0m [SpawnProcess-4] [33mWARNING [0m 2026-07-13 10:49:32 - <module> - `graphnet.models.graphs` will be depricated soon. All functionality has been moved to `graphnet.models.data_representation`.[0m
+[1;34mgraphnet[0m [SpawnProcess-5] [33mWARNING [0m 2026-07-13 10:49:35 - <module> - `icecube` not available. Some functionality may be missing.[0m
+[1;34mgraphnet[0m [SpawnProcess-5] [33mWARNING [0m 2026-07-13 10:49:35 - <module> - `km3net` not available. Some functionality may be missing.[0m
 torchdiffeq not found - no support for continuous flows. Install *torchdiffeq* if support is desired!
 Meander not installed... contours can not be calculated.
 Healpy not installed... spherical contours can not be calculated.
 package *astropy* not found -> if you want to use plotting functionality for adaptive grids, install *astropy*!
 package *mhealpy* not found -> if you want to use plotting functionality for adaptive grids, install *mhealpy*!
 Cannot use healpy functionality. Install healpy, if you need to do entropy scanning!
-[1;34mgraphnet[0m [SpawnProcess-5] [33mWARNING [0m 2026-07-11 09:22:09 - <module> - `graphnet.models.graphs` will be depricated soon. All functionality has been moved to `graphnet.models.data_representation`.[0m
-[1;34mgraphnet[0m [SpawnProcess-6] [33mWARNING [0m 2026-07-11 09:22:12 - <module> - `icecube` not available. Some functionality may be missing.[0m
-[1;34mgraphnet[0m [SpawnProcess-6] [33mWARNING [0m 2026-07-11 09:22:12 - <module> - `km3net` not available. Some functionality may be missing.[0m
+[1;34mgraphnet[0m [SpawnProcess-5] [33mWARNING [0m 2026-07-13 10:49:36 - <module> - `graphnet.models.graphs` will be depricated soon. All functionality has been moved to `graphnet.models.data_representation`.[0m
+[1;34mgraphnet[0m [SpawnProcess-6] [33mWARNING [0m 2026-07-13 10:49:39 - <module> - `icecube` not available. Some functionality may be missing.[0m
+[1;34mgraphnet[0m [SpawnProcess-6] [33mWARNING [0m 2026-07-13 10:49:39 - <module> - `km3net` not available. Some functionality may be missing.[0m
 torchdiffeq not found - no support for continuous flows. Install *torchdiffeq* if support is desired!
 Meander not installed... contours can not be calculated.
 Healpy not installed... spherical contours can not be calculated.
 package *astropy* not found -> if you want to use plotting functionality for adaptive grids, install *astropy*!
 package *mhealpy* not found -> if you want to use plotting functionality for adaptive grids, install *mhealpy*!
 Cannot use healpy functionality. Install healpy, if you need to do entropy scanning!
-[1;34mgraphnet[0m [SpawnProcess-6] [33mWARNING [0m 2026-07-11 09:22:13 - <module> - `graphnet.models.graphs` will be depricated soon. All functionality has been moved to `graphnet.models.data_representation`.[0m
-[1;34mgraphnet[0m [SpawnProcess-7] [33mWARNING [0m 2026-07-11 09:22:17 - <module> - `icecube` not available. Some functionality may be missing.[0m
-[1;34mgraphnet[0m [SpawnProcess-7] [33mWARNING [0m 2026-07-11 09:22:17 - <module> - `km3net` not available. Some functionality may be missing.[0m
+[1;34mgraphnet[0m [SpawnProcess-6] [33mWARNING [0m 2026-07-13 10:49:39 - <module> - `graphnet.models.graphs` will be depricated soon. All functionality has been moved to `graphnet.models.data_representation`.[0m
+[1;34mgraphnet[0m [SpawnProcess-7] [33mWARNING [0m 2026-07-13 10:49:42 - <module> - `icecube` not available. Some functionality may be missing.[0m
+[1;34mgraphnet[0m [SpawnProcess-7] [33mWARNING [0m 2026-07-13 10:49:43 - <module> - `km3net` not available. Some functionality may be missing.[0m
 torchdiffeq not found - no support for continuous flows. Install *torchdiffeq* if support is desired!
 Meander not installed... contours can not be calculated.
 Healpy not installed... spherical contours can not be calculated.
 package *astropy* not found -> if you want to use plotting functionality for adaptive grids, install *astropy*!
 package *mhealpy* not found -> if you want to use plotting functionality for adaptive grids, install *mhealpy*!
 Cannot use healpy functionality. Install healpy, if you need to do entropy scanning!
-[1;34mgraphnet[0m [SpawnProcess-7] [33mWARNING [0m 2026-07-11 09:22:18 - <module> - `graphnet.models.graphs` will be depricated soon. All functionality has been moved to `graphnet.models.data_representation`.[0m
-[1;34mgraphnet[0m [SpawnProcess-8] [33mWARNING [0m 2026-07-11 09:22:21 - <module> - `icecube` not available. Some functionality may be missing.[0m
-[1;34mgraphnet[0m [SpawnProcess-8] [33mWARNING [0m 2026-07-11 09:22:21 - <module> - `km3net` not available. Some functionality may be missing.[0m
+[1;34mgraphnet[0m [SpawnProcess-7] [33mWARNING [0m 2026-07-13 10:49:44 - <module> - `graphnet.models.graphs` will be depricated soon. All functionality has been moved to `graphnet.models.data_representation`.[0m
+[1;34mgraphnet[0m [SpawnProcess-8] [33mWARNING [0m 2026-07-13 10:49:47 - <module> - `icecube` not available. Some functionality may be missing.[0m
+[1;34mgraphnet[0m [SpawnProcess-8] [33mWARNING [0m 2026-07-13 10:49:47 - <module> - `km3net` not available. Some functionality may be missing.[0m
 torchdiffeq not found - no support for continuous flows. Install *torchdiffeq* if support is desired!
 Meander not installed... contours can not be calculated.
 Healpy not installed... spherical contours can not be calculated.
 package *astropy* not found -> if you want to use plotting functionality for adaptive grids, install *astropy*!
 package *mhealpy* not found -> if you want to use plotting functionality for adaptive grids, install *mhealpy*!
 Cannot use healpy functionality. Install healpy, if you need to do entropy scanning!
-[1;34mgraphnet[0m [SpawnProcess-8] [33mWARNING [0m 2026-07-11 09:22:23 - <module> - `graphnet.models.graphs` will be depricated soon. All functionality has been moved to `graphnet.models.data_representation`.[0m
-[Sanity] totalEnergy: min=1.010e+02 max=9.895e+05
+[1;34mgraphnet[0m [SpawnProcess-8] [33mWARNING [0m 2026-07-13 10:49:48 - <module> - `graphnet.models.graphs` will be depricated soon. All functionality has been moved to `graphnet.models.data_representation`.[0m
+[Sanity] totalEnergy: min=1.000e+02 max=4.651e+05
 Seed set to 20260202
 [Reconstruction:energy] no pretrained_weights configured, starting from scratch
 
@@ -248,7 +248,6 @@ Seed set to 20260202
 [Reconstruction:energy] GPU: NVIDIA H100 80GB HBM3 MIG 3g.40gb
 GPU available: True (cuda), used: True
 TPU available: False, using: 0 TPU cores
-/opt/conda/lib/python3.11/site-packages/pytorch_lightning/trainer/connectors/logger_connector/logger_connector.py:76: Starting from v1.9.0, `tensorboardX` has been removed as a dependency of the `pytorch_lightning` package, due to potential conflicts with other packages in the ML ecosystem. For this reason, `logger=True` will use `CSVLogger` as the default logger, unless the `tensorboard` or `tensorboardX` packages are found. Please `pip install lightning[extra]` or one of them to enable TensorBoard support by default
 You are using a CUDA device ('NVIDIA H100 80GB HBM3 MIG 3g.40gb') that has Tensor Cores. To properly utilize them, you should set `torch.set_float32_matmul_precision('medium' | 'high')` which will trade-off precision for performance. For more details, read https://pytorch.org/docs/stable/generated/torch.set_float32_matmul_precision.html#torch.set_float32_matmul_precision
 LOCAL_RANK: 0 - CUDA_VISIBLE_DEVICES: [0]
 
@@ -265,196 +264,196 @@ LOCAL_RANK: 0 - CUDA_VISIBLE_DEVICES: [0]
 36        Modules in train mode
 0         Modules in eval mode
 0         Total Flops
-[1;34mgraphnet[0m [SpawnProcess-9] [33mWARNING [0m 2026-07-11 09:22:37 - <module> - `icecube` not available. Some functionality may be missing.[0m
-[1;34mgraphnet[0m [SpawnProcess-9] [33mWARNING [0m 2026-07-11 09:22:37 - <module> - `km3net` not available. Some functionality may be missing.[0m
+[1;34mgraphnet[0m [SpawnProcess-9] [33mWARNING [0m 2026-07-13 10:50:04 - <module> - `icecube` not available. Some functionality may be missing.[0m
+[1;34mgraphnet[0m [SpawnProcess-9] [33mWARNING [0m 2026-07-13 10:50:04 - <module> - `km3net` not available. Some functionality may be missing.[0m
 torchdiffeq not found - no support for continuous flows. Install *torchdiffeq* if support is desired!
 Meander not installed... contours can not be calculated.
 Healpy not installed... spherical contours can not be calculated.
 package *astropy* not found -> if you want to use plotting functionality for adaptive grids, install *astropy*!
 package *mhealpy* not found -> if you want to use plotting functionality for adaptive grids, install *mhealpy*!
 Cannot use healpy functionality. Install healpy, if you need to do entropy scanning!
-[1;34mgraphnet[0m [SpawnProcess-9] [33mWARNING [0m 2026-07-11 09:22:38 - <module> - `graphnet.models.graphs` will be depricated soon. All functionality has been moved to `graphnet.models.data_representation`.[0m
-[1;34mgraphnet[0m [SpawnProcess-10] [33mWARNING [0m 2026-07-11 09:22:41 - <module> - `icecube` not available. Some functionality may be missing.[0m
-[1;34mgraphnet[0m [SpawnProcess-10] [33mWARNING [0m 2026-07-11 09:22:41 - <module> - `km3net` not available. Some functionality may be missing.[0m
+[1;34mgraphnet[0m [SpawnProcess-9] [33mWARNING [0m 2026-07-13 10:50:05 - <module> - `graphnet.models.graphs` will be depricated soon. All functionality has been moved to `graphnet.models.data_representation`.[0m
+[1;34mgraphnet[0m [SpawnProcess-10] [33mWARNING [0m 2026-07-13 10:50:08 - <module> - `icecube` not available. Some functionality may be missing.[0m
+[1;34mgraphnet[0m [SpawnProcess-10] [33mWARNING [0m 2026-07-13 10:50:08 - <module> - `km3net` not available. Some functionality may be missing.[0m
 torchdiffeq not found - no support for continuous flows. Install *torchdiffeq* if support is desired!
 Meander not installed... contours can not be calculated.
 Healpy not installed... spherical contours can not be calculated.
 package *astropy* not found -> if you want to use plotting functionality for adaptive grids, install *astropy*!
 package *mhealpy* not found -> if you want to use plotting functionality for adaptive grids, install *mhealpy*!
 Cannot use healpy functionality. Install healpy, if you need to do entropy scanning!
-[1;34mgraphnet[0m [SpawnProcess-10] [33mWARNING [0m 2026-07-11 09:22:42 - <module> - `graphnet.models.graphs` will be depricated soon. All functionality has been moved to `graphnet.models.data_representation`.[0m
-[1;34mgraphnet[0m [SpawnProcess-11] [33mWARNING [0m 2026-07-11 09:22:45 - <module> - `icecube` not available. Some functionality may be missing.[0m
-[1;34mgraphnet[0m [SpawnProcess-11] [33mWARNING [0m 2026-07-11 09:22:45 - <module> - `km3net` not available. Some functionality may be missing.[0m
+[1;34mgraphnet[0m [SpawnProcess-10] [33mWARNING [0m 2026-07-13 10:50:09 - <module> - `graphnet.models.graphs` will be depricated soon. All functionality has been moved to `graphnet.models.data_representation`.[0m
+[1;34mgraphnet[0m [SpawnProcess-11] [33mWARNING [0m 2026-07-13 10:50:12 - <module> - `icecube` not available. Some functionality may be missing.[0m
+[1;34mgraphnet[0m [SpawnProcess-11] [33mWARNING [0m 2026-07-13 10:50:12 - <module> - `km3net` not available. Some functionality may be missing.[0m
 torchdiffeq not found - no support for continuous flows. Install *torchdiffeq* if support is desired!
 Meander not installed... contours can not be calculated.
 Healpy not installed... spherical contours can not be calculated.
 package *astropy* not found -> if you want to use plotting functionality for adaptive grids, install *astropy*!
 package *mhealpy* not found -> if you want to use plotting functionality for adaptive grids, install *mhealpy*!
 Cannot use healpy functionality. Install healpy, if you need to do entropy scanning!
-[1;34mgraphnet[0m [SpawnProcess-11] [33mWARNING [0m 2026-07-11 09:22:47 - <module> - `graphnet.models.graphs` will be depricated soon. All functionality has been moved to `graphnet.models.data_representation`.[0m
-[1;34mgraphnet[0m [SpawnProcess-12] [33mWARNING [0m 2026-07-11 09:22:50 - <module> - `icecube` not available. Some functionality may be missing.[0m
-[1;34mgraphnet[0m [SpawnProcess-12] [33mWARNING [0m 2026-07-11 09:22:50 - <module> - `km3net` not available. Some functionality may be missing.[0m
+[1;34mgraphnet[0m [SpawnProcess-11] [33mWARNING [0m 2026-07-13 10:50:13 - <module> - `graphnet.models.graphs` will be depricated soon. All functionality has been moved to `graphnet.models.data_representation`.[0m
+[1;34mgraphnet[0m [SpawnProcess-12] [33mWARNING [0m 2026-07-13 10:50:16 - <module> - `icecube` not available. Some functionality may be missing.[0m
+[1;34mgraphnet[0m [SpawnProcess-12] [33mWARNING [0m 2026-07-13 10:50:16 - <module> - `km3net` not available. Some functionality may be missing.[0m
 torchdiffeq not found - no support for continuous flows. Install *torchdiffeq* if support is desired!
 Meander not installed... contours can not be calculated.
 Healpy not installed... spherical contours can not be calculated.
 package *astropy* not found -> if you want to use plotting functionality for adaptive grids, install *astropy*!
 package *mhealpy* not found -> if you want to use plotting functionality for adaptive grids, install *mhealpy*!
 Cannot use healpy functionality. Install healpy, if you need to do entropy scanning!
-[1;34mgraphnet[0m [SpawnProcess-12] [33mWARNING [0m 2026-07-11 09:22:51 - <module> - `graphnet.models.graphs` will be depricated soon. All functionality has been moved to `graphnet.models.data_representation`.[0m
-[1;34mgraphnet[0m [SpawnProcess-13] [33mWARNING [0m 2026-07-11 09:22:54 - <module> - `icecube` not available. Some functionality may be missing.[0m
-[1;34mgraphnet[0m [SpawnProcess-13] [33mWARNING [0m 2026-07-11 09:22:54 - <module> - `km3net` not available. Some functionality may be missing.[0m
+[1;34mgraphnet[0m [SpawnProcess-12] [33mWARNING [0m 2026-07-13 10:50:17 - <module> - `graphnet.models.graphs` will be depricated soon. All functionality has been moved to `graphnet.models.data_representation`.[0m
+[1;34mgraphnet[0m [SpawnProcess-13] [33mWARNING [0m 2026-07-13 10:50:21 - <module> - `icecube` not available. Some functionality may be missing.[0m
+[1;34mgraphnet[0m [SpawnProcess-13] [33mWARNING [0m 2026-07-13 10:50:21 - <module> - `km3net` not available. Some functionality may be missing.[0m
 torchdiffeq not found - no support for continuous flows. Install *torchdiffeq* if support is desired!
 Meander not installed... contours can not be calculated.
 Healpy not installed... spherical contours can not be calculated.
 package *astropy* not found -> if you want to use plotting functionality for adaptive grids, install *astropy*!
 package *mhealpy* not found -> if you want to use plotting functionality for adaptive grids, install *mhealpy*!
 Cannot use healpy functionality. Install healpy, if you need to do entropy scanning!
-[1;34mgraphnet[0m [SpawnProcess-13] [33mWARNING [0m 2026-07-11 09:22:55 - <module> - `graphnet.models.graphs` will be depricated soon. All functionality has been moved to `graphnet.models.data_representation`.[0m
-[1;34mgraphnet[0m [SpawnProcess-14] [33mWARNING [0m 2026-07-11 09:22:59 - <module> - `icecube` not available. Some functionality may be missing.[0m
-[1;34mgraphnet[0m [SpawnProcess-14] [33mWARNING [0m 2026-07-11 09:22:59 - <module> - `km3net` not available. Some functionality may be missing.[0m
+[1;34mgraphnet[0m [SpawnProcess-13] [33mWARNING [0m 2026-07-13 10:50:21 - <module> - `graphnet.models.graphs` will be depricated soon. All functionality has been moved to `graphnet.models.data_representation`.[0m
+[1;34mgraphnet[0m [SpawnProcess-14] [33mWARNING [0m 2026-07-13 10:50:25 - <module> - `icecube` not available. Some functionality may be missing.[0m
+[1;34mgraphnet[0m [SpawnProcess-14] [33mWARNING [0m 2026-07-13 10:50:25 - <module> - `km3net` not available. Some functionality may be missing.[0m
 torchdiffeq not found - no support for continuous flows. Install *torchdiffeq* if support is desired!
 Meander not installed... contours can not be calculated.
 Healpy not installed... spherical contours can not be calculated.
 package *astropy* not found -> if you want to use plotting functionality for adaptive grids, install *astropy*!
 package *mhealpy* not found -> if you want to use plotting functionality for adaptive grids, install *mhealpy*!
 Cannot use healpy functionality. Install healpy, if you need to do entropy scanning!
-[1;34mgraphnet[0m [SpawnProcess-14] [33mWARNING [0m 2026-07-11 09:23:00 - <module> - `graphnet.models.graphs` will be depricated soon. All functionality has been moved to `graphnet.models.data_representation`.[0m
-[1;34mgraphnet[0m [SpawnProcess-15] [33mWARNING [0m 2026-07-11 09:23:03 - <module> - `icecube` not available. Some functionality may be missing.[0m
-[1;34mgraphnet[0m [SpawnProcess-15] [33mWARNING [0m 2026-07-11 09:23:03 - <module> - `km3net` not available. Some functionality may be missing.[0m
+[1;34mgraphnet[0m [SpawnProcess-14] [33mWARNING [0m 2026-07-13 10:50:26 - <module> - `graphnet.models.graphs` will be depricated soon. All functionality has been moved to `graphnet.models.data_representation`.[0m
+[1;34mgraphnet[0m [SpawnProcess-15] [33mWARNING [0m 2026-07-13 10:50:28 - <module> - `icecube` not available. Some functionality may be missing.[0m
+[1;34mgraphnet[0m [SpawnProcess-15] [33mWARNING [0m 2026-07-13 10:50:29 - <module> - `km3net` not available. Some functionality may be missing.[0m
 torchdiffeq not found - no support for continuous flows. Install *torchdiffeq* if support is desired!
 Meander not installed... contours can not be calculated.
 Healpy not installed... spherical contours can not be calculated.
 package *astropy* not found -> if you want to use plotting functionality for adaptive grids, install *astropy*!
 package *mhealpy* not found -> if you want to use plotting functionality for adaptive grids, install *mhealpy*!
 Cannot use healpy functionality. Install healpy, if you need to do entropy scanning!
-[1;34mgraphnet[0m [SpawnProcess-15] [33mWARNING [0m 2026-07-11 09:23:04 - <module> - `graphnet.models.graphs` will be depricated soon. All functionality has been moved to `graphnet.models.data_representation`.[0m
-[1;34mgraphnet[0m [SpawnProcess-16] [33mWARNING [0m 2026-07-11 09:23:07 - <module> - `icecube` not available. Some functionality may be missing.[0m
-[1;34mgraphnet[0m [SpawnProcess-16] [33mWARNING [0m 2026-07-11 09:23:08 - <module> - `km3net` not available. Some functionality may be missing.[0m
+[1;34mgraphnet[0m [SpawnProcess-15] [33mWARNING [0m 2026-07-13 10:50:29 - <module> - `graphnet.models.graphs` will be depricated soon. All functionality has been moved to `graphnet.models.data_representation`.[0m
+[1;34mgraphnet[0m [SpawnProcess-16] [33mWARNING [0m 2026-07-13 10:50:32 - <module> - `icecube` not available. Some functionality may be missing.[0m
+[1;34mgraphnet[0m [SpawnProcess-16] [33mWARNING [0m 2026-07-13 10:50:32 - <module> - `km3net` not available. Some functionality may be missing.[0m
 torchdiffeq not found - no support for continuous flows. Install *torchdiffeq* if support is desired!
 Meander not installed... contours can not be calculated.
 Healpy not installed... spherical contours can not be calculated.
 package *astropy* not found -> if you want to use plotting functionality for adaptive grids, install *astropy*!
 package *mhealpy* not found -> if you want to use plotting functionality for adaptive grids, install *mhealpy*!
 Cannot use healpy functionality. Install healpy, if you need to do entropy scanning!
-[1;34mgraphnet[0m [SpawnProcess-16] [33mWARNING [0m 2026-07-11 09:23:08 - <module> - `graphnet.models.graphs` will be depricated soon. All functionality has been moved to `graphnet.models.data_representation`.[0m
-Metric val_loss improved. New best score: 0.461 | epoch: 0
-[1;34mgraphnet[0m [MainProcess] [32mINFO    [0m 2026-07-11 09:29:18 - StandardModel._call_callback_hooks - Model state_dict saved to /project/def-nahee/kbas/Graphnet-Applications/Results/340StringMC/160_string_emax1e6/reconstruction/category2_tauCC_others_muonCC/class0/baseline/train_and_val/energy/best_model.pth[0m
-Metric val_loss improved by 0.298 >= min_delta = 0.0. New best score: 0.163 | epoch: 1
-[1;34mgraphnet[0m [MainProcess] [32mINFO    [0m 2026-07-11 09:35:19 - StandardModel._call_callback_hooks - Model state_dict saved to /project/def-nahee/kbas/Graphnet-Applications/Results/340StringMC/160_string_emax1e6/reconstruction/category2_tauCC_others_muonCC/class0/baseline/train_and_val/energy/best_model.pth[0m
-Metric val_loss improved by 0.063 >= min_delta = 0.0. New best score: 0.100 | epoch: 2
-[1;34mgraphnet[0m [MainProcess] [32mINFO    [0m 2026-07-11 09:46:29 - StandardModel._call_callback_hooks - Model state_dict saved to /project/def-nahee/kbas/Graphnet-Applications/Results/340StringMC/160_string_emax1e6/reconstruction/category2_tauCC_others_muonCC/class0/baseline/train_and_val/energy/best_model.pth[0m
-Metric val_loss improved by 0.021 >= min_delta = 0.0. New best score: 0.079 | epoch: 3
-[1;34mgraphnet[0m [MainProcess] [32mINFO    [0m 2026-07-11 09:52:20 - StandardModel._call_callback_hooks - Model state_dict saved to /project/def-nahee/kbas/Graphnet-Applications/Results/340StringMC/160_string_emax1e6/reconstruction/category2_tauCC_others_muonCC/class0/baseline/train_and_val/energy/best_model.pth[0m
-Metric val_loss improved by 0.010 >= min_delta = 0.0. New best score: 0.069 | epoch: 5
-[1;34mgraphnet[0m [MainProcess] [32mINFO    [0m 2026-07-11 10:04:02 - StandardModel._call_callback_hooks - Model state_dict saved to /project/def-nahee/kbas/Graphnet-Applications/Results/340StringMC/160_string_emax1e6/reconstruction/category2_tauCC_others_muonCC/class0/baseline/train_and_val/energy/best_model.pth[0m
-Metric val_loss improved by 0.012 >= min_delta = 0.0. New best score: 0.057 | epoch: 6
-[1;34mgraphnet[0m [MainProcess] [32mINFO    [0m 2026-07-11 10:09:49 - StandardModel._call_callback_hooks - Model state_dict saved to /project/def-nahee/kbas/Graphnet-Applications/Results/340StringMC/160_string_emax1e6/reconstruction/category2_tauCC_others_muonCC/class0/baseline/train_and_val/energy/best_model.pth[0m
-Metric val_loss improved by 0.005 >= min_delta = 0.0. New best score: 0.052 | epoch: 7
-[1;34mgraphnet[0m [MainProcess] [32mINFO    [0m 2026-07-11 10:15:48 - StandardModel._call_callback_hooks - Model state_dict saved to /project/def-nahee/kbas/Graphnet-Applications/Results/340StringMC/160_string_emax1e6/reconstruction/category2_tauCC_others_muonCC/class0/baseline/train_and_val/energy/best_model.pth[0m
-Metric val_loss improved by 0.002 >= min_delta = 0.0. New best score: 0.050 | epoch: 11
-[1;34mgraphnet[0m [MainProcess] [32mINFO    [0m 2026-07-11 10:39:07 - StandardModel._call_callback_hooks - Model state_dict saved to /project/def-nahee/kbas/Graphnet-Applications/Results/340StringMC/160_string_emax1e6/reconstruction/category2_tauCC_others_muonCC/class0/baseline/train_and_val/energy/best_model.pth[0m
-Metric val_loss improved by 0.005 >= min_delta = 0.0. New best score: 0.045 | epoch: 13
-[1;34mgraphnet[0m [MainProcess] [32mINFO    [0m 2026-07-11 10:50:40 - StandardModel._call_callback_hooks - Model state_dict saved to /project/def-nahee/kbas/Graphnet-Applications/Results/340StringMC/160_string_emax1e6/reconstruction/category2_tauCC_others_muonCC/class0/baseline/train_and_val/energy/best_model.pth[0m
-Metric val_loss improved by 0.002 >= min_delta = 0.0. New best score: 0.043 | epoch: 16
-[1;34mgraphnet[0m [MainProcess] [32mINFO    [0m 2026-07-11 11:08:26 - StandardModel._call_callback_hooks - Model state_dict saved to /project/def-nahee/kbas/Graphnet-Applications/Results/340StringMC/160_string_emax1e6/reconstruction/category2_tauCC_others_muonCC/class0/baseline/train_and_val/energy/best_model.pth[0m
-Metric val_loss improved by 0.001 >= min_delta = 0.0. New best score: 0.042 | epoch: 17
-[1;34mgraphnet[0m [MainProcess] [32mINFO    [0m 2026-07-11 11:14:20 - StandardModel._call_callback_hooks - Model state_dict saved to /project/def-nahee/kbas/Graphnet-Applications/Results/340StringMC/160_string_emax1e6/reconstruction/category2_tauCC_others_muonCC/class0/baseline/train_and_val/energy/best_model.pth[0m
-Metric val_loss improved by 0.002 >= min_delta = 0.0. New best score: 0.039 | epoch: 18
-[1;34mgraphnet[0m [MainProcess] [32mINFO    [0m 2026-07-11 11:20:06 - StandardModel._call_callback_hooks - Model state_dict saved to /project/def-nahee/kbas/Graphnet-Applications/Results/340StringMC/160_string_emax1e6/reconstruction/category2_tauCC_others_muonCC/class0/baseline/train_and_val/energy/best_model.pth[0m
-Metric val_loss improved by 0.000 >= min_delta = 0.0. New best score: 0.039 | epoch: 19
-[1;34mgraphnet[0m [MainProcess] [32mINFO    [0m 2026-07-11 11:26:00 - StandardModel._call_callback_hooks - Model state_dict saved to /project/def-nahee/kbas/Graphnet-Applications/Results/340StringMC/160_string_emax1e6/reconstruction/category2_tauCC_others_muonCC/class0/baseline/train_and_val/energy/best_model.pth[0m
-Metric val_loss improved by 0.001 >= min_delta = 0.0. New best score: 0.039 | epoch: 21
-[1;34mgraphnet[0m [MainProcess] [32mINFO    [0m 2026-07-11 11:37:59 - StandardModel._call_callback_hooks - Model state_dict saved to /project/def-nahee/kbas/Graphnet-Applications/Results/340StringMC/160_string_emax1e6/reconstruction/category2_tauCC_others_muonCC/class0/baseline/train_and_val/energy/best_model.pth[0m
-Metric val_loss improved by 0.001 >= min_delta = 0.0. New best score: 0.037 | epoch: 22
-[1;34mgraphnet[0m [MainProcess] [32mINFO    [0m 2026-07-11 11:43:53 - StandardModel._call_callback_hooks - Model state_dict saved to /project/def-nahee/kbas/Graphnet-Applications/Results/340StringMC/160_string_emax1e6/reconstruction/category2_tauCC_others_muonCC/class0/baseline/train_and_val/energy/best_model.pth[0m
-Metric val_loss improved by 0.001 >= min_delta = 0.0. New best score: 0.037 | epoch: 23
-[1;34mgraphnet[0m [MainProcess] [32mINFO    [0m 2026-07-11 11:49:39 - StandardModel._call_callback_hooks - Model state_dict saved to /project/def-nahee/kbas/Graphnet-Applications/Results/340StringMC/160_string_emax1e6/reconstruction/category2_tauCC_others_muonCC/class0/baseline/train_and_val/energy/best_model.pth[0m
-Metric val_loss improved by 0.001 >= min_delta = 0.0. New best score: 0.036 | epoch: 24
-[1;34mgraphnet[0m [MainProcess] [32mINFO    [0m 2026-07-11 11:55:30 - StandardModel._call_callback_hooks - Model state_dict saved to /project/def-nahee/kbas/Graphnet-Applications/Results/340StringMC/160_string_emax1e6/reconstruction/category2_tauCC_others_muonCC/class0/baseline/train_and_val/energy/best_model.pth[0m
-Metric val_loss improved by 0.001 >= min_delta = 0.0. New best score: 0.036 | epoch: 26
-[1;34mgraphnet[0m [MainProcess] [32mINFO    [0m 2026-07-11 12:07:05 - StandardModel._call_callback_hooks - Model state_dict saved to /project/def-nahee/kbas/Graphnet-Applications/Results/340StringMC/160_string_emax1e6/reconstruction/category2_tauCC_others_muonCC/class0/baseline/train_and_val/energy/best_model.pth[0m
-Metric val_loss improved by 0.000 >= min_delta = 0.0. New best score: 0.035 | epoch: 28
-[1;34mgraphnet[0m [MainProcess] [32mINFO    [0m 2026-07-11 12:18:25 - StandardModel._call_callback_hooks - Model state_dict saved to /project/def-nahee/kbas/Graphnet-Applications/Results/340StringMC/160_string_emax1e6/reconstruction/category2_tauCC_others_muonCC/class0/baseline/train_and_val/energy/best_model.pth[0m
+[1;34mgraphnet[0m [SpawnProcess-16] [33mWARNING [0m 2026-07-13 10:50:33 - <module> - `graphnet.models.graphs` will be depricated soon. All functionality has been moved to `graphnet.models.data_representation`.[0m
+Metric val_loss improved. New best score: 0.424 | epoch: 0
+[1;34mgraphnet[0m [MainProcess] [32mINFO    [0m 2026-07-13 10:56:11 - StandardModel._call_callback_hooks - Model state_dict saved to /project/def-nahee/kbas/Graphnet-Applications/Results/340StringMC/160_string_emax1e6/reconstruction/category2_tauCC_others_muonCC/class0/baseline/train_and_val/energy/best_model.pth[0m
+Metric val_loss improved by 0.137 >= min_delta = 0.0. New best score: 0.287 | epoch: 1
+[1;34mgraphnet[0m [MainProcess] [32mINFO    [0m 2026-07-13 11:01:30 - StandardModel._call_callback_hooks - Model state_dict saved to /project/def-nahee/kbas/Graphnet-Applications/Results/340StringMC/160_string_emax1e6/reconstruction/category2_tauCC_others_muonCC/class0/baseline/train_and_val/energy/best_model.pth[0m
+Metric val_loss improved by 0.123 >= min_delta = 0.0. New best score: 0.164 | epoch: 3
+[1;34mgraphnet[0m [MainProcess] [32mINFO    [0m 2026-07-13 11:12:08 - StandardModel._call_callback_hooks - Model state_dict saved to /project/def-nahee/kbas/Graphnet-Applications/Results/340StringMC/160_string_emax1e6/reconstruction/category2_tauCC_others_muonCC/class0/baseline/train_and_val/energy/best_model.pth[0m
+Metric val_loss improved by 0.056 >= min_delta = 0.0. New best score: 0.108 | epoch: 4
+[1;34mgraphnet[0m [MainProcess] [32mINFO    [0m 2026-07-13 11:17:36 - StandardModel._call_callback_hooks - Model state_dict saved to /project/def-nahee/kbas/Graphnet-Applications/Results/340StringMC/160_string_emax1e6/reconstruction/category2_tauCC_others_muonCC/class0/baseline/train_and_val/energy/best_model.pth[0m
+Metric val_loss improved by 0.039 >= min_delta = 0.0. New best score: 0.069 | epoch: 6
+[1;34mgraphnet[0m [MainProcess] [32mINFO    [0m 2026-07-13 11:28:05 - StandardModel._call_callback_hooks - Model state_dict saved to /project/def-nahee/kbas/Graphnet-Applications/Results/340StringMC/160_string_emax1e6/reconstruction/category2_tauCC_others_muonCC/class0/baseline/train_and_val/energy/best_model.pth[0m
+Metric val_loss improved by 0.003 >= min_delta = 0.0. New best score: 0.066 | epoch: 7
+[1;34mgraphnet[0m [MainProcess] [32mINFO    [0m 2026-07-13 11:33:24 - StandardModel._call_callback_hooks - Model state_dict saved to /project/def-nahee/kbas/Graphnet-Applications/Results/340StringMC/160_string_emax1e6/reconstruction/category2_tauCC_others_muonCC/class0/baseline/train_and_val/energy/best_model.pth[0m
+Metric val_loss improved by 0.002 >= min_delta = 0.0. New best score: 0.065 | epoch: 8
+[1;34mgraphnet[0m [MainProcess] [32mINFO    [0m 2026-07-13 11:38:38 - StandardModel._call_callback_hooks - Model state_dict saved to /project/def-nahee/kbas/Graphnet-Applications/Results/340StringMC/160_string_emax1e6/reconstruction/category2_tauCC_others_muonCC/class0/baseline/train_and_val/energy/best_model.pth[0m
+Metric val_loss improved by 0.006 >= min_delta = 0.0. New best score: 0.059 | epoch: 9
+[1;34mgraphnet[0m [MainProcess] [32mINFO    [0m 2026-07-13 11:43:52 - StandardModel._call_callback_hooks - Model state_dict saved to /project/def-nahee/kbas/Graphnet-Applications/Results/340StringMC/160_string_emax1e6/reconstruction/category2_tauCC_others_muonCC/class0/baseline/train_and_val/energy/best_model.pth[0m
+Metric val_loss improved by 0.009 >= min_delta = 0.0. New best score: 0.050 | epoch: 10
+[1;34mgraphnet[0m [MainProcess] [32mINFO    [0m 2026-07-13 11:49:00 - StandardModel._call_callback_hooks - Model state_dict saved to /project/def-nahee/kbas/Graphnet-Applications/Results/340StringMC/160_string_emax1e6/reconstruction/category2_tauCC_others_muonCC/class0/baseline/train_and_val/energy/best_model.pth[0m
+Metric val_loss improved by 0.003 >= min_delta = 0.0. New best score: 0.047 | epoch: 11
+[1;34mgraphnet[0m [MainProcess] [32mINFO    [0m 2026-07-13 11:54:07 - StandardModel._call_callback_hooks - Model state_dict saved to /project/def-nahee/kbas/Graphnet-Applications/Results/340StringMC/160_string_emax1e6/reconstruction/category2_tauCC_others_muonCC/class0/baseline/train_and_val/energy/best_model.pth[0m
+Metric val_loss improved by 0.001 >= min_delta = 0.0. New best score: 0.046 | epoch: 12
+[1;34mgraphnet[0m [MainProcess] [32mINFO    [0m 2026-07-13 11:59:23 - StandardModel._call_callback_hooks - Model state_dict saved to /project/def-nahee/kbas/Graphnet-Applications/Results/340StringMC/160_string_emax1e6/reconstruction/category2_tauCC_others_muonCC/class0/baseline/train_and_val/energy/best_model.pth[0m
+Metric val_loss improved by 0.002 >= min_delta = 0.0. New best score: 0.044 | epoch: 14
+[1;34mgraphnet[0m [MainProcess] [32mINFO    [0m 2026-07-13 12:14:08 - StandardModel._call_callback_hooks - Model state_dict saved to /project/def-nahee/kbas/Graphnet-Applications/Results/340StringMC/160_string_emax1e6/reconstruction/category2_tauCC_others_muonCC/class0/baseline/train_and_val/energy/best_model.pth[0m
+Metric val_loss improved by 0.003 >= min_delta = 0.0. New best score: 0.042 | epoch: 15
+[1;34mgraphnet[0m [MainProcess] [32mINFO    [0m 2026-07-13 12:19:32 - StandardModel._call_callback_hooks - Model state_dict saved to /project/def-nahee/kbas/Graphnet-Applications/Results/340StringMC/160_string_emax1e6/reconstruction/category2_tauCC_others_muonCC/class0/baseline/train_and_val/energy/best_model.pth[0m
+Metric val_loss improved by 0.002 >= min_delta = 0.0. New best score: 0.039 | epoch: 16
+[1;34mgraphnet[0m [MainProcess] [32mINFO    [0m 2026-07-13 12:25:02 - StandardModel._call_callback_hooks - Model state_dict saved to /project/def-nahee/kbas/Graphnet-Applications/Results/340StringMC/160_string_emax1e6/reconstruction/category2_tauCC_others_muonCC/class0/baseline/train_and_val/energy/best_model.pth[0m
+Metric val_loss improved by 0.001 >= min_delta = 0.0. New best score: 0.039 | epoch: 18
+[1;34mgraphnet[0m [MainProcess] [32mINFO    [0m 2026-07-13 12:38:32 - StandardModel._call_callback_hooks - Model state_dict saved to /project/def-nahee/kbas/Graphnet-Applications/Results/340StringMC/160_string_emax1e6/reconstruction/category2_tauCC_others_muonCC/class0/baseline/train_and_val/energy/best_model.pth[0m
+Metric val_loss improved by 0.001 >= min_delta = 0.0. New best score: 0.037 | epoch: 21
+[1;34mgraphnet[0m [MainProcess] [32mINFO    [0m 2026-07-13 12:54:50 - StandardModel._call_callback_hooks - Model state_dict saved to /project/def-nahee/kbas/Graphnet-Applications/Results/340StringMC/160_string_emax1e6/reconstruction/category2_tauCC_others_muonCC/class0/baseline/train_and_val/energy/best_model.pth[0m
+Metric val_loss improved by 0.000 >= min_delta = 0.0. New best score: 0.037 | epoch: 22
+[1;34mgraphnet[0m [MainProcess] [32mINFO    [0m 2026-07-13 13:00:18 - StandardModel._call_callback_hooks - Model state_dict saved to /project/def-nahee/kbas/Graphnet-Applications/Results/340StringMC/160_string_emax1e6/reconstruction/category2_tauCC_others_muonCC/class0/baseline/train_and_val/energy/best_model.pth[0m
+Metric val_loss improved by 0.001 >= min_delta = 0.0. New best score: 0.036 | epoch: 23
+[1;34mgraphnet[0m [MainProcess] [32mINFO    [0m 2026-07-13 13:05:44 - StandardModel._call_callback_hooks - Model state_dict saved to /project/def-nahee/kbas/Graphnet-Applications/Results/340StringMC/160_string_emax1e6/reconstruction/category2_tauCC_others_muonCC/class0/baseline/train_and_val/energy/best_model.pth[0m
+Metric val_loss improved by 0.001 >= min_delta = 0.0. New best score: 0.035 | epoch: 27
+[1;34mgraphnet[0m [MainProcess] [32mINFO    [0m 2026-07-13 13:27:33 - StandardModel._call_callback_hooks - Model state_dict saved to /project/def-nahee/kbas/Graphnet-Applications/Results/340StringMC/160_string_emax1e6/reconstruction/category2_tauCC_others_muonCC/class0/baseline/train_and_val/energy/best_model.pth[0m
 Metric val_loss improved by 0.000 >= min_delta = 0.0. New best score: 0.035 | epoch: 29
-[1;34mgraphnet[0m [MainProcess] [32mINFO    [0m 2026-07-11 12:23:58 - StandardModel._call_callback_hooks - Model state_dict saved to /project/def-nahee/kbas/Graphnet-Applications/Results/340StringMC/160_string_emax1e6/reconstruction/category2_tauCC_others_muonCC/class0/baseline/train_and_val/energy/best_model.pth[0m
+[1;34mgraphnet[0m [MainProcess] [32mINFO    [0m 2026-07-13 13:38:48 - StandardModel._call_callback_hooks - Model state_dict saved to /project/def-nahee/kbas/Graphnet-Applications/Results/340StringMC/160_string_emax1e6/reconstruction/category2_tauCC_others_muonCC/class0/baseline/train_and_val/energy/best_model.pth[0m
 `Trainer.fit` stopped: `max_epochs=30` reached.
-[Resources] Wrote /project/def-nahee/kbas/Graphnet-Applications/Results/340StringMC/160_string_emax1e6/reconstruction/category2_tauCC_others_muonCC/class0/baseline/train_and_val/energy/resources_and_time.csv | last_epoch=29 | total=182.79 min
+[Resources] Wrote /project/def-nahee/kbas/Graphnet-Applications/Results/340StringMC/160_string_emax1e6/reconstruction/category2_tauCC_others_muonCC/class0/baseline/train_and_val/energy/resources_and_time.csv | last_epoch=29 | total=172.59 min
 [Reconstruction:energy] best_model: /project/def-nahee/kbas/Graphnet-Applications/Results/340StringMC/160_string_emax1e6/reconstruction/category2_tauCC_others_muonCC/class0/baseline/train_and_val/energy/best_model.pth
 [Reconstruction:energy] history:    /project/def-nahee/kbas/Graphnet-Applications/Results/340StringMC/160_string_emax1e6/reconstruction/category2_tauCC_others_muonCC/class0/baseline/train_and_val/energy/training_history_by_epoch.csv
 [Validation] loaded best weights: /project/def-nahee/kbas/Graphnet-Applications/Results/340StringMC/160_string_emax1e6/reconstruction/category2_tauCC_others_muonCC/class0/baseline/train_and_val/energy/best_model.pth
-[1;34mgraphnet[0m [SpawnProcess-17] [33mWARNING [0m 2026-07-11 12:25:24 - <module> - `icecube` not available. Some functionality may be missing.[0m
-[1;34mgraphnet[0m [SpawnProcess-17] [33mWARNING [0m 2026-07-11 12:25:25 - <module> - `km3net` not available. Some functionality may be missing.[0m
+[1;34mgraphnet[0m [SpawnProcess-17] [33mWARNING [0m 2026-07-13 13:42:57 - <module> - `icecube` not available. Some functionality may be missing.[0m
+[1;34mgraphnet[0m [SpawnProcess-17] [33mWARNING [0m 2026-07-13 13:42:59 - <module> - `km3net` not available. Some functionality may be missing.[0m
 torchdiffeq not found - no support for continuous flows. Install *torchdiffeq* if support is desired!
 Meander not installed... contours can not be calculated.
 Healpy not installed... spherical contours can not be calculated.
 package *astropy* not found -> if you want to use plotting functionality for adaptive grids, install *astropy*!
 package *mhealpy* not found -> if you want to use plotting functionality for adaptive grids, install *mhealpy*!
 Cannot use healpy functionality. Install healpy, if you need to do entropy scanning!
-[1;34mgraphnet[0m [SpawnProcess-17] [33mWARNING [0m 2026-07-11 12:25:28 - <module> - `graphnet.models.graphs` will be depricated soon. All functionality has been moved to `graphnet.models.data_representation`.[0m
-[1;34mgraphnet[0m [SpawnProcess-18] [33mWARNING [0m 2026-07-11 12:25:31 - <module> - `icecube` not available. Some functionality may be missing.[0m
-[1;34mgraphnet[0m [SpawnProcess-18] [33mWARNING [0m 2026-07-11 12:25:32 - <module> - `km3net` not available. Some functionality may be missing.[0m
+[1;34mgraphnet[0m [SpawnProcess-17] [33mWARNING [0m 2026-07-13 13:43:04 - <module> - `graphnet.models.graphs` will be depricated soon. All functionality has been moved to `graphnet.models.data_representation`.[0m
+[1;34mgraphnet[0m [SpawnProcess-18] [33mWARNING [0m 2026-07-13 13:43:08 - <module> - `icecube` not available. Some functionality may be missing.[0m
+[1;34mgraphnet[0m [SpawnProcess-18] [33mWARNING [0m 2026-07-13 13:43:08 - <module> - `km3net` not available. Some functionality may be missing.[0m
 torchdiffeq not found - no support for continuous flows. Install *torchdiffeq* if support is desired!
 Meander not installed... contours can not be calculated.
 Healpy not installed... spherical contours can not be calculated.
 package *astropy* not found -> if you want to use plotting functionality for adaptive grids, install *astropy*!
 package *mhealpy* not found -> if you want to use plotting functionality for adaptive grids, install *mhealpy*!
 Cannot use healpy functionality. Install healpy, if you need to do entropy scanning!
-[1;34mgraphnet[0m [SpawnProcess-18] [33mWARNING [0m 2026-07-11 12:25:33 - <module> - `graphnet.models.graphs` will be depricated soon. All functionality has been moved to `graphnet.models.data_representation`.[0m
-[1;34mgraphnet[0m [SpawnProcess-19] [33mWARNING [0m 2026-07-11 12:25:36 - <module> - `icecube` not available. Some functionality may be missing.[0m
-[1;34mgraphnet[0m [SpawnProcess-19] [33mWARNING [0m 2026-07-11 12:25:36 - <module> - `km3net` not available. Some functionality may be missing.[0m
+[1;34mgraphnet[0m [SpawnProcess-18] [33mWARNING [0m 2026-07-13 13:43:09 - <module> - `graphnet.models.graphs` will be depricated soon. All functionality has been moved to `graphnet.models.data_representation`.[0m
+[1;34mgraphnet[0m [SpawnProcess-19] [33mWARNING [0m 2026-07-13 13:43:12 - <module> - `icecube` not available. Some functionality may be missing.[0m
+[1;34mgraphnet[0m [SpawnProcess-19] [33mWARNING [0m 2026-07-13 13:43:12 - <module> - `km3net` not available. Some functionality may be missing.[0m
 torchdiffeq not found - no support for continuous flows. Install *torchdiffeq* if support is desired!
 Meander not installed... contours can not be calculated.
 Healpy not installed... spherical contours can not be calculated.
 package *astropy* not found -> if you want to use plotting functionality for adaptive grids, install *astropy*!
 package *mhealpy* not found -> if you want to use plotting functionality for adaptive grids, install *mhealpy*!
 Cannot use healpy functionality. Install healpy, if you need to do entropy scanning!
-[1;34mgraphnet[0m [SpawnProcess-19] [33mWARNING [0m 2026-07-11 12:25:37 - <module> - `graphnet.models.graphs` will be depricated soon. All functionality has been moved to `graphnet.models.data_representation`.[0m
-[1;34mgraphnet[0m [SpawnProcess-20] [33mWARNING [0m 2026-07-11 12:25:40 - <module> - `icecube` not available. Some functionality may be missing.[0m
-[1;34mgraphnet[0m [SpawnProcess-20] [33mWARNING [0m 2026-07-11 12:25:40 - <module> - `km3net` not available. Some functionality may be missing.[0m
+[1;34mgraphnet[0m [SpawnProcess-19] [33mWARNING [0m 2026-07-13 13:43:13 - <module> - `graphnet.models.graphs` will be depricated soon. All functionality has been moved to `graphnet.models.data_representation`.[0m
+[1;34mgraphnet[0m [SpawnProcess-20] [33mWARNING [0m 2026-07-13 13:43:16 - <module> - `icecube` not available. Some functionality may be missing.[0m
+[1;34mgraphnet[0m [SpawnProcess-20] [33mWARNING [0m 2026-07-13 13:43:16 - <module> - `km3net` not available. Some functionality may be missing.[0m
 torchdiffeq not found - no support for continuous flows. Install *torchdiffeq* if support is desired!
 Meander not installed... contours can not be calculated.
 Healpy not installed... spherical contours can not be calculated.
 package *astropy* not found -> if you want to use plotting functionality for adaptive grids, install *astropy*!
 package *mhealpy* not found -> if you want to use plotting functionality for adaptive grids, install *mhealpy*!
 Cannot use healpy functionality. Install healpy, if you need to do entropy scanning!
-[1;34mgraphnet[0m [SpawnProcess-20] [33mWARNING [0m 2026-07-11 12:25:42 - <module> - `graphnet.models.graphs` will be depricated soon. All functionality has been moved to `graphnet.models.data_representation`.[0m
-[1;34mgraphnet[0m [SpawnProcess-21] [33mWARNING [0m 2026-07-11 12:25:45 - <module> - `icecube` not available. Some functionality may be missing.[0m
-[1;34mgraphnet[0m [SpawnProcess-21] [33mWARNING [0m 2026-07-11 12:25:45 - <module> - `km3net` not available. Some functionality may be missing.[0m
+[1;34mgraphnet[0m [SpawnProcess-20] [33mWARNING [0m 2026-07-13 13:43:17 - <module> - `graphnet.models.graphs` will be depricated soon. All functionality has been moved to `graphnet.models.data_representation`.[0m
+[1;34mgraphnet[0m [SpawnProcess-21] [33mWARNING [0m 2026-07-13 13:43:19 - <module> - `icecube` not available. Some functionality may be missing.[0m
+[1;34mgraphnet[0m [SpawnProcess-21] [33mWARNING [0m 2026-07-13 13:43:20 - <module> - `km3net` not available. Some functionality may be missing.[0m
 torchdiffeq not found - no support for continuous flows. Install *torchdiffeq* if support is desired!
 Meander not installed... contours can not be calculated.
 Healpy not installed... spherical contours can not be calculated.
 package *astropy* not found -> if you want to use plotting functionality for adaptive grids, install *astropy*!
 package *mhealpy* not found -> if you want to use plotting functionality for adaptive grids, install *mhealpy*!
 Cannot use healpy functionality. Install healpy, if you need to do entropy scanning!
-[1;34mgraphnet[0m [SpawnProcess-21] [33mWARNING [0m 2026-07-11 12:25:46 - <module> - `graphnet.models.graphs` will be depricated soon. All functionality has been moved to `graphnet.models.data_representation`.[0m
-[1;34mgraphnet[0m [SpawnProcess-22] [33mWARNING [0m 2026-07-11 12:25:49 - <module> - `icecube` not available. Some functionality may be missing.[0m
-[1;34mgraphnet[0m [SpawnProcess-22] [33mWARNING [0m 2026-07-11 12:25:50 - <module> - `km3net` not available. Some functionality may be missing.[0m
+[1;34mgraphnet[0m [SpawnProcess-21] [33mWARNING [0m 2026-07-13 13:43:20 - <module> - `graphnet.models.graphs` will be depricated soon. All functionality has been moved to `graphnet.models.data_representation`.[0m
+[1;34mgraphnet[0m [SpawnProcess-22] [33mWARNING [0m 2026-07-13 13:43:23 - <module> - `icecube` not available. Some functionality may be missing.[0m
+[1;34mgraphnet[0m [SpawnProcess-22] [33mWARNING [0m 2026-07-13 13:43:24 - <module> - `km3net` not available. Some functionality may be missing.[0m
 torchdiffeq not found - no support for continuous flows. Install *torchdiffeq* if support is desired!
 Meander not installed... contours can not be calculated.
 Healpy not installed... spherical contours can not be calculated.
 package *astropy* not found -> if you want to use plotting functionality for adaptive grids, install *astropy*!
 package *mhealpy* not found -> if you want to use plotting functionality for adaptive grids, install *mhealpy*!
 Cannot use healpy functionality. Install healpy, if you need to do entropy scanning!
-[1;34mgraphnet[0m [SpawnProcess-22] [33mWARNING [0m 2026-07-11 12:25:51 - <module> - `graphnet.models.graphs` will be depricated soon. All functionality has been moved to `graphnet.models.data_representation`.[0m
-[1;34mgraphnet[0m [SpawnProcess-23] [33mWARNING [0m 2026-07-11 12:25:54 - <module> - `icecube` not available. Some functionality may be missing.[0m
-[1;34mgraphnet[0m [SpawnProcess-23] [33mWARNING [0m 2026-07-11 12:25:54 - <module> - `km3net` not available. Some functionality may be missing.[0m
+[1;34mgraphnet[0m [SpawnProcess-22] [33mWARNING [0m 2026-07-13 13:43:24 - <module> - `graphnet.models.graphs` will be depricated soon. All functionality has been moved to `graphnet.models.data_representation`.[0m
+[1;34mgraphnet[0m [SpawnProcess-23] [33mWARNING [0m 2026-07-13 13:43:27 - <module> - `icecube` not available. Some functionality may be missing.[0m
+[1;34mgraphnet[0m [SpawnProcess-23] [33mWARNING [0m 2026-07-13 13:43:27 - <module> - `km3net` not available. Some functionality may be missing.[0m
 torchdiffeq not found - no support for continuous flows. Install *torchdiffeq* if support is desired!
 Meander not installed... contours can not be calculated.
 Healpy not installed... spherical contours can not be calculated.
 package *astropy* not found -> if you want to use plotting functionality for adaptive grids, install *astropy*!
 package *mhealpy* not found -> if you want to use plotting functionality for adaptive grids, install *mhealpy*!
 Cannot use healpy functionality. Install healpy, if you need to do entropy scanning!
-[1;34mgraphnet[0m [SpawnProcess-23] [33mWARNING [0m 2026-07-11 12:25:55 - <module> - `graphnet.models.graphs` will be depricated soon. All functionality has been moved to `graphnet.models.data_representation`.[0m
-[1;34mgraphnet[0m [SpawnProcess-24] [33mWARNING [0m 2026-07-11 12:25:59 - <module> - `icecube` not available. Some functionality may be missing.[0m
-[1;34mgraphnet[0m [SpawnProcess-24] [33mWARNING [0m 2026-07-11 12:25:59 - <module> - `km3net` not available. Some functionality may be missing.[0m
+[1;34mgraphnet[0m [SpawnProcess-23] [33mWARNING [0m 2026-07-13 13:43:28 - <module> - `graphnet.models.graphs` will be depricated soon. All functionality has been moved to `graphnet.models.data_representation`.[0m
+[1;34mgraphnet[0m [SpawnProcess-24] [33mWARNING [0m 2026-07-13 13:43:31 - <module> - `icecube` not available. Some functionality may be missing.[0m
+[1;34mgraphnet[0m [SpawnProcess-24] [33mWARNING [0m 2026-07-13 13:43:31 - <module> - `km3net` not available. Some functionality may be missing.[0m
 torchdiffeq not found - no support for continuous flows. Install *torchdiffeq* if support is desired!
 Meander not installed... contours can not be calculated.
 Healpy not installed... spherical contours can not be calculated.
 package *astropy* not found -> if you want to use plotting functionality for adaptive grids, install *astropy*!
 package *mhealpy* not found -> if you want to use plotting functionality for adaptive grids, install *mhealpy*!
 Cannot use healpy functionality. Install healpy, if you need to do entropy scanning!
-[1;34mgraphnet[0m [SpawnProcess-24] [33mWARNING [0m 2026-07-11 12:26:00 - <module> - `graphnet.models.graphs` will be depricated soon. All functionality has been moved to `graphnet.models.data_representation`.[0m
-[Validation] wrote /project/def-nahee/kbas/Graphnet-Applications/Results/340StringMC/160_string_emax1e6/reconstruction/category2_tauCC_others_muonCC/class0/baseline/train_and_val/energy/validation_predictions.csv | rows=12520
+[1;34mgraphnet[0m [SpawnProcess-24] [33mWARNING [0m 2026-07-13 13:43:32 - <module> - `graphnet.models.graphs` will be depricated soon. All functionality has been moved to `graphnet.models.data_representation`.[0m
+[Validation] wrote /project/def-nahee/kbas/Graphnet-Applications/Results/340StringMC/160_string_emax1e6/reconstruction/category2_tauCC_others_muonCC/class0/baseline/train_and_val/energy/validation_predictions.csv | rows=12513
 [Validation] wrote /project/def-nahee/kbas/Graphnet-Applications/Results/340StringMC/160_string_emax1e6/reconstruction/category2_tauCC_others_muonCC/class0/baseline/train_and_val/energy/validation_metrics_summary.csv
 [Validation] wrote validation plots in /project/def-nahee/kbas/Graphnet-Applications/Results/340StringMC/160_string_emax1e6/reconstruction/category2_tauCC_others_muonCC/class0/baseline/train_and_val/energy
 [Validation] diagnostics written to: /project/def-nahee/kbas/Graphnet-Applications/Results/340StringMC/160_string_emax1e6/reconstruction/category2_tauCC_others_muonCC/class0/baseline/train_and_val/energy

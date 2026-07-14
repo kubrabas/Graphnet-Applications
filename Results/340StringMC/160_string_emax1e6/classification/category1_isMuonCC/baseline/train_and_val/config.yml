@@ -49,7 +49,7 @@ arguments:
   scheduler_config: {interval: step}
   scheduler_kwargs:
     factors: [1.0, 100.00000000000001, 1.0]
-    milestones: [0, 207, 12420]
+    milestones: [0, 208, 12510]
   tasks:
     ModelConfig:
       arguments:
