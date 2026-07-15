@@ -1,0 +1,9 @@
+--- HOST: JOB=48777269 HOST=fc30365
+--- STUDY_CONFIG: /project/6061446/kbas/graphnet/examples/08_pone/tuning/study_configs/160_string_emax1e6__category1_isMuonCC__energy_pilot.yml
+--- CONTROLLER: /project/def-nahee/kbas/graphnet/examples/08_pone/tuning/optuna_controller.py
+/project/def-nahee/kbas/.venv_optuna/lib/python3.11/site-packages/optuna/_experimental.py:33: ExperimentalWarning: Argument ``multivariate`` is an experimental feature. The interface can change in the future.
+  optuna_warn(
+[I 2026-07-14 09:18:46,823] Using an existing study with name 'reco_160str_category1_energy_pilot' instead of creating a new one.
+[2026-07-14T16:18:46.832712+00:00] controller started: reco_160str_category1_energy_pilot
+trial 1: failed
+slurmstepd: error: *** JOB 48777269 ON fc30365 CANCELLED AT 2026-07-14T15:14:00 ***

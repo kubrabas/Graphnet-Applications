@@ -1,0 +1,49 @@
+{
+  "config": "/project/6061446/kbas/Graphnet-Applications/Results/340StringMC/hyperparameter_tuning/160_string_emax1e6/reconstruction/category1_isMuonCC/energy/pilot_v1/trials/trial_0000/config.yml",
+  "created_at": "2026-07-14T15:38:58.094582+00:00",
+  "finished_at": "2026-07-15T03:44:38.259093+00:00",
+  "jobs": [
+    {
+      "job_id": "48766675",
+      "key": "class0_energy",
+      "logfile": "/project/6061446/kbas/Graphnet-Applications/Results/340StringMC/hyperparameter_tuning/160_string_emax1e6/reconstruction/category1_isMuonCC/energy/pilot_v1/model_outputs/340StringMC/160_string_emax1e6/reconstruction/category1_isMuonCC/class0/trial_0000/train_and_val/energy/trial_0000_reco_340StringMC_160_string_emax1e6_category1_isMuonCC_c0_energy_trial_0000.out",
+      "return_code": 0,
+      "route_class": "0",
+      "slurm_state": "RUNNING",
+      "status": "COMPLETED",
+      "target": "energy",
+      "updated_at": "2026-07-15T03:44:37.860934+00:00"
+    },
+    {
+      "job_id": "48766676",
+      "key": "class1_energy",
+      "logfile": "/project/6061446/kbas/Graphnet-Applications/Results/340StringMC/hyperparameter_tuning/160_string_emax1e6/reconstruction/category1_isMuonCC/energy/pilot_v1/model_outputs/340StringMC/160_string_emax1e6/reconstruction/category1_isMuonCC/class1/trial_0000/train_and_val/energy/trial_0000_reco_340StringMC_160_string_emax1e6_category1_isMuonCC_c1_energy_trial_0000.out",
+      "return_code": 0,
+      "route_class": "1",
+      "slurm_state": "RUNNING",
+      "status": "COMPLETED",
+      "target": "energy",
+      "updated_at": "2026-07-15T03:04:28.414967+00:00"
+    }
+  ],
+  "objective": 0.04599566612006587,
+  "objective_components": [
+    {
+      "best_val_loss": 0.03724255394248517,
+      "key": "class0_energy",
+      "validation_rows": 29974
+    },
+    {
+      "best_val_loss": 0.05721843044596218,
+      "key": "class1_energy",
+      "validation_rows": 23378
+    }
+  ],
+  "params": {
+    "nb_neighbours": 8,
+    "peak_lr": 0.0007804198021524521
+  },
+  "state": "COMPLETE",
+  "submitted_at": "2026-07-14T15:38:58.418410+00:00",
+  "trial_number": 0
+}
