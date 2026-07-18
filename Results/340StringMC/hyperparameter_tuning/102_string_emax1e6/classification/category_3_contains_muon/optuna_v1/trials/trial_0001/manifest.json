@@ -1,0 +1,21 @@
+{
+  "config": "/project/6061446/kbas/Graphnet-Applications/Results/340StringMC/hyperparameter_tuning/102_string_emax1e6/classification/category_3_contains_muon/optuna_v1/trials/trial_0001/config.yml",
+  "created_at": "2026-07-17T20:12:40.087544+00:00",
+  "jobs": [
+    {
+      "job_id": "49355050",
+      "key": "classification",
+      "logfile": "/project/6061446/kbas/Graphnet-Applications/Results/340StringMC/hyperparameter_tuning/102_string_emax1e6/classification/category_3_contains_muon/optuna_v1/model_outputs/340StringMC/102_string_emax1e6/classification/category_3_contains_muon/trial_0001/train_and_val/trial_0001_cls_train_340StringMC_102_string_emax1e6_category_3_contains_muon_trial_0001.out",
+      "slurm_state": "PENDING",
+      "status": "PENDING",
+      "updated_at": "2026-07-18T11:48:19.786958+00:00"
+    }
+  ],
+  "params": {
+    "nb_neighbours": 10,
+    "peak_lr": 0.00023614869366970066
+  },
+  "state": "RUNNING",
+  "submitted_at": "2026-07-17T20:12:40.186768+00:00",
+  "trial_number": 1
+}

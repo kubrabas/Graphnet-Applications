@@ -1,0 +1,20 @@
+config          : /project/6061446/kbas/Graphnet-Applications/Results/340StringMC/hyperparameter_tuning/102_string_emax1e6/reconstruction/category_3_contains_muon/zenith/optuna_v1/trials/trial_0001/config.yml
+mc/geometry     : 340StringMC / 102_string_emax1e6
+routing category: category_3_contains_muon
+route classes   : ['0', '1']
+targets         : ['zenith']
+existing_output : error
+
+[class0 zenith] target dir: /project/6061446/kbas/Graphnet-Applications/Results/340StringMC/hyperparameter_tuning/102_string_emax1e6/reconstruction/category_3_contains_muon/zenith/optuna_v1/model_outputs/340StringMC/102_string_emax1e6/reconstruction/category_3_contains_muon/class0/trial_0001/train_and_val/zenith
+[class0 zenith] logfile   : /project/6061446/kbas/Graphnet-Applications/Results/340StringMC/hyperparameter_tuning/102_string_emax1e6/reconstruction/category_3_contains_muon/zenith/optuna_v1/model_outputs/340StringMC/102_string_emax1e6/reconstruction/category_3_contains_muon/class0/trial_0001/train_and_val/zenith/trial_0001_reco_340StringMC_102str_emax1e6_category_3_contains_muon_c0_zenith_trial_0001.out
+sbatch --job-name=reco_340StringMC_102str_emax1e6_category_3_contains_muon_c0_zenith_trial_0001 --export=CONFIG=/project/6061446/kbas/Graphnet-Applications/Results/340StringMC/hyperparameter_tuning/102_string_emax1e6/reconstruction/category_3_contains_muon/zenith/optuna_v1/trials/trial_0001/config.yml,LOGFILE=/project/6061446/kbas/Graphnet-Applications/Results/340StringMC/hyperparameter_tuning/102_string_emax1e6/reconstruction/category_3_contains_muon/zenith/optuna_v1/model_outputs/340StringMC/102_string_emax1e6/reconstruction/category_3_contains_muon/class0/trial_0001/train_and_val/zenith/trial_0001_reco_340StringMC_102str_emax1e6_category_3_contains_muon_c0_zenith_trial_0001.out,ROUTE_CLASS=0,TARGET=zenith,OUTPUT_PREPARED=1 --account=def-nahee --time=36:00:00 --mem=96G --cpus-per-task=8 --gpus-per-node=h100:1 --exclude=fc10713 /home/kbas/SlurmScripts/GraphNet/train_reconstruction.sh
+Submitted batch job 49355059
+
+[class1 zenith] target dir: /project/6061446/kbas/Graphnet-Applications/Results/340StringMC/hyperparameter_tuning/102_string_emax1e6/reconstruction/category_3_contains_muon/zenith/optuna_v1/model_outputs/340StringMC/102_string_emax1e6/reconstruction/category_3_contains_muon/class1/trial_0001/train_and_val/zenith
+[class1 zenith] logfile   : /project/6061446/kbas/Graphnet-Applications/Results/340StringMC/hyperparameter_tuning/102_string_emax1e6/reconstruction/category_3_contains_muon/zenith/optuna_v1/model_outputs/340StringMC/102_string_emax1e6/reconstruction/category_3_contains_muon/class1/trial_0001/train_and_val/zenith/trial_0001_reco_340StringMC_102str_emax1e6_category_3_contains_muon_c1_zenith_trial_0001.out
+sbatch --job-name=reco_340StringMC_102str_emax1e6_category_3_contains_muon_c1_zenith_trial_0001 --export=CONFIG=/project/6061446/kbas/Graphnet-Applications/Results/340StringMC/hyperparameter_tuning/102_string_emax1e6/reconstruction/category_3_contains_muon/zenith/optuna_v1/trials/trial_0001/config.yml,LOGFILE=/project/6061446/kbas/Graphnet-Applications/Results/340StringMC/hyperparameter_tuning/102_string_emax1e6/reconstruction/category_3_contains_muon/zenith/optuna_v1/model_outputs/340StringMC/102_string_emax1e6/reconstruction/category_3_contains_muon/class1/trial_0001/train_and_val/zenith/trial_0001_reco_340StringMC_102str_emax1e6_category_3_contains_muon_c1_zenith_trial_0001.out,ROUTE_CLASS=1,TARGET=zenith,OUTPUT_PREPARED=1 --account=def-nahee --time=36:00:00 --mem=96G --cpus-per-task=8 --gpus-per-node=h100:1 --exclude=fc10713 /home/kbas/SlurmScripts/GraphNet/train_reconstruction.sh
+Submitted batch job 49355060
+
+Submitted reconstruction jobs:
+  class0 zenith: 49355059
+  class1 zenith: 49355060

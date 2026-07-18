@@ -1,0 +1,9 @@
+--- HOST: JOB=49195364 HOST=fc30335
+--- STUDY_CONFIG: /project/6061446/kbas/graphnet/examples/08_pone/tuning/study_configs/102_string_emax1e6__category_3_contains_muon__zenith.yml
+--- CONTROLLER: /project/def-nahee/kbas/graphnet/examples/08_pone/tuning/optuna_controller.py
+/project/def-nahee/kbas/.venv_optuna/lib/python3.11/site-packages/optuna/_experimental.py:33: ExperimentalWarning: Argument ``multivariate`` is an experimental feature. The interface can change in the future.
+  optuna_warn(
+[I 2026-07-17 13:12:39,429] A new study created in RDB with name: reco_102str_contains_muon_zenith
+[2026-07-17T20:12:39.437604+00:00] controller started: reco_102str_contains_muon_zenith
+trial 0: submitted 2 jobs params={'peak_lr': 0.0004911664396550936, 'nb_neighbours': 8}
+trial 1: submitted 2 jobs params={'peak_lr': 0.000989322782315046, 'nb_neighbours': 10}

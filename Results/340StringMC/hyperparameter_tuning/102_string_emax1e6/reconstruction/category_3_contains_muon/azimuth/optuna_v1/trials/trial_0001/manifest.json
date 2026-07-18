@@ -1,0 +1,33 @@
+{
+  "config": "/project/6061446/kbas/Graphnet-Applications/Results/340StringMC/hyperparameter_tuning/102_string_emax1e6/reconstruction/category_3_contains_muon/azimuth/optuna_v1/trials/trial_0001/config.yml",
+  "created_at": "2026-07-17T20:12:40.204760+00:00",
+  "jobs": [
+    {
+      "job_id": "49355053",
+      "key": "class0_azimuth",
+      "logfile": "/project/6061446/kbas/Graphnet-Applications/Results/340StringMC/hyperparameter_tuning/102_string_emax1e6/reconstruction/category_3_contains_muon/azimuth/optuna_v1/model_outputs/340StringMC/102_string_emax1e6/reconstruction/category_3_contains_muon/class0/trial_0001/train_and_val/azimuth/trial_0001_reco_340StringMC_102str_emax1e6_category_3_contains_muon_c0_azimuth_trial_0001.out",
+      "route_class": "0",
+      "slurm_state": "PENDING",
+      "status": "PENDING",
+      "target": "azimuth",
+      "updated_at": "2026-07-18T11:48:36.210575+00:00"
+    },
+    {
+      "job_id": "49355054",
+      "key": "class1_azimuth",
+      "logfile": "/project/6061446/kbas/Graphnet-Applications/Results/340StringMC/hyperparameter_tuning/102_string_emax1e6/reconstruction/category_3_contains_muon/azimuth/optuna_v1/model_outputs/340StringMC/102_string_emax1e6/reconstruction/category_3_contains_muon/class1/trial_0001/train_and_val/azimuth/trial_0001_reco_340StringMC_102str_emax1e6_category_3_contains_muon_c1_azimuth_trial_0001.out",
+      "route_class": "1",
+      "slurm_state": "PENDING",
+      "status": "PENDING",
+      "target": "azimuth",
+      "updated_at": "2026-07-18T11:48:36.223453+00:00"
+    }
+  ],
+  "params": {
+    "nb_neighbours": 10,
+    "peak_lr": 0.000989322782315046
+  },
+  "state": "RUNNING",
+  "submitted_at": "2026-07-17T20:12:40.355896+00:00",
+  "trial_number": 1
+}

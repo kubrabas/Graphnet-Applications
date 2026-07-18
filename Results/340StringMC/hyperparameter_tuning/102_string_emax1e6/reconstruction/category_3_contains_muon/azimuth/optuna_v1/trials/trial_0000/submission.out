@@ -1,0 +1,20 @@
+config          : /project/6061446/kbas/Graphnet-Applications/Results/340StringMC/hyperparameter_tuning/102_string_emax1e6/reconstruction/category_3_contains_muon/azimuth/optuna_v1/trials/trial_0000/config.yml
+mc/geometry     : 340StringMC / 102_string_emax1e6
+routing category: category_3_contains_muon
+route classes   : ['0', '1']
+targets         : ['azimuth']
+existing_output : error
+
+[class0 azimuth] target dir: /project/6061446/kbas/Graphnet-Applications/Results/340StringMC/hyperparameter_tuning/102_string_emax1e6/reconstruction/category_3_contains_muon/azimuth/optuna_v1/model_outputs/340StringMC/102_string_emax1e6/reconstruction/category_3_contains_muon/class0/trial_0000/train_and_val/azimuth
+[class0 azimuth] logfile   : /project/6061446/kbas/Graphnet-Applications/Results/340StringMC/hyperparameter_tuning/102_string_emax1e6/reconstruction/category_3_contains_muon/azimuth/optuna_v1/model_outputs/340StringMC/102_string_emax1e6/reconstruction/category_3_contains_muon/class0/trial_0000/train_and_val/azimuth/trial_0000_reco_340StringMC_102str_emax1e6_category_3_contains_muon_c0_azimuth_trial_0000.out
+sbatch --job-name=reco_340StringMC_102str_emax1e6_category_3_contains_muon_c0_azimuth_trial_0000 --export=CONFIG=/project/6061446/kbas/Graphnet-Applications/Results/340StringMC/hyperparameter_tuning/102_string_emax1e6/reconstruction/category_3_contains_muon/azimuth/optuna_v1/trials/trial_0000/config.yml,LOGFILE=/project/6061446/kbas/Graphnet-Applications/Results/340StringMC/hyperparameter_tuning/102_string_emax1e6/reconstruction/category_3_contains_muon/azimuth/optuna_v1/model_outputs/340StringMC/102_string_emax1e6/reconstruction/category_3_contains_muon/class0/trial_0000/train_and_val/azimuth/trial_0000_reco_340StringMC_102str_emax1e6_category_3_contains_muon_c0_azimuth_trial_0000.out,ROUTE_CLASS=0,TARGET=azimuth,OUTPUT_PREPARED=1 --account=def-nahee --time=36:00:00 --mem=96G --cpus-per-task=8 --gpus-per-node=h100:1 --exclude=fc10713 /home/kbas/SlurmScripts/GraphNet/train_reconstruction.sh
+Submitted batch job 49355045
+
+[class1 azimuth] target dir: /project/6061446/kbas/Graphnet-Applications/Results/340StringMC/hyperparameter_tuning/102_string_emax1e6/reconstruction/category_3_contains_muon/azimuth/optuna_v1/model_outputs/340StringMC/102_string_emax1e6/reconstruction/category_3_contains_muon/class1/trial_0000/train_and_val/azimuth
+[class1 azimuth] logfile   : /project/6061446/kbas/Graphnet-Applications/Results/340StringMC/hyperparameter_tuning/102_string_emax1e6/reconstruction/category_3_contains_muon/azimuth/optuna_v1/model_outputs/340StringMC/102_string_emax1e6/reconstruction/category_3_contains_muon/class1/trial_0000/train_and_val/azimuth/trial_0000_reco_340StringMC_102str_emax1e6_category_3_contains_muon_c1_azimuth_trial_0000.out
+sbatch --job-name=reco_340StringMC_102str_emax1e6_category_3_contains_muon_c1_azimuth_trial_0000 --export=CONFIG=/project/6061446/kbas/Graphnet-Applications/Results/340StringMC/hyperparameter_tuning/102_string_emax1e6/reconstruction/category_3_contains_muon/azimuth/optuna_v1/trials/trial_0000/config.yml,LOGFILE=/project/6061446/kbas/Graphnet-Applications/Results/340StringMC/hyperparameter_tuning/102_string_emax1e6/reconstruction/category_3_contains_muon/azimuth/optuna_v1/model_outputs/340StringMC/102_string_emax1e6/reconstruction/category_3_contains_muon/class1/trial_0000/train_and_val/azimuth/trial_0000_reco_340StringMC_102str_emax1e6_category_3_contains_muon_c1_azimuth_trial_0000.out,ROUTE_CLASS=1,TARGET=azimuth,OUTPUT_PREPARED=1 --account=def-nahee --time=36:00:00 --mem=96G --cpus-per-task=8 --gpus-per-node=h100:1 --exclude=fc10713 /home/kbas/SlurmScripts/GraphNet/train_reconstruction.sh
+Submitted batch job 49355048
+
+Submitted reconstruction jobs:
+  class0 azimuth: 49355045
+  class1 azimuth: 49355048
