@@ -10,7 +10,7 @@
       "slurm_state": "PENDING",
       "status": "PENDING",
       "target": "azimuth",
-      "updated_at": "2026-07-18T11:48:35.986042+00:00"
+      "updated_at": "2026-07-19T12:54:31.042958+00:00"
     },
     {
       "job_id": "49355048",
@@ -20,7 +20,7 @@
       "slurm_state": "PENDING",
       "status": "PENDING",
       "target": "azimuth",
-      "updated_at": "2026-07-18T11:48:35.998649+00:00"
+      "updated_at": "2026-07-19T12:54:31.057080+00:00"
     }
   ],
   "params": {

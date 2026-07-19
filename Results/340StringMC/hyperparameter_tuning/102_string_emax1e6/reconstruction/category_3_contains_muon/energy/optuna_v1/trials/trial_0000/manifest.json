@@ -10,7 +10,7 @@
       "slurm_state": "PENDING",
       "status": "PENDING",
       "target": "energy",
-      "updated_at": "2026-07-18T11:48:06.917443+00:00"
+      "updated_at": "2026-07-19T12:54:31.086777+00:00"
     },
     {
       "job_id": "49355049",
@@ -20,7 +20,7 @@
       "slurm_state": "PENDING",
       "status": "PENDING",
       "target": "energy",
-      "updated_at": "2026-07-18T11:48:06.929578+00:00"
+      "updated_at": "2026-07-19T12:54:31.099347+00:00"
     }
   ],
   "params": {

@@ -8,7 +8,7 @@
       "logfile": "/project/6061446/kbas/Graphnet-Applications/Results/340StringMC/hyperparameter_tuning/102_string_emax1e6/classification/category_3_contains_muon/optuna_v1/model_outputs/340StringMC/102_string_emax1e6/classification/category_3_contains_muon/trial_0002/train_and_val/trial_0002_cls_train_340StringMC_102_string_emax1e6_category_3_contains_muon_trial_0002.out",
       "slurm_state": "PENDING",
       "status": "PENDING",
-      "updated_at": "2026-07-18T11:48:19.820045+00:00"
+      "updated_at": "2026-07-19T12:54:16.002716+00:00"
     }
   ],
   "params": {
