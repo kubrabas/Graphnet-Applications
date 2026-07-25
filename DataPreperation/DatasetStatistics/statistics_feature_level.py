@@ -33,6 +33,12 @@ ACCEPTED_PULSE_MAPS = {
     "102_string": "Accepted_PulseMap_102_String",
 }
 
+NONOISE_PMT_RESPONSE_MAPS = {
+    "340_string": "PMT_Response_nonoise_340_String",
+    "160_string": "PMT_Response_nonoise_160_String",
+    "102_string": "PMT_Response_nonoise_102_String",
+}
+
 COLUMNS = [
     "RunID",
     "SubrunID",
@@ -47,6 +53,9 @@ COLUMNS = [
     "accepted_pulse_map_distinct_OM_count_340_string",
     "accepted_pulse_map_distinct_OM_count_160_string",
     "accepted_pulse_map_distinct_OM_count_102_string",
+    "pmt_response_nonoise_pulse_count_340_string",
+    "pmt_response_nonoise_pulse_count_160_string",
+    "pmt_response_nonoise_pulse_count_102_string",
     "I3Photons_count_340String",
     "I3Photons_distinct_string_count_340String",
     "I3Photons_distinct_OM_count_340String",
@@ -228,6 +237,10 @@ def process_file(task):
                 row[f"accepted_pulse_count_{suffix}"] = count
                 row[f"accepted_pulse_map_distinct_string_count_{suffix}"] = string_count
                 row[f"accepted_pulse_map_distinct_OM_count_{suffix}"] = om_count
+
+            for suffix, response_map_key in NONOISE_PMT_RESPONSE_MAPS.items():
+                count, _, _ = series_map_stats(frame, response_map_key)
+                row[f"pmt_response_nonoise_pulse_count_{suffix}"] = count
 
             photon_count, photon_string_count, photon_om_count = series_map_stats(frame, photon_key)
             row["I3Photons_count_340String"] = photon_count

@@ -4,6 +4,7 @@
 import argparse
 import csv
 import importlib.util
+import json
 import math
 import os
 import re
@@ -60,7 +61,29 @@ LW_PARTICLE_FROM_PDG = {
 
 _xs = None
 _survival = None
-_extractor = None
+_extractors = None
+
+CATEGORY_COLUMNS = [
+    "category1_isMuonCC",
+    "category2_tauCC_others_muonCC",
+    "category_3_contains_muon",
+]
+MUON_METADATA_FIELDS = [
+    "vertex_inside_hull",
+    "fully_contained",
+    "starting_track",
+    "stopping_track",
+    "through_going",
+    "missed_track",
+]
+MUON_METADATA_COLUMNS = [
+    "102_string_muon_metadata",
+    "160_string_muon_metadata",
+    "340_string_muon_metadata",
+]
+GCD_KEY_BY_MC_KEY = {
+    "String340MC": "340StringMC",
+}
 
 COLUMNS = [
     "RunID",
@@ -82,6 +105,8 @@ COLUMNS = [
     "initialType",
     "totalColumnDepth",
     "impactParameter",
+    *CATEGORY_COLUMNS,
+    *MUON_METADATA_COLUMNS,
     "triggered_noisy_340_string",
     "trigger_time_noisy_340_string",
     "triggered_noisy_160_string",
@@ -240,12 +265,15 @@ def require_lic_injection_config(lic_path):
     return mode, radius
 
 
-def worker_init(gcd_file, nusquids_table):
-    global _xs, _survival, _extractor
+def worker_init(gcd_files, nusquids_table):
+    global _xs, _survival, _extractors
     _xs = load_xs()
     _survival = SurvivalProbability(nusquids_table)
-    _extractor = I3TruthExtractorPONE(name="truth", exclude=[])
-    _extractor.set_gcd(gcd_file)
+    _extractors = {}
+    for geometry, gcd_file in gcd_files.items():
+        extractor = I3TruthExtractorPONE(name=f"truth_{geometry}", exclude=[])
+        extractor.set_gcd(gcd_file)
+        _extractors[geometry] = extractor
 
 
 def scalar(value):
@@ -336,8 +364,32 @@ def process_file(task):
                 if not math.isfinite(survival_prob) or survival_prob < 0.0:
                     raise RuntimeError(f"Invalid survival probability {survival_prob} for event {event_id}")
 
-                extracted = _extractor(frame)
+                extracted_by_geometry = {
+                    geometry: extractor(frame)
+                    for geometry, extractor in _extractors.items()
+                }
+                categories_by_geometry = {
+                    geometry: tuple(
+                        scalar(extracted[column]) for column in CATEGORY_COLUMNS
+                    )
+                    for geometry, extracted in extracted_by_geometry.items()
+                }
+                if len(set(categories_by_geometry.values())) != 1:
+                    raise RuntimeError(
+                        f"Category mismatch across geometries for event {event_id}: "
+                        f"{categories_by_geometry}"
+                    )
+
+                extracted = extracted_by_geometry["340_string"]
                 row = {column: scalar(extracted.get(column, -1)) for column in COLUMNS}
+                for geometry, geometry_extracted in extracted_by_geometry.items():
+                    metadata = {
+                        field: scalar(geometry_extracted.get(field, -1))
+                        for field in MUON_METADATA_FIELDS
+                    }
+                    row[f"{geometry}_muon_metadata"] = json.dumps(
+                        metadata, separators=(",", ":"), sort_keys=True
+                    )
                 row["_primary_pdg"] = int(ep.initialType)
                 row["_raw_oneweight"] = raw_oneweight
                 row["survivalProb"] = survival_prob
@@ -424,7 +476,11 @@ def parse_args():
     ap.add_argument("--logdir", default=None, help="Log/chunk directory")
     ap.add_argument("--nworkers", type=int, default=None, help="Parallel workers")
     ap.add_argument("--mc-key", default="String340MC", help="BAD_I3_FILES top-level key")
-    ap.add_argument("--gcd", default=None, help="GCD file for I3TruthExtractorPONE.set_gcd")
+    ap.add_argument(
+        "--gcd",
+        default=None,
+        help="340-string GCD override; 102/160-string GCDs come from paths.py",
+    )
     ap.add_argument(
         "--nusquids-weight-table",
         default=str(DEFAULT_NUSQUIDS_WEIGHT_TABLE),
@@ -443,7 +499,22 @@ def main() -> int:
     logdir = Path(args.logdir).resolve() if args.logdir else out.parent
     logdir.mkdir(parents=True, exist_ok=True)
 
-    gcd_file = args.gcd or paths.GCD["340StringMC"]
+    gcd_key = GCD_KEY_BY_MC_KEY.get(args.mc_key, args.mc_key)
+    trimmed_gcd = paths.GCD_TRIMMED.get(gcd_key, {})
+    missing_trimmed_gcd = [
+        geometry
+        for geometry in ("102_string", "160_string")
+        if geometry not in trimmed_gcd
+    ]
+    if missing_trimmed_gcd:
+        raise RuntimeError(
+            f"Missing trimmed GCD paths for {gcd_key}: {missing_trimmed_gcd}"
+        )
+    gcd_files = {
+        "102_string": trimmed_gcd["102_string"],
+        "160_string": trimmed_gcd["160_string"],
+        "340_string": args.gcd or paths.GCD[gcd_key],
+    }
     pmt_map = build_unique_batch_map(pmt_dir, args.pmt_pattern)
     lic_map = build_unique_batch_map(lic_dir, "*.lic")
     if not pmt_map:
@@ -496,7 +567,9 @@ def main() -> int:
         log_line(f"pmt_dir  : {pmt_dir}")
         log_line(f"pattern  : {args.pmt_pattern}")
         log_line(f"lic_dir  : {lic_dir}")
-        log_line(f"gcd      : {gcd_file}")
+        log_line(f"gcd_key  : {gcd_key}")
+        for geometry, gcd_file in gcd_files.items():
+            log_line(f"gcd_{geometry:10s}: {gcd_file}")
         log_line(f"out      : {out}")
         log_line(f"logdir   : {logdir}")
         log_line(f"files    : {len(pmt_map)}")
@@ -506,18 +579,23 @@ def main() -> int:
         with ProcessPoolExecutor(
             max_workers=nworkers,
             initializer=worker_init,
-            initargs=(gcd_file, args.nusquids_weight_table),
+            initargs=(gcd_files, args.nusquids_weight_table),
         ) as executor:
             futures = [executor.submit(process_file, task) for task in tasks]
-            for future in as_completed(futures):
-                result = future.result()
-                results.append(result)
-                log_line(
-                    f"{result['status']:3s} batch={result['batch_id']:>6s} "
-                    f"rows={result['rows']:4d}/{result['expected_daq']:4d} "
-                    f"nu={result['nu_rows']:4d} nubar={result['nubar_rows']:4d} "
-                    f"elapsed={result['elapsed']:8.1f}s file={result['file']}"
-                )
+            try:
+                for future in as_completed(futures):
+                    result = future.result()
+                    results.append(result)
+                    log_line(
+                        f"{result['status']:3s} batch={result['batch_id']:>6s} "
+                        f"rows={result['rows']:4d}/{result['expected_daq']:4d} "
+                        f"nu={result['nu_rows']:4d} nubar={result['nubar_rows']:4d} "
+                        f"elapsed={result['elapsed']:8.1f}s file={result['file']}"
+                    )
+            except BaseException:
+                for future in futures:
+                    future.cancel()
+                raise
 
         n_nu = sum(result["nu_rows"] for result in results)
         n_nubar = sum(result["nubar_rows"] for result in results)
