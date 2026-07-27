@@ -1,0 +1,33 @@
+{
+  "config": "/project/6061446/kbas/Graphnet-Applications/Results/340StringMC/hyperparameter_tuning/102_string_emax1e6/reconstruction/category_3_contains_muon/zenith/optuna_v1/trials/trial_0003/config.yml",
+  "created_at": "2026-07-22T16:21:36.915013+00:00",
+  "jobs": [
+    {
+      "job_id": "50047231",
+      "key": "class0_zenith",
+      "logfile": "/project/6061446/kbas/Graphnet-Applications/Results/340StringMC/hyperparameter_tuning/102_string_emax1e6/reconstruction/category_3_contains_muon/zenith/optuna_v1/model_outputs/340StringMC/102_string_emax1e6/reconstruction/category_3_contains_muon/class0/trial_0003/train_and_val/zenith/trial_0003_reco_340StringMC_102str_emax1e6_category_3_contains_muon_c0_zenith_trial_0003.out",
+      "route_class": "0",
+      "slurm_state": "PENDING",
+      "status": "PENDING",
+      "target": "zenith",
+      "updated_at": "2026-07-24T20:12:04.895426+00:00"
+    },
+    {
+      "job_id": "50047232",
+      "key": "class1_zenith",
+      "logfile": "/project/6061446/kbas/Graphnet-Applications/Results/340StringMC/hyperparameter_tuning/102_string_emax1e6/reconstruction/category_3_contains_muon/zenith/optuna_v1/model_outputs/340StringMC/102_string_emax1e6/reconstruction/category_3_contains_muon/class1/trial_0003/train_and_val/zenith/trial_0003_reco_340StringMC_102str_emax1e6_category_3_contains_muon_c1_zenith_trial_0003.out",
+      "route_class": "1",
+      "slurm_state": "PENDING",
+      "status": "PENDING",
+      "target": "zenith",
+      "updated_at": "2026-07-24T20:12:04.908549+00:00"
+    }
+  ],
+  "params": {
+    "nb_neighbours": 8,
+    "peak_lr": 0.00038879158794514584
+  },
+  "state": "RUNNING",
+  "submitted_at": "2026-07-22T16:21:37.327202+00:00",
+  "trial_number": 3
+}

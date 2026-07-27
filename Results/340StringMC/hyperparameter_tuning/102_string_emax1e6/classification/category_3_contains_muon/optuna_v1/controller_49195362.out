@@ -9,3 +9,4 @@ trial 0: submitted 1 jobs params={'peak_lr': 9.495770135458993e-05, 'nb_neighbou
 trial 1: submitted 1 jobs params={'peak_lr': 0.00023614869366970066, 'nb_neighbours': 10}
 trial 2: submitted 1 jobs params={'peak_lr': 0.0002835813718025996, 'nb_neighbours': 10}
 trial 3: submitted 1 jobs params={'peak_lr': 7.00584079468675e-05, 'nb_neighbours': 8}
+--- optuna_controller finished (rc=1)

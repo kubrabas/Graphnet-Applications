@@ -7,3 +7,4 @@
 [2026-07-17T20:12:39.561463+00:00] controller started: reco_102str_contains_muon_azimuth
 trial 0: submitted 2 jobs params={'peak_lr': 0.0004911664396550936, 'nb_neighbours': 8}
 trial 1: submitted 2 jobs params={'peak_lr': 0.000989322782315046, 'nb_neighbours': 10}
+--- optuna_controller finished (rc=1)

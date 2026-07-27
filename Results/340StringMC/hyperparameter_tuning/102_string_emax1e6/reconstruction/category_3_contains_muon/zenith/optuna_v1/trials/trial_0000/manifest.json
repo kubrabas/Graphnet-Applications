@@ -1,33 +1,49 @@
 {
   "config": "/project/6061446/kbas/Graphnet-Applications/Results/340StringMC/hyperparameter_tuning/102_string_emax1e6/reconstruction/category_3_contains_muon/zenith/optuna_v1/trials/trial_0000/config.yml",
   "created_at": "2026-07-17T20:12:40.626363+00:00",
+  "finished_at": "2026-07-22T16:21:33.952108+00:00",
   "jobs": [
     {
       "job_id": "49355056",
       "key": "class0_zenith",
       "logfile": "/project/6061446/kbas/Graphnet-Applications/Results/340StringMC/hyperparameter_tuning/102_string_emax1e6/reconstruction/category_3_contains_muon/zenith/optuna_v1/model_outputs/340StringMC/102_string_emax1e6/reconstruction/category_3_contains_muon/class0/trial_0000/train_and_val/zenith/trial_0000_reco_340StringMC_102str_emax1e6_category_3_contains_muon_c0_zenith_trial_0000.out",
+      "return_code": 0,
       "route_class": "0",
-      "slurm_state": "PENDING",
-      "status": "PENDING",
+      "slurm_state": "RUNNING",
+      "status": "COMPLETED",
       "target": "zenith",
-      "updated_at": "2026-07-19T12:54:32.563588+00:00"
+      "updated_at": "2026-07-21T23:34:50.294478+00:00"
     },
     {
       "job_id": "49355057",
       "key": "class1_zenith",
       "logfile": "/project/6061446/kbas/Graphnet-Applications/Results/340StringMC/hyperparameter_tuning/102_string_emax1e6/reconstruction/category_3_contains_muon/zenith/optuna_v1/model_outputs/340StringMC/102_string_emax1e6/reconstruction/category_3_contains_muon/class1/trial_0000/train_and_val/zenith/trial_0000_reco_340StringMC_102str_emax1e6_category_3_contains_muon_c1_zenith_trial_0000.out",
+      "return_code": 0,
       "route_class": "1",
-      "slurm_state": "PENDING",
-      "status": "PENDING",
+      "slurm_state": "RUNNING",
+      "status": "COMPLETED",
       "target": "zenith",
-      "updated_at": "2026-07-19T12:54:32.577568+00:00"
+      "updated_at": "2026-07-22T16:21:33.616232+00:00"
+    }
+  ],
+  "objective": -0.2864253680471696,
+  "objective_components": [
+    {
+      "best_val_loss": 0.20988728385443448,
+      "key": "class0_zenith",
+      "validation_rows": 19852
+    },
+    {
+      "best_val_loss": -0.7131012196646408,
+      "key": "class1_zenith",
+      "validation_rows": 23092
     }
   ],
   "params": {
     "nb_neighbours": 8,
     "peak_lr": 0.0004911664396550936
   },
-  "state": "RUNNING",
+  "state": "COMPLETE",
   "submitted_at": "2026-07-17T20:12:40.734994+00:00",
   "trial_number": 0
 }

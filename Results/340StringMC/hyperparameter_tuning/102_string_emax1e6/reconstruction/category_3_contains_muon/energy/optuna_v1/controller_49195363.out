@@ -7,3 +7,8 @@
 [2026-07-17T20:12:39.488428+00:00] controller started: reco_102str_contains_muon_energy
 trial 0: submitted 2 jobs params={'peak_lr': 0.0004911664396550936, 'nb_neighbours': 8}
 trial 1: submitted 2 jobs params={'peak_lr': 0.000989322782315046, 'nb_neighbours': 10}
+trial 2: submitted 2 jobs params={'peak_lr': 0.0011387736507865707, 'nb_neighbours': 10}
+trial 1: complete objective=0.056440241
+trial 0: complete objective=0.058882977
+trial 3: submitted 2 jobs params={'peak_lr': 0.00038879158794514584, 'nb_neighbours': 8}
+slurmstepd: error: *** JOB 49195363 ON fc30335 CANCELLED AT 2026-07-24T13:12:11 DUE TO TIME LIMIT ***
