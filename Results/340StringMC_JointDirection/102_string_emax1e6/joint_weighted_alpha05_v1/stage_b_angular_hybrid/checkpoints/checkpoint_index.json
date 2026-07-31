@@ -1,0 +1,44 @@
+{
+  "best": {
+    "best_global_median": {
+      "checkpoint": "/project/def-nahee/kbas/Graphnet-Applications/Results/340StringMC_JointDirection/102_string_emax1e6/joint_weighted_alpha05_v1/stage_b_angular_hybrid/checkpoints/best_global_median.ckpt",
+      "epoch": 28,
+      "metric": "val_global_median_deg",
+      "raw_state_dict": "/project/def-nahee/kbas/Graphnet-Applications/Results/340StringMC_JointDirection/102_string_emax1e6/joint_weighted_alpha05_v1/stage_b_angular_hybrid/checkpoints/best_global_median.pth",
+      "value": 6.666529655456543
+    },
+    "best_global_q68": {
+      "checkpoint": "/project/def-nahee/kbas/Graphnet-Applications/Results/340StringMC_JointDirection/102_string_emax1e6/joint_weighted_alpha05_v1/stage_b_angular_hybrid/checkpoints/best_global_q68.ckpt",
+      "epoch": 29,
+      "metric": "val_global_q68_deg",
+      "raw_state_dict": "/project/def-nahee/kbas/Graphnet-Applications/Results/340StringMC_JointDirection/102_string_emax1e6/joint_weighted_alpha05_v1/stage_b_angular_hybrid/checkpoints/best_global_q68.pth",
+      "value": 11.325549125671387
+    },
+    "best_macro_median": {
+      "checkpoint": "/project/def-nahee/kbas/Graphnet-Applications/Results/340StringMC_JointDirection/102_string_emax1e6/joint_weighted_alpha05_v1/stage_b_angular_hybrid/checkpoints/best_macro_median.ckpt",
+      "epoch": 29,
+      "metric": "val_macro_median_deg",
+      "raw_state_dict": "/project/def-nahee/kbas/Graphnet-Applications/Results/340StringMC_JointDirection/102_string_emax1e6/joint_weighted_alpha05_v1/stage_b_angular_hybrid/checkpoints/best_macro_median.pth",
+      "value": 5.646633148193359
+    },
+    "best_weighted_objective": {
+      "checkpoint": "/project/def-nahee/kbas/Graphnet-Applications/Results/340StringMC_JointDirection/102_string_emax1e6/joint_weighted_alpha05_v1/stage_b_angular_hybrid/checkpoints/best_weighted_objective.ckpt",
+      "epoch": 29,
+      "metric": "val_objective_loss_weighted",
+      "raw_state_dict": "/project/def-nahee/kbas/Graphnet-Applications/Results/340StringMC_JointDirection/102_string_emax1e6/joint_weighted_alpha05_v1/stage_b_angular_hybrid/checkpoints/best_weighted_objective.pth",
+      "value": 0.13132697343826294
+    }
+  },
+  "last": {
+    "checkpoint": "/project/def-nahee/kbas/Graphnet-Applications/Results/340StringMC_JointDirection/102_string_emax1e6/joint_weighted_alpha05_v1/stage_b_angular_hybrid/checkpoints/last.ckpt",
+    "raw_state_dict": "/project/def-nahee/kbas/Graphnet-Applications/Results/340StringMC_JointDirection/102_string_emax1e6/joint_weighted_alpha05_v1/stage_b_angular_hybrid/checkpoints/last.pth"
+  },
+  "last_epoch": 29,
+  "monitors": {
+    "best_global_median": "val_global_median_deg",
+    "best_global_q68": "val_global_q68_deg",
+    "best_macro_median": "val_macro_median_deg",
+    "best_weighted_objective": "val_objective_loss_weighted"
+  },
+  "stage": "stage_b"
+}

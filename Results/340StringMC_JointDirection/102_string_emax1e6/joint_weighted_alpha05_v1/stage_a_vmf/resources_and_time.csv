@@ -1,0 +1,4 @@
+stage,epoch,cpu_load_1min,gpu_memory_total_gb,gpu_memory_used_gb,gpu_util_pct,max_parent_rss_gb
+stage_a,0,55.01513671875,nan,nan,nan,2.4904136657714844
+stage_a,1,54.18310546875,nan,nan,nan,2.5171852111816406
+stage_a,2,53.6337890625,nan,nan,nan,2.5304603576660156

@@ -1,0 +1,16 @@
+{
+  "configured_graphnet_source": "/project/6061446/kbas/graphnet/src",
+  "cuda_available": true,
+  "cuda_device": "NVIDIA H100 80GB HBM3 MIG 3g.40gb",
+  "experiment_name": "joint_weighted_alpha05_v1",
+  "geometry": "102_string_emax1e6",
+  "graphnet_git_revision": "6a31216a77e8bc8a1ae8b92f2775611260fc1b50",
+  "hostname": "fc10711",
+  "imported_graphnet_file": "/project/6061446/kbas/graphnet/src/graphnet/__init__.py",
+  "parquet_modified": false,
+  "platform": "Linux-5.14.0-687.29.1.el9_8.x86_64-x86_64-with-glibc2.35",
+  "python": "3.11.14 | packaged by conda-forge | (main, Oct 22 2025, 22:46:25) [GCC 14.3.0]",
+  "pytorch_lightning": "2.6.0",
+  "router_used": false,
+  "torch": "2.6.0+cu126"
+}
