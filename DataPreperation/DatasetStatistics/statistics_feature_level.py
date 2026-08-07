@@ -39,6 +39,9 @@ NONOISE_PMT_RESPONSE_MAPS = {
     "102_string": "PMT_Response_nonoise_102_String",
 }
 
+K40_MAP_340 = "Noise_K40_340_String"
+DARK_NOISE_MAP_340 = "Noise_Dark_340_String"
+
 COLUMNS = [
     "RunID",
     "SubrunID",
@@ -53,12 +56,17 @@ COLUMNS = [
     "accepted_pulse_map_distinct_OM_count_340_string",
     "accepted_pulse_map_distinct_OM_count_160_string",
     "accepted_pulse_map_distinct_OM_count_102_string",
+    "accepted_pulse_map_distinct_PMT_count_340_string",
+    "accepted_pulse_map_distinct_PMT_count_160_string",
+    "accepted_pulse_map_distinct_PMT_count_102_string",
     "pmt_response_nonoise_pulse_count_340_string",
     "pmt_response_nonoise_pulse_count_160_string",
     "pmt_response_nonoise_pulse_count_102_string",
     "I3Photons_count_340String",
     "I3Photons_distinct_string_count_340String",
     "I3Photons_distinct_OM_count_340String",
+    "k40_1_1_1",
+    "dark_noise_1_1_1",
 ]
 
 _KEY_INTS_RE = re.compile(r"\((\d+)\s*,\s*(\d+)\)")
@@ -152,15 +160,28 @@ def key_string_om(key):
     return string, om
 
 
+def key_pmt(key):
+    """Return the PMT number from an OMKey-like object, if available."""
+    if not hasattr(key, "pmt"):
+        return None
+
+    value = getattr(key, "pmt")
+    try:
+        return int(value() if callable(value) else value)
+    except Exception:
+        return None
+
+
 def series_map_stats(frame, map_key: str):
-    """Count entries and active strings/OMs in a pulse/photon series map."""
+    """Count entries and active strings, OMs, and PMTs in a series map."""
     if map_key not in frame:
-        return -1, -1, -1
+        return -1, -1, -1, -1
 
     series_map = frame[map_key]
     total_count = 0
     strings = set()
     oms = set()
+    pmts = set()
 
     try:
         keys = list(series_map.keys())
@@ -168,7 +189,7 @@ def series_map_stats(frame, map_key: str):
         keys = None
 
     if keys is None:
-        return sum(len(series) for series in series_map.values()), -1, -1
+        return sum(len(series) for series in series_map.values()), -1, -1, -1
 
     for key in keys:
         try:
@@ -186,7 +207,28 @@ def series_map_stats(frame, map_key: str):
         if string is not None and om is not None:
             oms.add((string, om))
 
-    return total_count, len(strings), len(oms)
+        pmt = key_pmt(key)
+        if string is not None and om is not None and pmt is not None:
+            pmts.add((string, om, pmt))
+
+    return total_count, len(strings), len(oms), len(pmts)
+
+
+def series_count_for_pmt(frame, map_key: str, string: int, om: int, pmt: int):
+    """Count entries for one exact (string, OM, PMT) key."""
+    if map_key not in frame:
+        return -1
+
+    series_map = frame[map_key]
+    for key in series_map.keys():
+        key_string, key_om = key_string_om(key)
+
+        pmt_number = key_pmt(key)
+
+        if key_string == string and key_om == om and pmt_number == pmt:
+            return len(series_map[key])
+
+    return 0
 
 
 def process_file(task):
@@ -233,19 +275,36 @@ def process_file(task):
 
             row = event_header_row(frame)
             for suffix, pulsemap_key in ACCEPTED_PULSE_MAPS.items():
-                count, string_count, om_count = series_map_stats(frame, pulsemap_key)
+                count, string_count, om_count, pmt_count = series_map_stats(frame, pulsemap_key)
                 row[f"accepted_pulse_count_{suffix}"] = count
                 row[f"accepted_pulse_map_distinct_string_count_{suffix}"] = string_count
                 row[f"accepted_pulse_map_distinct_OM_count_{suffix}"] = om_count
+                row[f"accepted_pulse_map_distinct_PMT_count_{suffix}"] = pmt_count
 
             for suffix, response_map_key in NONOISE_PMT_RESPONSE_MAPS.items():
-                count, _, _ = series_map_stats(frame, response_map_key)
+                count, _, _, _ = series_map_stats(frame, response_map_key)
                 row[f"pmt_response_nonoise_pulse_count_{suffix}"] = count
 
-            photon_count, photon_string_count, photon_om_count = series_map_stats(frame, photon_key)
+            photon_count, photon_string_count, photon_om_count, _ = series_map_stats(
+                frame, photon_key
+            )
             row["I3Photons_count_340String"] = photon_count
             row["I3Photons_distinct_string_count_340String"] = photon_string_count
             row["I3Photons_distinct_OM_count_340String"] = photon_om_count
+            row["k40_1_1_1"] = series_count_for_pmt(
+                frame,
+                K40_MAP_340,
+                string=1,
+                om=1,
+                pmt=1,
+            )
+            row["dark_noise_1_1_1"] = series_count_for_pmt(
+                frame,
+                DARK_NOISE_MAP_340,
+                string=1,
+                om=1,
+                pmt=1,
+            )
 
             writer.writerow(row)
             rows += 1

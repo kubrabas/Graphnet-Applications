@@ -62,6 +62,7 @@ LW_PARTICLE_FROM_PDG = {
 _xs = None
 _survival = None
 _extractors = None
+_layout_strings = None
 
 CATEGORY_COLUMNS = [
     "category1_isMuonCC",
@@ -84,6 +85,20 @@ MUON_METADATA_COLUMNS = [
 GCD_KEY_BY_MC_KEY = {
     "String340MC": "340StringMC",
 }
+LAYOUT_STRING_FILES = {
+    "340_string": PATHS_PY.parent / "GeometryFiles" / "string_coordinates_340_string_mc.csv",
+    "160_string": PATHS_PY.parent / "GeometryFiles" / "340StringMC" / "160_string.csv",
+    "102_string": PATHS_PY.parent / "GeometryFiles" / "340StringMC" / "102_string.csv",
+}
+NONOISE_PMT_RESPONSE_MAPS = {
+    "340_string": "PMT_Response_nonoise_340_String",
+    "160_string": "PMT_Response_nonoise_160_String",
+    "102_string": "PMT_Response_nonoise_102_String",
+}
+TRIGGERED_NONOISE_OM_COUNT_COLUMNS = [
+    f"triggered_nonoise_OM_count_{geometry}"
+    for geometry in NONOISE_PMT_RESPONSE_MAPS
+]
 
 COLUMNS = [
     "RunID",
@@ -119,6 +134,7 @@ COLUMNS = [
     "trigger_time_nonoise_160_string",
     "triggered_nonoise_102_string",
     "trigger_time_nonoise_102_string",
+    *TRIGGERED_NONOISE_OM_COUNT_COLUMNS,
 ]
 
 WEIGHT_COLUMNS = ["oneweight", "survivalProb", "final_weight"]
@@ -131,6 +147,27 @@ def load_paths():
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
     return mod
+
+
+def load_string_set(path):
+    """Load a geometry's string IDs using the PMT-response producer format."""
+    text = Path(path).read_text().strip()
+    if not text:
+        return set()
+
+    lines = text.splitlines()
+    strings = set()
+
+    if len(lines) > 1 and lines[0].lower().startswith("string,"):
+        for line in lines[1:]:
+            strings.add(int(line.split(",", 1)[0].strip()))
+        return strings
+
+    for token in text.replace("\n", ",").split(","):
+        token = token.strip()
+        if token:
+            strings.add(int(token))
+    return strings
 
 
 def extract_batch_id(path: Path):
@@ -266,7 +303,7 @@ def require_lic_injection_config(lic_path):
 
 
 def worker_init(gcd_files, nusquids_table):
-    global _xs, _survival, _extractors
+    global _xs, _survival, _extractors, _layout_strings
     _xs = load_xs()
     _survival = SurvivalProbability(nusquids_table)
     _extractors = {}
@@ -274,6 +311,10 @@ def worker_init(gcd_files, nusquids_table):
         extractor = I3TruthExtractorPONE(name=f"truth_{geometry}", exclude=[])
         extractor.set_gcd(gcd_file)
         _extractors[geometry] = extractor
+    _layout_strings = {
+        geometry: load_string_set(path)
+        for geometry, path in LAYOUT_STRING_FILES.items()
+    }
 
 
 def scalar(value):
@@ -293,6 +334,49 @@ def scalar(value):
         return float(value)
     except (TypeError, ValueError):
         return str(value)
+
+
+def count_triggered_oms(
+    pulse_map, strings, coincidence_n=3, coincidence_window=10.0
+):
+    """Count OMs passing the PMT-response local-coincidence trigger.
+
+    This intentionally mirrors ``first_dom_trigger_time`` in the PMT-response
+    producer: within one OM, at least ``coincidence_n`` distinct PMTs must have
+    pulses in an inclusive ``coincidence_window`` time window. Each qualifying
+    OM is counted once. Pulse charge is not part of this trigger definition.
+    """
+    om_hits = {}
+
+    for omkey in pulse_map.keys():
+        if omkey.string not in strings:
+            continue
+
+        om_key = (omkey.string, omkey.om)
+        pmt = int(omkey.pmt)
+
+        if om_key not in om_hits:
+            om_hits[om_key] = []
+
+        for pulse in pulse_map[omkey]:
+            om_hits[om_key].append((float(pulse.time), pmt))
+
+    triggered_om_count = 0
+
+    for hits in om_hits.values():
+        hits.sort(key=lambda item: item[0])
+        lookback = 0
+
+        for i, (time, _) in enumerate(hits):
+            while lookback < i and hits[lookback][0] < time - coincidence_window:
+                lookback += 1
+
+            pmts_in_window = {pmt for _, pmt in hits[lookback:i + 1]}
+            if len(pmts_in_window) >= coincidence_n:
+                triggered_om_count += 1
+                break
+
+    return triggered_om_count
 
 
 def process_file(task):
@@ -382,6 +466,33 @@ def process_file(task):
 
                 extracted = extracted_by_geometry["340_string"]
                 row = {column: scalar(extracted.get(column, -1)) for column in COLUMNS}
+                for geometry, response_key in NONOISE_PMT_RESPONSE_MAPS.items():
+                    if response_key not in frame:
+                        raise RuntimeError(
+                            f"Missing required nonoise PMT response key {response_key} "
+                            f"in {pmt_file}, event {event_id}"
+                        )
+
+                    triggered_om_count = count_triggered_oms(
+                        frame[response_key], _layout_strings[geometry]
+                    )
+                    count_column = f"triggered_nonoise_OM_count_{geometry}"
+                    row[count_column] = triggered_om_count
+
+                    trigger_column = f"triggered_nonoise_{geometry}"
+                    trigger_value = float(row[trigger_column])
+                    if trigger_value not in (0.0, 1.0):
+                        raise RuntimeError(
+                            f"Invalid {trigger_column}={row[trigger_column]} in "
+                            f"{pmt_file}, event {event_id}"
+                        )
+                    if (triggered_om_count > 0) != bool(trigger_value):
+                        raise RuntimeError(
+                            f"Nonoise trigger mismatch for {geometry} in {pmt_file}, "
+                            f"event {event_id}: {trigger_column}={trigger_value}, "
+                            f"{count_column}={triggered_om_count}"
+                        )
+
                 for geometry, geometry_extracted in extracted_by_geometry.items():
                     metadata = {
                         field: scalar(geometry_extracted.get(field, -1))
